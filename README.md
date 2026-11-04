@@ -1,6 +1,6 @@
 # PokeScanner
 
-Web en español para consultar Pokémon desde el móvil: buscador, filtros (tipo, rango/tier, estadísticas), ficha con estadísticas animadas, build recomendada de Smogon, debilidades, cadena evolutiva, movimientos por nivel, comparador, favoritos y modo claro/oscuro.
+Web en español (con modo inglés) para consultar Pokémon desde el móvil: buscador de Pokémon y movimientos, filtros (tipo, rango/tier, estadísticas), ficha con estadísticas animadas, build recomendada de Smogon, debilidades, cadena evolutiva, movimientos por nivel, comparador, favoritos y modo claro/oscuro.
 
 Es una web estática (HTML + CSS + JS sin frameworks): no necesita servidor ni base de datos y se publica gratis en GitHub Pages.
 
@@ -61,7 +61,7 @@ Después vuelve a subir los cambios a GitHub.
 fonts/              tipografía Lexend
 index.html          página única (rutas con #/pokemon/<id>, funciona en GitHub Pages)
 css/style.css       sistema de diseño
-js/app.js           buscador, filtros, ficha, comparador, ventanitas
+js/app.js           buscador de Pokémon y movimientos, filtros, ficha, comparador, ventanitas
 js/util.js          constantes y utilidades (tipos, tiers, tabla de debilidades…)
 data/               JSON generados (index, diccionario, fichas en paquetes)
 scripts/            descarga y generación de datos

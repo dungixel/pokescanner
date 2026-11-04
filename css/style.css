@@ -124,13 +124,18 @@ button.tier { cursor: pointer; }
 .hero { padding: 28px 2px 18px; }
 .hero h1 { font-size: clamp(2.2rem, 11vw, 3.2rem); line-height: 1.02; font-weight: 700; letter-spacing: -.03em; }
 .hero p { margin-top: 10px; color: var(--muted); max-width: 36ch; }
-.topline { display: flex; justify-content: flex-end; min-height: 40px; }
+.topline { display: flex; justify-content: flex-end; gap: 8px; min-height: 40px; }
 
 .iconbtn {
   display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line);
   background: var(--surface); color: var(--ink); transition: background .18s, transform .12s;
 }
 .iconbtn:active { transform: scale(.94); }
+/* selector de idioma ES | EN */
+.langbtn { display: inline-flex; align-items: center; height: 40px; padding: 3px; border-radius: var(--r-pill); background: var(--surface); border: 1px solid var(--line); color: var(--muted); font-size: .76rem; font-weight: 700; letter-spacing: .02em; }
+.langbtn span { display: grid; place-items: center; min-width: 32px; height: 32px; border-radius: var(--r-pill); transition: background .18s, color .18s; }
+.langbtn span.on { background: var(--ink); color: var(--bg); }
+.langbtn:active { transform: scale(.96); }
 .iconbtn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .iconbtn[aria-pressed="true"] svg { fill: #F2B322; stroke: #F2B322; }
 
@@ -312,6 +317,12 @@ button.tier { cursor: pointer; }
 .lm { width: 100%; display: grid; grid-template-columns: 54px 26px 1fr auto 40px; align-items: center; gap: 10px; min-height: 48px; padding: 0 14px 0 12px;
   border-radius: var(--r-md); border: 1px solid var(--line); background: var(--surface); text-align: left; transition: border-color .18s, transform .12s; }
 .lm:active { transform: scale(.985); }
+.lm.solo { grid-template-columns: 26px 1fr auto 40px; }
+.mvlist { margin-bottom: 6px; }
+.learners { margin-top: 20px; }
+.learners h3 { font-size: .95rem; font-weight: 700; margin-bottom: 2px; }
+.learners .hint { margin-bottom: 10px; }
+.learners .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 @media (hover: hover) { .lm:hover { border-color: color-mix(in srgb, var(--tc) 60%, var(--line)); } }
 .lm .l { font-size: .8rem; color: var(--muted); font-weight: 700; }
 .lm .l b { color: var(--ink); font-weight: 700; font-size: .95rem; }

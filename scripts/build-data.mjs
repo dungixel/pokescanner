@@ -1,5 +1,6 @@
 // Genera los JSON estáticos que consume la web (carpeta ./data).
 //   data/index.json          → lista ligera de Pokémon (buscador, filtros, aleatorios)
+//   data/learners.json       → qué Pokémon aprenden cada movimiento
 //   data/dict.json           → movimientos, habilidades, objetos y naturalezas (nombre + descripción en español)
 //   data/pokemon/<id>.json   → ficha completa de cada Pokémon
 //
@@ -37,6 +38,7 @@ const csv = name => parseCSV(fs.readFileSync(path.join(RAW, `${name}.csv`), 'utf
 const norm = s => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 const cleanText = s => s.replace(/­\s*\n/g, '').replace(/[­]/g, '').replace(/[\n\f\r]+/g, ' ').replace(/\s+/g, ' ').trim();
 const ES = '7'; // language_id del español en PokeAPI
+const EN = '9'; // language_id del inglés en PokeAPI
 
 // nombres + descripción más reciente en español de una entidad
 function loadEntity({ table, nameTable, flavorTable, idCol }) {
@@ -44,14 +46,14 @@ function loadEntity({ table, nameTable, flavorTable, idCol }) {
   for (const r of csv(table)) { const k = norm(r.identifier); idToKey.set(r.id, k); keyToId.set(k, r.id); keyToIdent.set(k, r.identifier); }
   const names = new Map();
   for (const r of csv(nameTable)) if (r.local_language_id === ES) names.set(idToKey.get(r[idCol]), r.name);
-  const flavor = new Map(), best = new Map();
+  const flavor = new Map(), best = new Map(), flavorEN = new Map(), bestEN = new Map();
   for (const r of csv(flavorTable)) {
-    if (r.language_id !== ES) continue;
     const k = idToKey.get(r[idCol]);
     const vg = Number(r.version_group_id);
-    if (!best.has(k) || vg >= best.get(k)) { best.set(k, vg); flavor.set(k, cleanText(r.flavor_text)); }
+    if (r.language_id === ES && (!best.has(k) || vg >= best.get(k))) { best.set(k, vg); flavor.set(k, cleanText(r.flavor_text)); }
+    if (r.language_id === EN && (!bestEN.has(k) || vg >= bestEN.get(k))) { bestEN.set(k, vg); flavorEN.set(k, cleanText(r.flavor_text)); }
   }
-  return { names, flavor, ident: keyToIdent };
+  return { names, flavor, flavorEN, ident: keyToIdent };
 }
 
 console.log('Leyendo tablas de PokeAPI…');
@@ -205,7 +207,7 @@ function addMove(name) {
     a: m?.accuracy === true ? 0 : (m?.accuracy ?? 0),
     pp: m?.pp ? Math.floor(m.pp * 8 / 5) : 0, // PP máximos (3 PP extra)
     pr: m?.priority || 0,
-    d, ...(en ? { en: 1 } : {}),
+    d, de: moveES.flavorEN.get(key) || m?.shortDesc || m?.desc || '', ...(en ? { en: 1 } : {}),
   };
   return id;
 }
@@ -219,7 +221,7 @@ function addAbility(name) {
   let d = abilityES.flavor.get(id) || OVERRIDES.abilities[id];
   let en = false;
   if (!d) { d = a?.shortDesc || a?.desc || ''; en = !!d; missing.abilityDesc.add(id); }
-  dict.abilities[id] = { n: nameEs || a?.name || name, e: a?.name || name, d, ...(en ? { en: 1 } : {}) };
+  dict.abilities[id] = { n: nameEs || a?.name || name, e: a?.name || name, d, de: abilityES.flavorEN.get(id) || a?.shortDesc || a?.desc || '', ...(en ? { en: 1 } : {}) };
   return id;
 }
 function addItem(name) {
@@ -227,13 +229,13 @@ function addItem(name) {
   if (!it?.exists) it = Dex.items.get(name);
   const id = it?.exists ? it.id : toID(name);
   if (dict.items[id]) return id;
-  if (id === 'noitem') { dict.items[id] = { n: 'Sin objeto', e: 'No Item', d: OVERRIDES.items.noitem, i: null }; return id; }
+  if (id === 'noitem') { dict.items[id] = { n: 'Sin objeto', e: 'No Item', d: OVERRIDES.items.noitem, de: 'No held item.', i: null }; return id; }
   const nameEs = itemES.names.get(id);
   if (!nameEs) missing.item.add(id);
   let d = itemES.flavor.get(id) || OVERRIDES.items[id];
   let en = false;
   if (!d) { d = it?.shortDesc || it?.desc || ''; en = !!d; missing.itemDesc.add(id); }
-  dict.items[id] = { n: nameEs || it?.name || name, e: it?.name || name, d, i: itemES.ident.get(id) || null, ...(en ? { en: 1 } : {}) };
+  dict.items[id] = { n: nameEs || it?.name || name, e: it?.name || name, d, de: itemES.flavorEN.get(id) || it?.shortDesc || it?.desc || '', i: itemES.ident.get(id) || null, ...(en ? { en: 1 } : {}) };
   return id;
 }
 function addNature(name) {
@@ -283,12 +285,28 @@ function howES(s) {
   }
 }
 
+function howEN(s) {
+  const lv = s.evoLevel, cond = s.evoCondition || '';
+  const withCond = t => (cond ? `${t} (${cond})` : t);
+  const item = id => Dex.items.get(id).name || id;
+  switch (s.evoType) {
+    case 'useItem': return withCond(`Use ${item(s.evoItem)}`);
+    case 'trade': return withCond(s.evoItem ? `Trade holding ${item(s.evoItem)}` : 'Trade');
+    case 'levelFriendship': return withCond('Level up with high friendship');
+    case 'levelHold': return withCond(`Level up holding ${item(s.evoItem)}`);
+    case 'levelMove': return withCond(`Level up knowing ${Dex.moves.get(s.evoMove).name || s.evoMove}`);
+    case 'levelExtra': return withCond(lv ? `Level ${lv}` : 'Level up');
+    case 'other': return cond || 'Special condition';
+    default: return withCond(lv ? `Level ${lv}` : 'Level up');
+  }
+}
+
 function evoTree(s) {
   let root = s;
   while (root.prevo && keptIds.has(toID(root.prevo))) root = Dex.species.get(root.prevo);
   const build = (sp, how) => {
     const node = { id: sp.id };
-    if (how) node.how = how;
+    if (how) { node.how = how; node.hx = howEN(sp); }
     const kids = (sp.evos || []).map(n => Dex.species.get(n)).filter(e => e && keptIds.has(e.id));
     if (kids.length) node.c = kids.map(e => build(e, howES(e)));
     return node;
@@ -396,6 +414,15 @@ for (let k = 0; k * SHARD < index.length; k++) {
   for (const e of index.slice(k * SHARD, (k + 1) * SHARD)) bundle[e.id] = details.get(e.id);
   fs.writeFileSync(path.join(OUT, 'pokemon', `${k}.json`), JSON.stringify(bundle));
 }
+// quién aprende cada movimiento (por nivel o en su build de Smogon): movimiento → posiciones en index.json
+const learners = {};
+index.forEach((e, i) => {
+  const d = details.get(e.id);
+  const ids = new Set(d.lv.map(x => x[1]));
+  d.sets.forEach(st => st.m.forEach(slot => slot.forEach(m => ids.add(m))));
+  ids.forEach(m => (learners[m] ||= []).push(i));
+});
+fs.writeFileSync(path.join(OUT, 'learners.json'), JSON.stringify(learners));
 fs.writeFileSync(path.join(OUT, 'index.json'), JSON.stringify(index));
 fs.writeFileSync(path.join(OUT, 'dict.json'), JSON.stringify(dict));
 fs.writeFileSync(path.join(OUT, 'meta.json'), JSON.stringify({ generado: new Date().toISOString(), pokemon: index.length, fuente: 'Pokémon Showdown (@pkmn/dex) · Smogon (pkmn/smogon) · PokeAPI (español)' }));
