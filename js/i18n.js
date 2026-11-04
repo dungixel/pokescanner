@@ -12,7 +12,6 @@ export function setLang(l) {
 
 const STR = {
   es: {
-    tagline: 'La Pokédex competitiva en español: estadísticas, rangos y builds de Smogon.',
     footer: 'Datos de {ps} y los sets de {sm}; nombres y descripciones en español de {api}. Proyecto de fans sin relación con Nintendo, Game Freak ni The Pokémon Company.',
     searchPh: 'Busca un Pokémon o un movimiento', searchLabel: 'Buscar Pokémon', clearSearch: 'Borrar búsqueda',
     filters: 'Filtros', sortBy: 'Ordenar por', type: 'Tipo', tier: 'Rango (tier)', tierHint: '1 = el más fuerte', show: 'Mostrar',
@@ -56,7 +55,6 @@ const STR = {
     fmt_doublesou: 'Dobles OU',
   },
   en: {
-    tagline: 'The competitive Pokédex: stats, tiers and Smogon builds.',
     footer: 'Data from {ps} and {sm} sets; Spanish names and descriptions from {api}. Fan project, not affiliated with Nintendo, Game Freak or The Pokémon Company.',
     searchPh: 'Search a Pokémon or a move', searchLabel: 'Search Pokémon', clearSearch: 'Clear search',
     filters: 'Filters', sortBy: 'Sort by', type: 'Type', tier: 'Tier', tierHint: '1 = strongest', show: 'Show',

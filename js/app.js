@@ -213,7 +213,6 @@ function homeHTML() {
   <div class="topline">${langBtn()}${themeBtn()}</div>
   <header class="hero">
     <h1>PokeScanner</h1>
-    <p>${t('tagline')}</p>
   </header>
   <div class="searchbar"><div class="search">
     ${I.search}

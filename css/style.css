@@ -121,7 +121,7 @@ button.tier { cursor: pointer; }
 .hint { font-size: .86rem; color: var(--muted); }
 
 /* ───────────── Inicio ───────────── */
-.hero { padding: 28px 2px 18px; }
+.hero { padding: 28px 2px 14px; }
 .hero h1 { font-size: clamp(2.2rem, 11vw, 3.2rem); line-height: 1.02; font-weight: 700; letter-spacing: -.03em; }
 .hero p { margin-top: 10px; color: var(--muted); max-width: 36ch; }
 .topline { display: flex; justify-content: flex-end; gap: 8px; min-height: 40px; }
