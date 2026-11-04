@@ -75,6 +75,11 @@ export const TIER = {
   NFE: T('Not Fully Evolved', 'Pokémon que aún pueden evolucionar y no tienen tier propio (solo se usan en LC o con Piedra Evolutiva).'),
 };
 export const TIER_ORDER = ['AG', 'Uber', 'OU', 'UUBL', 'UU', 'RUBL', 'RU', 'NUBL', 'NU', 'PUBL', 'PU', 'ZUBL', 'ZU', 'LC', 'NFE'];
+// Posición en la escala de fuerza: 1 = el más fuerte. LC y NFE no entran en la escala.
+export const TIER_RANK = { AG: 1, Uber: 2, OU: 3, UUBL: 4, UU: 5, RUBL: 6, RU: 7, NUBL: 8, NU: 9, PUBL: 10, PU: 11, ZUBL: 12, ZU: 13 };
+export const TIER_MAX = 13;
+export const tierNum = r => TIER_RANK[String(r).replace(/^\((.*)\)$/, '$1')] || 0;
+export const tierNumHTML = r => (tierNum(r) ? `<b class="tn" style="--tier:${tierColor(r)}">${tierNum(r)}</b>` : '');
 export const tierLabel = r => String(r).replace('Uber', 'Ubers').replace(/^\((.*)\)$/, '$1');
 const TIER_HUE = { AG: '#8B5CF6', Uber: '#8B5CF6', OU: '#4D7CF0', UU: '#1FA8A0', RU: '#3DAA5C', NU: '#C9A227', PU: '#E8833A', ZU: '#8A91A3', LC: '#E36AA0', NFE: '#A79B8A' };
 export const tierColor = r => TIER_HUE[String(r).replace(/BL$/, '')] || '#8A91A3';

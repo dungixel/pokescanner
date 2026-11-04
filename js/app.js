@@ -1,6 +1,6 @@
 import {
   TYPES, TYPE_ES, TYPE_COLOR, STATS, STAT_ES, CATEGORY, TIER, TIER_ORDER, FORMAT_NAME,
-  esc, fold, dexNum, fmtNum, store, matchups, bst, statColor, tierLabel, tierColor,
+  esc, fold, dexNum, fmtNum, store, matchups, bst, statColor, tierLabel, tierColor, tierNum, tierNumHTML, TIER_MAX,
   pokeImg, itemImg, typeIcon, typePill, typeDot, catIcon,
 } from './util.js';
 
@@ -151,8 +151,9 @@ function tierSheet(r) {
   const t = TIER[r];
   const name = t ? t.n : r;
   openSheet(`Rango ${tierLabel(r)}`, `
-    <div class="lead"><span class="tier" style="--tier:${tierColor(r)}">${esc(tierLabel(r))}</span><b>${esc(name)}</b></div>
+    <div class="lead"><span class="tier" style="--tier:${tierColor(r)}">${tierNumHTML(r)}${esc(tierLabel(r))}</span><b>${esc(name)}</b></div>
     <p>${esc(t?.d || 'Rango competitivo de Pokémon Showdown.')}</p>
+    <p class="dim">${tierNum(r) ? `Puesto ${tierNum(r)} de ${TIER_MAX}: el 1 es el más fuerte y el ${TIER_MAX}, el más débil.` : 'No entra en la escala de fuerza: es un formato aparte, o el Pokémon aún puede evolucionar.'}</p>
     <button class="chip accent" data-act="tier-go" data-v="${esc(r)}">Ver Pokémon de este rango</button>`);
 }
 
@@ -175,12 +176,12 @@ function homeHTML() {
     <h1>PokeScanner</h1>
     <p>La Pokédex competitiva en español: estadísticas, rangos y builds de Smogon.</p>
   </header>
-  <div class="search">
+  <div class="searchbar"><div class="search">
     ${I.search}
     <input id="q" type="search" inputmode="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false"
       placeholder="Busca por nombre o número" aria-label="Buscar Pokémon" value="${esc(state.q)}">
     <button class="clear" data-act="clear-q" aria-label="Borrar búsqueda">${I.close}</button>
-  </div>
+  </div></div>
   <div class="ftoggle">
     <button class="chip" data-act="filters-toggle" aria-expanded="false" aria-controls="fpanel">
       <svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
@@ -192,7 +193,7 @@ function homeHTML() {
   <section class="filters" id="filters" aria-label="Filtros">
     <div class="frow"><span>Ordenar por</span><div class="scroller">${SORTS.map(([k, l]) => chip(`data-act="sort" data-v="${k}"`, `${l}<span class="dir"></span>`)).join('')}</div></div>
     <div class="frow"><span>Tipo</span><div class="scroller">${TYPES.map(t => chip(`data-act="type" data-v="${t}"`, `${typeIcon(t)}${TYPE_ES[t]}`)).join('')}</div></div>
-    <div class="frow"><span>Rango (tier)</span><div class="scroller">${TIER_ORDER.map(r => chip(`data-act="tier-f" data-v="${r}"`, tierLabel(r))).join('')}</div></div>
+    <div class="frow"><span>Rango (tier) <small>1 = el más fuerte</small></span><div class="scroller">${TIER_ORDER.map(r => chip(`data-act="tier-f" data-v="${r}"`, `${tierNumHTML(r)}${tierLabel(r)}`)).join('')}</div></div>
     <div class="frow"><span>Mostrar</span><div class="scroller">
       ${chip('data-act="flag" data-v="favs"', `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 3.5l2.6 5.5 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.8l6-.8z"/></svg>Favoritos <small class="favn"></small>`)}
       ${chip('data-act="flag" data-v="base"', 'Solo formas base')}
@@ -263,13 +264,13 @@ function searchScored(q, list) {
   return out;
 }
 
-function tierBadge(r, extra = '', g = 0) { return `<span class="tier" style="--tier:${tierColor(r)}" ${extra}${g ? ` title="Rango en la Gen ${g}"` : ''}>${esc(tierLabel(r))}${g ? `<small>G${g}</small>` : ''}</span>`; }
+function tierBadge(r, extra = '', g = 0) { return `<span class="tier" style="--tier:${tierColor(r)}" ${extra}${g ? ` title="Rango en la Gen ${g}"` : ''}>${tierNumHTML(r)}${esc(tierLabel(r))}${g ? `<small>G${g}</small>` : ''}</span>`; }
 
 function rowHTML(p) {
   const showStat = state.sort !== 'num';
   return `<a class="row" href="#/pokemon/${p.id}" style="--c:${TYPE_COLOR[p.t[0]]}">
     ${pokeImg(p, 'small')}
-    <span class="meta"><b>${esc(p.es)}</b><small>${dexNum(p.num)}${p.fm && p.es !== p.en ? ` · ${esc(p.en)}` : ''}</small><span class="types">${p.t.map(typeDot).join('')}</span></span>
+    <span class="meta"><b>${esc(p.es)}</b><span class="sub"><small>${dexNum(p.num)}${p.fm && p.es !== p.en ? ` · ${esc(p.en)}` : ''}</small><span class="types">${p.t.map(typeDot).join('')}</span></span></span>
     <span class="side">
       ${showStat ? `<span class="statval">${statOf(p, state.sort)}<small>${STAT_ES[state.sort]}</small></span>` : tierBadge(p.r, '', p.g)}
     </span></a>`;
@@ -315,7 +316,7 @@ function renderResults(reset = true) {
   }
 
   const list = (state.list = compute());
-  const head = `<div class="block-title"><h2>${list.length} ${list.length === 1 ? 'resultado' : 'resultados'}</h2>
+  const head = `<div class="block-title tight"><h2>${list.length} ${list.length === 1 ? 'resultado' : 'resultados'}</h2>
     <button class="chip small ghost" data-act="reset">Limpiar filtros</button></div>`;
   if (!list.length) {
     box.innerHTML = head + `<div class="empty"><b>No hay Pokémon con esos filtros</b>${state.favs && !favs.size ? 'Aún no has marcado ningún favorito: pulsa la estrella en la ficha de un Pokémon.' : 'Prueba a quitar algún filtro o a cambiar la búsqueda.'}</div>`;
@@ -365,7 +366,7 @@ const chipNature = id => {
 };
 
 function oldNote(d) {
-  const rows = d.gt.map(([g, r]) => `<span class="gt"><span class="tier" style="--tier:${tierColor(r)}">${esc(tierLabel(r))}</span><small>Gen ${g}</small></span>`).join('');
+  const rows = d.gt.map(([g, r]) => `<span class="gt"><span class="tier" style="--tier:${tierColor(r)}">${tierNumHTML(r)}${esc(tierLabel(r))}</span><small>Gen ${g}</small></span>`).join('');
   return `<aside class="oldnote" aria-label="Fuera de Gen 9">
     <b>No está en Escarlata y Púrpura</b>
     <p>No se puede usar en Gen 9, así que el rango y los movimientos son los de la Gen ${d.g}. Rango en cada generación:</p>
@@ -480,7 +481,7 @@ function pokemonHTML() {
     <h1>${esc(d.es)}</h1>
     ${same ? '' : `<span class="en">${esc(d.en)}</span>`}
     <div class="tags">${d.t.map(typePill).join('')}</div>
-    <div class="rank"><small>Rango</small><button class="tier" style="--tier:${tierColor(d.r)}" data-act="tier" data-v="${esc(d.r)}" aria-label="Qué significa el rango ${esc(tierLabel(d.r))}">${esc(tierLabel(d.r))}</button>
+    <div class="rank"><small>Rango</small><button class="tier" style="--tier:${tierColor(d.r)}" data-act="tier" data-v="${esc(d.r)}" aria-label="Qué significa el rango ${esc(tierLabel(d.r))}">${tierNumHTML(d.r)}${esc(tierLabel(d.r))}</button>
       ${d.g ? `<small>· Gen ${d.g}</small>` : ''}${d.dr ? `<small>· Dobles ${esc(tierLabel(d.dr))}</small>` : ''}</div>
     <div class="facts">${d.h != null ? `<span>Altura <b>${fmtNum(d.h)} m</b></span>` : ''}${d.w != null ? `<span>Peso <b>${fmtNum(d.w)} kg</b></span>` : ''}</div>
   </section>
@@ -571,6 +572,9 @@ document.addEventListener('input', e => {
   if (e.target.id !== 'q') return;
   state.q = e.target.value;
   renderResults();
+  // al escribir, el buscador sube a lo alto de la pantalla para ver cuantos más resultados mejor
+  const top = $('.searchbar')?.getBoundingClientRect().top;
+  if (state.q && top > 2) window.scrollBy({ top, behavior: 'instant' });
 });
 
 document.addEventListener('click', e => {
