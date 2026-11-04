@@ -1,0 +1,18 @@
+{
+  "name": "pokescanner",
+  "version": "1.0.0",
+  "description": "PokeScanner: Pokédex competitiva en español con datos de Pokémon Showdown y Smogon. Lista para GitHub Pages.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "fetch": "node scripts/fetch-sources.mjs",
+    "build": "node scripts/build-data.mjs",
+    "update": "npm run fetch && npm run build",
+    "serve": "npx --yes serve . -l 8080"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@pkmn/data": "^0.10.13",
+    "@pkmn/dex": "^0.10.13"
+  }
+}
