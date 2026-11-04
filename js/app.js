@@ -411,7 +411,7 @@ function renderResults(reset = true) {
   }
   // en la vista de favoritos (sin otros filtros) se analiza el equipo
   const analysis = state.favs && !fold(state.q) && !state.types.length && !state.tiers.length && !state.gen9 && !state.base ? teamHTML() : '';
-  box.innerHTML = analysis + head + `<div class="list">${list.slice(0, state.shown).map(rowHTML).join('')}</div><div class="sentinel"></div>`;
+  box.innerHTML = head + `<div class="list">${list.slice(0, state.shown).map(rowHTML).join('')}</div><div class="sentinel"></div>` + analysis;
   watchSentinel();
 }
 function watchSentinel() {
