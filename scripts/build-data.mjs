@@ -96,6 +96,10 @@ const FORME_ES = {
   Meteor: 'Forma Meteoro', 'Low-Key': 'Forma Grave', Noice: 'Cara Deshielo', 'Rapid-Strike': 'Estilo Fluido',
   Ice: 'Jinete Glacial', Shadow: 'Jinete Espectral', Bloodmoon: 'Luna Carmesí', F: 'Hembra', Hero: 'Forma Heroica',
   Roaming: 'Forma Andante', Terastal: 'Forma Teracristal', Stellar: 'Forma Astral',
+  // formas de generaciones anteriores
+  Primal: 'Primigenio', Zen: 'Modo Daruma', 'Galar-Zen': 'de Galar (Modo Daruma)', Complete: 'Forma Completa', '10%': 'Forma 10%',
+  Blade: 'Forma Filo', School: 'Forma Banco', Ash: 'Ash', Small: 'Tamaño Pequeño', Large: 'Tamaño Grande', Super: 'Tamaño Supremo',
+  Sandy: 'Manto Arena', Trash: 'Manto Basura', Sunny: 'Forma Sol', Rainy: 'Forma Lluvia', Snowy: 'Forma Nieve',
 };
 const FORME_OVERRIDE = {
   'Zacian-Crowned': 'Zacian Espada Suprema', 'Zamazenta-Crowned': 'Zamazenta Escudo Supremo',
@@ -106,6 +110,9 @@ function nameES(s) {
   if (FORME_OVERRIDE[s.name]) return FORME_OVERRIDE[s.name];
   const base = speciesNameES.get(s.num) || s.baseSpecies;
   if (!s.forme) return s.baseSpecies === s.name ? base : s.name;
+  const mega = /^Mega(?:-([XY]))?$/.exec(s.forme);
+  if (mega) return `Mega-${base}${mega[1] ? ' ' + mega[1] : ''}`;
+  if (s.forme === 'Ultra') return `Ultra-${base}`;
   if (s.baseSpecies === 'Ogerpon' && s.requiredItem) {
     const it = itemES.names.get(toID(s.requiredItem));
     if (it) return `${base} ${it.replace(/^Máscara /, 'Máscara ')}`;
@@ -126,7 +133,38 @@ const SKIP = [
   /^Sinistea-Antique$/, /^Polteageist-Antique$/, /^Rockruff-Dusk$/, /^Poltchageist-Artisan$/, /^Sinistcha-Masterpiece$/,
   /^Zarude-Dada$/, /^Mimikyu-Busted$/, /^Morpeko-Hangry$/,
 ];
-const allSpecies = [...gen.species].filter(s => !s.isNonstandard && !SKIP.some(r => r.test(s.name)));
+const gen9Species = [...gen.species].filter(s => !s.isNonstandard && !SKIP.some(r => r.test(s.name)));
+
+// Pokémon que ya no están en Gen 9 (Showdown los marca "Past"): se añaden con el rango de la última
+// generación en la que tuvieron uno. Se descartan formas de combate o cosméticas sin ficha propia.
+const OLD_SKIP = [/-Gmax$/, /-Eternamax$/, /-Totem$/, /-Starter$/, /^Silvally-/, /^Pichu-Spiky-eared$/, /^Floette-Eternal$/];
+const dexByGen = Object.fromEntries([1, 2, 3, 4, 5, 6, 7, 8].map(g => [g, Dex.forGen(g)]));
+const NO_TIER = new Set(['Illegal', 'Unreleased', '']);
+function oldRank(s) {
+  const all = []; // rango en cada generación, de la más reciente a la más antigua
+  for (let g = 8; g >= 1; g--) {
+    const x = dexByGen[g].species.get(s.id);
+    if (x.exists && !x.isNonstandard && x.tier && !NO_TIER.has(x.tier)) all.push([g, x.tier.replace(/^\((.*)\)$/, '$1')]);
+  }
+  return all.length ? { r: all[0][1], g: all[0][0], all } : null;
+}
+const sameStats = (a, b) => a.baseStats.hp === b.baseStats.hp && a.baseStats.atk === b.baseStats.atk && a.baseStats.def === b.baseStats.def &&
+  a.baseStats.spa === b.baseStats.spa && a.baseStats.spd === b.baseStats.spd && a.baseStats.spe === b.baseStats.spe;
+const gen9Ids = new Set(gen9Species.map(s => s.id));
+const oldInfo = new Map();
+const oldSpecies = [...Dex.forGen(9).species.all()].filter(s => {
+  if (!s.exists || gen9Ids.has(s.id) || !['Past', 'LGPE'].includes(s.isNonstandard)) return false;
+  if (SKIP.some(r => r.test(s.name)) || OLD_SKIP.some(r => r.test(s.name))) return false;
+  if (s.forme) { // forma idéntica a la base (solo cambia el aspecto): sin ficha propia
+    const b = Dex.species.get(s.baseSpecies);
+    if (b.exists && s.types.join() === b.types.join() && sameStats(s, b)) return false;
+  }
+  const info = oldRank(s);
+  if (!info) return false;
+  oldInfo.set(s.id, info);
+  return true;
+});
+const allSpecies = [...gen9Species, ...oldSpecies];
 const keptIds = new Set(allSpecies.map(s => s.id));
 
 const smogon = JSON.parse(fs.readFileSync(path.join(RAW, 'smogon-gen9.json'), 'utf8'));
@@ -149,7 +187,8 @@ const dict = { moves: {}, abilities: {}, items: {}, natures: {} };
 const missing = { move: new Set(), ability: new Set(), item: new Set(), moveDesc: new Set(), abilityDesc: new Set(), itemDesc: new Set(), cond: new Set() };
 
 function addMove(name) {
-  const m = gen.moves.get(name);
+  let m = gen.moves.get(name);
+  if (!m?.exists) m = Dex.moves.get(name);
   const id = m?.exists ? m.id : toID(name);
   if (dict.moves[id]) return id;
   const key = MOVE_ALIAS[id] || id;
@@ -171,7 +210,8 @@ function addMove(name) {
   return id;
 }
 function addAbility(name) {
-  const a = gen.abilities.get(name);
+  let a = gen.abilities.get(name);
+  if (!a?.exists) a = Dex.abilities.get(name);
   const id = a?.exists ? a.id : toID(name);
   if (dict.abilities[id]) return id;
   const nameEs = abilityES.names.get(id);
@@ -183,7 +223,8 @@ function addAbility(name) {
   return id;
 }
 function addItem(name) {
-  const it = gen.items.get(name);
+  let it = gen.items.get(name);
+  if (!it?.exists) it = Dex.items.get(name);
   const id = it?.exists ? it.id : toID(name);
   if (dict.items[id]) return id;
   if (id === 'noitem') { dict.items[id] = { n: 'Sin objeto', e: 'No Item', d: OVERRIDES.items.noitem, i: null }; return id; }
@@ -244,11 +285,11 @@ function howES(s) {
 
 function evoTree(s) {
   let root = s;
-  while (root.prevo && keptIds.has(toID(root.prevo))) root = gen.species.get(root.prevo);
+  while (root.prevo && keptIds.has(toID(root.prevo))) root = Dex.species.get(root.prevo);
   const build = (sp, how) => {
     const node = { id: sp.id };
     if (how) node.how = how;
-    const kids = (sp.evos || []).map(n => gen.species.get(n)).filter(e => e && keptIds.has(e.id));
+    const kids = (sp.evos || []).map(n => Dex.species.get(n)).filter(e => e && keptIds.has(e.id));
     if (kids.length) node.c = kids.map(e => build(e, howES(e)));
     return node;
   };
@@ -285,15 +326,23 @@ for (const s of allSpecies) {
   const sid = spriteId(s);
   if (s.forme && sid === s.num) noSprite.push(s.name);
   const bs = s.baseStats;
+  const old = oldInfo.get(s.id); // {r, g} solo para Pokémon fuera de Gen 9
+  const tier = old ? old.r : s.tier;
 
   // movimientos por nivel (SV). Las formas sin learnset propio heredan el de la especie base.
   let ls = await gen.learnsets.get(s.id);
   if (!ls?.learnset) ls = await gen.learnsets.get(toID(s.baseSpecies));
   const lv = [];
+  // Gen 9: movimientos de SV. Fuera de Gen 9: los de la última generación donde aprendía movimientos por nivel.
+  let lg = 9;
+  if (old) {
+    lg = 0;
+    for (const src of Object.values(ls?.learnset || {})) for (const code of src) { const m = /^(\d)L\d+$/.exec(code); if (m) lg = Math.max(lg, Number(m[1])); }
+  }
   for (const [mv, src] of Object.entries(ls?.learnset || {})) {
     for (const code of src) {
-      const m = /^9L(\d+)$/.exec(code);
-      if (m) lv.push([Number(m[1]), mv]);
+      const m = /^(\d)L(\d+)$/.exec(code);
+      if (m && Number(m[1]) === lg) lv.push([Number(m[2]), mv]);
     }
   }
   lv.sort((a, b) => a[0] - b[0] || a[1].localeCompare(b[1]));
@@ -306,7 +355,7 @@ for (const s of allSpecies) {
 
   // sets de Smogon
   const fm = smogonById.get(s.id) || {};
-  const preferred = TIER_FORMAT[s.tier];
+  const preferred = TIER_FORMAT[tier];
   const order = [...new Set([preferred, ...FORMATS])].filter(f => f && fm[f]);
   const sets = [];
   for (const f of order) {
@@ -325,13 +374,14 @@ for (const s of allSpecies) {
   if (sets.length) withSets++;
 
   const types = s.types.map(t => t.toLowerCase());
-  const doublesTier = s.doublesTier && s.doublesTier !== s.tier ? s.doublesTier : null;
-  const entry = { id: s.id, num: s.num, es: nameES(s), en: s.name, t: types, r: s.tier, s: [bs.hp, bs.atk, bs.def, bs.spa, bs.spd, bs.spe], sp: sid, ss: showdownSprite(s) };
+  const doublesTier = !old && s.doublesTier && s.doublesTier !== s.tier ? s.doublesTier : null;
+  const entry = { id: s.id, num: s.num, es: nameES(s), en: s.name, t: types, r: tier, s: [bs.hp, bs.atk, bs.def, bs.spa, bs.spd, bs.spe], sp: sid, ss: showdownSprite(s) };
   if (s.forme) entry.fm = 1;
+  if (old) entry.g = old.g;
   index.push(entry);
 
   const detail = {
-    id: s.id, num: s.num, es: entry.es, en: s.name, t: types, r: s.tier, ...(doublesTier ? { dr: doublesTier } : {}),
+    id: s.id, num: s.num, es: entry.es, en: s.name, t: types, r: tier, ...(old ? { g: old.g, lg, gt: old.all } : {}), ...(doublesTier ? { dr: doublesTier } : {}),
     s: entry.s, h: pokeapiInfo.get(sid)?.h ?? pokeapiInfo.get(s.num)?.h ?? null, w: s.weightkg || pokeapiInfo.get(sid)?.w || null, sp: sid, ss: entry.ss,
     ab: abilities, lv: levelMoves, sets, evo: evoTree(s),
   };

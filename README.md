@@ -51,6 +51,7 @@ Después vuelve a subir los cambios a GitHub.
 
 - Las descripciones de los movimientos, habilidades y objetos más nuevos (Gen 9) que aún no tienen texto en español en PokeAPI están traducidas a mano en `scripts/overrides-es.json`. No son textos oficiales.
 - Los nombres de las formas alternativas en español (p. ej. «Landorus Forma Tótem») se generan con una tabla propia en `scripts/build-data.mjs`; algunos pueden diferir del nombre oficial.
+- Los Pokémon que ya no están en Gen 9 (por ejemplo Venipede o las Megaevoluciones) también aparecen, con el rango de la última generación en la que tuvieron uno y la lista de sus rangos anteriores. No tienen sets de Smogon. Se excluyen las formas solo de combate o cosméticas (Gigamax, Tótem, Silvally por memoria…).
 - El rango que se muestra es el tier singles de Showdown; Smogon puede tener sets de varios formatos (OU, Ubers, VGC…) y se muestran en pestañas.
 - Tipografía: Lexend (regular y bold, licencia SIL OFL), incluida en `fonts/`; no depende de ningún servicio externo.
 

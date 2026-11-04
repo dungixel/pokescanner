@@ -17,7 +17,7 @@ const favs = new Set(JSON.parse(store.get('pk.favs') || '[]'));
 const saveFavs = () => store.set('pk.favs', JSON.stringify([...favs]));
 
 const state = {
-  view: 'home', q: '', sort: 'num', dir: 1, types: [], tiers: [], favs: false, base: false,
+  view: 'home', q: '', sort: 'num', dir: 1, types: [], tiers: [], favs: false, base: false, gen9: false,
   shown: 40, scroll: 0, randomMode: 'daily', randoms: null, filtersOpen: false,
 };
 let page = null; // estado de la ficha abierta
@@ -196,6 +196,7 @@ function homeHTML() {
     <div class="frow"><span>Mostrar</span><div class="scroller">
       ${chip('data-act="flag" data-v="favs"', `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 3.5l2.6 5.5 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.8l6-.8z"/></svg>Favoritos <small class="favn"></small>`)}
       ${chip('data-act="flag" data-v="base"', 'Solo formas base')}
+      ${chip('data-act="flag" data-v="gen9"', 'Solo Gen 9')}
     </div></div>
   </section>
   </div></div>
@@ -218,20 +219,21 @@ function syncFilters() {
   if (n) n.textContent = favs.size ? `(${favs.size})` : '';
   $('.search .clear')?.classList.toggle('on', !!state.q);
   // el botón "Filtros" muestra cuántos hay activos y abre/cierra el panel
-  const active = state.types.length + state.tiers.length + (state.favs ? 1 : 0) + (state.base ? 1 : 0) + (state.sort !== 'num' || state.dir !== 1 ? 1 : 0);
+  const active = state.types.length + state.tiers.length + (state.favs ? 1 : 0) + (state.base ? 1 : 0) + (state.gen9 ? 1 : 0) + (state.sort !== 'num' || state.dir !== 1 ? 1 : 0);
   $('#fbadge').textContent = active || '';
   $('[data-act="filters-toggle"]').setAttribute('aria-expanded', state.filtersOpen);
   $('#fpanel').classList.toggle('open', state.filtersOpen);
   f.inert = !state.filtersOpen;
 }
 
-const isFiltering = () => !!fold(state.q) || state.types.length || state.tiers.length || state.favs || state.base || state.sort !== 'num' || state.dir !== 1;
+const isFiltering = () => !!fold(state.q) || state.types.length || state.tiers.length || state.favs || state.base || state.gen9 || state.sort !== 'num' || state.dir !== 1;
 
 function compute() {
   const q = fold(state.q);
   let list = INDEX;
   if (state.favs) list = list.filter(p => favs.has(p.id));
   if (state.base) list = list.filter(p => !p.fm);
+  if (state.gen9) list = list.filter(p => !p.g);
   if (state.types.length) list = list.filter(p => state.types.every(t => p.t.includes(t)));
   if (state.tiers.length) list = list.filter(p => state.tiers.includes(p.r));
   let scored = list.map(p => ({ p, sc: 0 }));
@@ -261,7 +263,7 @@ function searchScored(q, list) {
   return out;
 }
 
-function tierBadge(r, extra = '') { return `<span class="tier" style="--tier:${tierColor(r)}" ${extra}>${esc(tierLabel(r))}</span>`; }
+function tierBadge(r, extra = '', g = 0) { return `<span class="tier" style="--tier:${tierColor(r)}" ${extra}${g ? ` title="Rango en la Gen ${g}"` : ''}>${esc(tierLabel(r))}${g ? `<small>G${g}</small>` : ''}</span>`; }
 
 function rowHTML(p) {
   const showStat = state.sort !== 'num';
@@ -269,14 +271,14 @@ function rowHTML(p) {
     ${pokeImg(p, 'small')}
     <span class="meta"><b>${esc(p.es)}</b><small>${dexNum(p.num)}${p.fm && p.es !== p.en ? ` · ${esc(p.en)}` : ''}</small><span class="types">${p.t.map(typeDot).join('')}</span></span>
     <span class="side">
-      ${showStat ? `<span class="statval">${statOf(p, state.sort)}<small>${STAT_ES[state.sort]}</small></span>` : tierBadge(p.r)}
+      ${showStat ? `<span class="statval">${statOf(p, state.sort)}<small>${STAT_ES[state.sort]}</small></span>` : tierBadge(p.r, '', p.g)}
     </span></a>`;
 }
 function cardHTML(p) {
   return `<a class="card" href="#/pokemon/${p.id}" style="--c:${TYPE_COLOR[p.t[0]]}">
     ${pokeImg(p, 'art')}
     <span class="num">${dexNum(p.num)}</span><b>${esc(p.es)}</b>
-    <span class="foot"><span class="types">${p.t.map(typeDot).join('')}</span>${tierBadge(p.r)}</span></a>`;
+    <span class="foot"><span class="types">${p.t.map(typeDot).join('')}</span>${tierBadge(p.r, '', p.g)}</span></a>`;
 }
 
 function mulberry(seed) {
@@ -288,7 +290,7 @@ function mulberry(seed) {
   };
 }
 function pickRandoms(daily) {
-  const pool = INDEX.filter(p => p.r !== 'LC' && p.r !== 'NFE');
+  const pool = INDEX.filter(p => !p.g && p.r !== 'LC' && p.r !== 'NFE');
   const d = new Date();
   const rnd = daily ? mulberry(d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate()) : Math.random;
   const a = [...pool];
@@ -362,9 +364,19 @@ const chipNature = id => {
   return `<button class="chip" data-act="nature" data-v="${id}">${esc(n.n)}${n.plus ? ` <small>+${STAT_ES[n.plus]} −${STAT_ES[n.minus]}</small>` : ' <small>neutra</small>'}</button>`;
 };
 
+function oldNote(d) {
+  const rows = d.gt.map(([g, r]) => `<span class="gt"><span class="tier" style="--tier:${tierColor(r)}">${esc(tierLabel(r))}</span><small>Gen ${g}</small></span>`).join('');
+  return `<aside class="oldnote" aria-label="Fuera de Gen 9">
+    <b>No está en Escarlata y Púrpura</b>
+    <p>No se puede usar en Gen 9, así que el rango y los movimientos son los de la Gen ${d.g}. Rango en cada generación:</p>
+    <div class="gts">${rows}</div></aside>`;
+}
+
 function buildHTML() {
   const { d, fmt, idx } = page;
-  if (!d.sets.length) return '<p class="hint">Smogon todavía no tiene sets para este Pokémon.</p>';
+  if (!d.sets.length) return d.g
+    ? '<p class="hint">No se puede usar en Gen 9, así que Smogon no tiene sets para este Pokémon.</p>'
+    : '<p class="hint">Smogon todavía no tiene sets para este Pokémon.</p>';
   const formats = [...new Set(d.sets.map(s => s.f))];
   const sets = d.sets.filter(s => s.f === fmt);
   const set = sets[idx] || sets[0];
@@ -469,10 +481,11 @@ function pokemonHTML() {
     ${same ? '' : `<span class="en">${esc(d.en)}</span>`}
     <div class="tags">${d.t.map(typePill).join('')}</div>
     <div class="rank"><small>Rango</small><button class="tier" style="--tier:${tierColor(d.r)}" data-act="tier" data-v="${esc(d.r)}" aria-label="Qué significa el rango ${esc(tierLabel(d.r))}">${esc(tierLabel(d.r))}</button>
-      ${d.dr ? `<small>· Dobles ${esc(tierLabel(d.dr))}</small>` : ''}</div>
+      ${d.g ? `<small>· Gen ${d.g}</small>` : ''}${d.dr ? `<small>· Dobles ${esc(tierLabel(d.dr))}</small>` : ''}</div>
     <div class="facts">${d.h != null ? `<span>Altura <b>${fmtNum(d.h)} m</b></span>` : ''}${d.w != null ? `<span>Peso <b>${fmtNum(d.w)} kg</b></span>` : ''}</div>
   </section>
 
+  ${d.g ? oldNote(d) : ''}
   <section class="sec"><h2>Estadísticas base</h2><div id="stats">${statsHTML(d.s)}</div></section>
 
   <section class="sec"><h2>Build recomendada <small>Smogon</small></h2><div id="build">${buildHTML()}</div></section>
@@ -483,7 +496,7 @@ function pokemonHTML() {
 
   ${countNodes(d.evo) > 1 ? `<section class="sec"><h2>Evolución</h2><div class="evo">${evoHTML(d.evo, d.id)}</div></section>` : ''}
 
-  <section class="sec"><h2>Movimientos por nivel <small>${d.lv.length}</small></h2><div id="lvl">${d.lv.length ? levelMovesHTML(false) : '<p class="hint">Este Pokémon no aprende movimientos por nivel.</p>'}</div></section>
+  <section class="sec"><h2>Movimientos por nivel <small>${d.g ? `Gen ${d.lg} · ` : ''}${d.lv.length}</small></h2><div id="lvl">${d.lv.length ? levelMovesHTML(false) : '<p class="hint">Este Pokémon no aprende movimientos por nivel.</p>'}</div></section>
   ${footerHTML()}`;
 }
 
@@ -544,7 +557,7 @@ function renderSuggest() {
   const taken = new Set([cmp.base.id, ...cmp.others.map(p => p.id)]);
   let list;
   if (q) list = searchScored(q, INDEX).sort((a, b) => a.sc - b.sc || a.p.num - b.p.num).map(s => s.p);
-  else list = INDEX.filter(p => p.r === cmp.base.r).sort((a, b) => bst(b.s) - bst(a.s));
+  else list = INDEX.filter(p => p.r === cmp.base.r && !p.g === !cmp.base.g).sort((a, b) => bst(b.s) - bst(a.s));
   list = list.filter(p => !taken.has(p.id));
   list = list.slice(0, 10);
   $('#cmp-suggest').innerHTML = (q ? '' : '<span class="hint">Sugerencias de su mismo rango</span>') + (list.length

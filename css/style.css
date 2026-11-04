@@ -99,6 +99,7 @@ h1, h2, h3, p { margin: 0; }
   border: 1px solid color-mix(in srgb, var(--tier) 40%, transparent); white-space: nowrap; letter-spacing: .01em;
 }
 button.tier { cursor: pointer; }
+.tier small { font-size: .7em; font-weight: 700; margin-left: 5px; padding-left: 5px; border-left: 1px solid color-mix(in srgb, var(--tier) 35%, transparent); opacity: .8; }
 
 .cat { display: inline-flex; width: 18px; height: 18px; flex: none; }
 .cat svg { width: 100%; height: 100%; fill: currentColor; }
@@ -219,6 +220,12 @@ button.tier { cursor: pointer; }
 .rank { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
 .rank .tier { height: 30px; font-size: .92rem; padding: 0 12px; }
 .rank small { color: var(--muted); }
+.oldnote { margin-top: 24px; padding: 16px 18px; border-radius: var(--r-md); background: var(--soft); display: grid; gap: 6px; }
+.oldnote b { font-size: .95rem; }
+.oldnote p { font-size: .88rem; color: var(--muted); }
+.oldnote .gts { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 6px; }
+.oldnote .gt { display: inline-flex; align-items: center; gap: 6px; }
+.oldnote .gt small { color: var(--muted); font-size: .82rem; }
 @media (prefers-reduced-motion: no-preference) {
   /* entrada y después respiración suave: se estira un poco hacia arriba desde los pies */
   .phero .art { transform-origin: 50% 94%; animation: pop .6s var(--ease), breathe 4.2s ease-in-out .6s infinite; }
