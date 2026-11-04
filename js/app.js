@@ -227,6 +227,9 @@ function homeHTML() {
       ${t('filters')} <span class="badge" id="fbadge"></span>
       <svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
     </button>
+    <button class="chip" data-act="flag" data-v="favs" aria-pressed="false">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 3.5l2.6 5.5 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.8l6-.8z"/></svg>${t('favorites')} <small class="favn"></small>
+    </button>
   </div>
   <div class="fpanel" id="fpanel"><div class="fpanel-in">
   <section class="filters" id="filters" aria-label="${t('filters')}">
@@ -234,7 +237,6 @@ function homeHTML() {
     <div class="frow"><span>${t('type')}</span><div class="scroller">${TYPES.map(ty => chip(`data-act="type" data-v="${ty}"`, `${typeIcon(ty)}${typeName(ty)}`)).join('')}</div></div>
     <div class="frow"><span>${t('tier')} <small>${t('tierHint')}</small></span><div class="scroller">${TIER_ORDER.map(r => chip(`data-act="tier-f" data-v="${r}"`, `${tierNumHTML(r)}${tierLabel(r)}`)).join('')}</div></div>
     <div class="frow"><span>${t('show')}</span><div class="scroller">
-      ${chip('data-act="flag" data-v="favs"', `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 3.5l2.6 5.5 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.8l6-.8z"/></svg>${t('favorites')} <small class="favn"></small>`)}
       ${chip('data-act="flag" data-v="base"', t('baseOnly'))}
       ${chip('data-act="flag" data-v="gen9"', t('gen9Only'))}
     </div></div>
@@ -254,13 +256,12 @@ function syncFilters() {
   });
   f.querySelectorAll('[data-act="type"]').forEach(b => b.setAttribute('aria-pressed', state.types.includes(b.dataset.v)));
   f.querySelectorAll('[data-act="tier-f"]').forEach(b => b.setAttribute('aria-pressed', state.tiers.includes(b.dataset.v)));
-  f.querySelectorAll('[data-act="flag"]').forEach(b => b.setAttribute('aria-pressed', !!state[b.dataset.v]));
-  const n = $('.favn', f);
-  if (n) n.textContent = favs.size ? `(${favs.size})` : '';
+  document.querySelectorAll('[data-act="flag"]').forEach(b => b.setAttribute('aria-pressed', !!state[b.dataset.v]));
+  document.querySelectorAll('.favn').forEach(n => { n.textContent = favs.size ? `(${favs.size})` : ''; });
   $('.search .clear')?.classList.toggle('on', !!state.q);
   $('.search')?.classList.toggle('filled', !!state.q);
   // el botón "Filtros" muestra cuántos hay activos y abre/cierra el panel
-  const active = state.types.length + state.tiers.length + (state.favs ? 1 : 0) + (state.base ? 1 : 0) + (state.gen9 ? 1 : 0) + (state.sort !== 'num' || state.dir !== 1 ? 1 : 0);
+  const active = state.types.length + state.tiers.length + (state.base ? 1 : 0) + (state.gen9 ? 1 : 0) + (state.sort !== 'num' || state.dir !== 1 ? 1 : 0);
   $('#fbadge').textContent = active || '';
   $('[data-act="filters-toggle"]').setAttribute('aria-expanded', state.filtersOpen);
   $('#fpanel').classList.toggle('open', state.filtersOpen);
