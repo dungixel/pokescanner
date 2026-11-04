@@ -214,10 +214,11 @@ function homeHTML() {
   <header class="hero">
     <h1>PokeScanner</h1>
   </header>
-  <div class="searchbar"><div class="search">
+  <div class="searchbar"><div class="search ${state.q ? 'filled' : ''}">
     ${I.search}
-    <input id="q" type="search" inputmode="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false"
-      placeholder="${t('searchPh')}" aria-label="${t('searchLabel')}" value="${esc(state.q)}">
+    <input id="q" type="text" role="searchbox" inputmode="search" enterkeyhint="search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+      data-form-type="other" data-lpignore="true" aria-label="${t('searchLabel')}" value="${esc(state.q)}">
+    <span class="ph" aria-hidden="true">${t('searchPh')}</span>
     <button class="clear" data-act="clear-q" aria-label="${t('clearSearch')}">${I.close}</button>
   </div></div>
   <div class="ftoggle">
@@ -257,6 +258,7 @@ function syncFilters() {
   const n = $('.favn', f);
   if (n) n.textContent = favs.size ? `(${favs.size})` : '';
   $('.search .clear')?.classList.toggle('on', !!state.q);
+  $('.search')?.classList.toggle('filled', !!state.q);
   // el botón "Filtros" muestra cuántos hay activos y abre/cierra el panel
   const active = state.types.length + state.tiers.length + (state.favs ? 1 : 0) + (state.base ? 1 : 0) + (state.gen9 ? 1 : 0) + (state.sort !== 'num' || state.dir !== 1 ? 1 : 0);
   $('#fbadge').textContent = active || '';
@@ -587,7 +589,7 @@ function openCompare() {
   cmp = { base, others: [] };
   openSheet(t('cmpTitle'), `
     <div class="legend" id="cmp-legend"></div>
-    <div class="cmp-search"><input id="cmp-q" type="search" placeholder="${t('cmpPh')}" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="${t('cmpAria')}"></div>
+    <div class="cmp-search"><input id="cmp-q" type="text" role="searchbox" inputmode="search" enterkeyhint="search" placeholder="${t('cmpPh')}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-form-type="other" data-lpignore="true" aria-label="${t('cmpAria')}"></div>
     <div class="suggest" id="cmp-suggest"></div>
     <div class="cmp" id="cmp-bars"></div>`, { wide: true });
   renderCompare();

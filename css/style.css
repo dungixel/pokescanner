@@ -100,7 +100,7 @@ h1, h2, h3, p { margin: 0; }
 }
 button.tier { cursor: pointer; }
 /* número de posición del rango: 1 = el más fuerte */
-.tn {
+.tier .tn, .chip .tn {
   display: inline-grid; place-items: center; flex: none; min-width: 1.65em; height: 1.65em; padding: 0 .3em; margin: 0 6px 0 -5px; border-radius: var(--r-pill);
   background: var(--tier, var(--muted)); color: #fff; font-size: .78em; font-weight: 700; line-height: 1; letter-spacing: 0;
 }
@@ -150,7 +150,9 @@ button.tier { cursor: pointer; }
   width: 100%; height: 54px; padding: 0 48px 0 52px; border-radius: var(--r-lg); border: 1px solid var(--line); background: var(--surface);
   color: var(--ink); font: inherit; font-size: 17px; font-weight: 400; outline: none; transition: border-color .18s; -webkit-tap-highlight-color: transparent; -webkit-appearance: none; appearance: none;
 }
-.search input::placeholder { color: var(--muted); font-weight: 400; }
+/* el texto de ayuda es una capa aparte (sin atributo placeholder) para que iOS no ofrezca "AutoFill Contact" */
+.search .ph { position: absolute; left: 52px; right: 52px; top: 50%; translate: 0 -50%; color: var(--muted); font-size: 17px; pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.search.filled .ph { display: none; }
 .search input:focus { border-color: var(--accent); }
 .search input::-webkit-search-cancel-button { display: none; }
 .search .clear { position: absolute; right: 10px; top: 50%; translate: 0 -50%; width: 34px; height: 34px; border-radius: 50%; display: none; place-items: center; color: var(--muted); }
