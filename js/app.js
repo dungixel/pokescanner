@@ -421,14 +421,17 @@ function weaknessHTML(types) {
 }
 
 const countNodes = n => 1 + (n.c || []).reduce((a, c) => a + countNodes(c), 0);
-function evoHTML(node, curId) {
+function evoHTML(node, curId, how = '') {
   const p = BYID.get(node.id);
   if (!p) return '';
+  // `how` = requisito para evolucionar hasta este Pokémon (nivel, piedra, amistad, intercambio…)
   let h = `<a class="evo-card ${node.id === curId ? 'current' : ''}" href="#/pokemon/${p.id}" ${node.id === curId ? 'aria-current="page"' : ''}>
-    ${pokeImg(p, 'small')}<span><b>${esc(p.es)}</b><small>${dexNum(p.num)}</small><span class="types" style="display:flex;gap:4px;margin-top:4px">${p.t.map(typeDot).join('')}</span></span></a>`;
+    ${pokeImg(p, 'small')}<span class="evo-txt"><b>${esc(p.es)}</b><small>${dexNum(p.num)}</small>
+    ${how ? `<span class="evo-how">${esc(how)}</span>` : ''}
+    <span class="types" style="display:flex;gap:4px;margin-top:6px">${p.t.map(typeDot).join('')}</span></span></a>`;
   const kids = (node.c || []).filter(c => BYID.has(c.id));
   if (kids.length) {
-    h += `<div class="evo-kids">${kids.map(c => `<div class="evo-link">${I.down}<span>${esc(c.how)}</span></div>${evoHTML(c, curId)}`).join('')}</div>`;
+    h += `<div class="evo-kids">${kids.map(c => `<div class="evo-link" aria-hidden="true">${I.down}</div>${evoHTML(c, curId, c.how)}`).join('')}</div>`;
   }
   return h;
 }

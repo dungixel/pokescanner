@@ -251,10 +251,13 @@ button.tier { cursor: pointer; }
   border: 1px solid var(--line); background: var(--surface); transition: border-color .18s;
 }
 .evo-card img.poke { width: 64px; height: 64px; border-radius: 12px; background: var(--soft); }
+.evo-txt { display: grid; justify-items: start; min-width: 0; padding: 4px 0; }
 .evo-card b { display: block; font-weight: 700; line-height: 1.2; }
 .evo-card small { color: var(--muted); font-size: .82rem; }
+.evo-how { margin-top: 6px; padding: 3px 11px; border-radius: var(--r-pill); font-size: .8rem; font-weight: 700; line-height: 1.35; text-align: left;
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface)); color: color-mix(in srgb, var(--accent) 65%, var(--ink)); }
 .evo-card.current { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, var(--surface)); }
-.evo-link { display: flex; align-items: center; gap: 8px; padding: 8px 0 8px 30px; color: var(--muted); font-size: .86rem; }
+.evo-link { display: flex; align-items: center; padding: 4px 0 4px 26px; color: var(--muted); }
 .evo-link svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 .evo-kids { display: grid; margin-left: 18px; padding-left: 12px; border-left: 2px solid var(--line); }
 
