@@ -262,12 +262,10 @@ button.tier { cursor: pointer; }
 .stat .k { color: var(--muted); font-weight: 700; }
 .stat .v { font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
 .bar { height: 10px; border-radius: var(--r-pill); background: var(--soft); overflow: hidden; }
-.bar i { display: block; height: 100%; width: 0; border-radius: inherit; background: var(--bc, var(--accent)); }
-.go .bar i { width: var(--w); transition: width 1s var(--ease); transition-delay: calc(var(--i, 0) * 80ms); }
+.bar i { display: block; height: 100%; width: var(--w, 0); border-radius: inherit; background: var(--bc, var(--accent)); }
 .stat.total { margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--line); }
 .stat.total .k { color: var(--ink); font-weight: 700; }
 .stat.total .bar { visibility: hidden; }
-@media (prefers-reduced-motion: reduce) { .go .bar i { transition: none; } }
 
 /* Habilidades */
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -392,3 +390,31 @@ dialog#sheet::backdrop { background: rgba(10, 12, 18, .5); backdrop-filter: blur
 #toast.on { opacity: 1; translate: -50% 0; }
 
 @media (min-width: 720px) { #app { padding-top: 28px; } .hero { padding-top: 36px; } }
+
+/* ───────────── Análisis del equipo (vista de favoritos) ───────────── */
+.team { margin-top: 14px; padding: 18px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line); display: grid; gap: 16px; }
+.team.need { gap: 4px; background: var(--soft); border-color: transparent; }
+.team.need p { color: var(--muted); font-size: .9rem; }
+.team-head { display: flex; align-items: center; gap: 16px; }
+.score { flex: none; width: 84px; height: 84px; border-radius: 50%; display: grid; place-content: center; text-align: center; line-height: 1;
+  background: color-mix(in srgb, var(--sc) 14%, var(--surface)); box-shadow: inset 0 0 0 5px var(--sc); }
+.score b { font-size: 1.9rem; font-weight: 700; letter-spacing: -.03em; }
+.score small { font-size: .7rem; color: var(--muted); margin-top: 3px; }
+.team-head h3 { font-size: 1.15rem; font-weight: 700; letter-spacing: -.01em; }
+.team-head p { color: var(--muted); font-size: .86rem; margin-top: 2px; }
+.tparts { display: grid; gap: 10px; }
+.tpart { display: grid; grid-template-columns: 1fr auto; gap: 5px 10px; font-size: .88rem; }
+.tpart .k { color: var(--muted); font-weight: 700; }
+.tpart .v { font-weight: 700; font-variant-numeric: tabular-nums; }
+.tpart .bar { grid-column: 1 / -1; height: 8px; }
+.team h4 { font-size: .95rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.team h4.bad { color: var(--bad); } .team h4.good { color: var(--ok); }
+.finds { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 10px; }
+.find { display: grid; grid-template-columns: 24px 1fr; gap: 10px; align-items: start; }
+.find .mark { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: .8rem; font-weight: 700; color: #fff; margin-top: 1px; }
+.find.bad .mark { background: var(--bad); } .find.good .mark { background: var(--ok); }
+.find b { font-weight: 700; font-size: .95rem; }
+.find p { color: var(--muted); font-size: .86rem; margin-top: 1px; }
+.fchips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.fchips .tpill { font-size: .8rem; }
+.team .note { color: var(--muted); font-size: .8rem; }

@@ -5,6 +5,7 @@ import {
   pokeImg, itemImg, typeIcon, typePill, typeDot, catIcon,
 } from './util.js';
 import { t, lang, setLang } from './i18n.js';
+import { analyzeTeam, scoreInfo } from './team.js';
 
 const $app = document.getElementById('app');
 const sheet = document.getElementById('sheet');
@@ -326,6 +327,28 @@ function movesBlock({ list, total }) {
     ${total > list.length ? `<p class="hint" style="margin-top:8px">${t('moreMoves', { n: total - list.length })}</p>` : ''}`;
 }
 
+// ───────────────────────── Análisis del equipo (favoritos) ─────────────────────────
+const partColor = r => (r >= 0.8 ? '#6CC070' : r >= 0.6 ? '#E6C84F' : r >= 0.4 ? '#F0974B' : '#E5645A');
+const chipsHTML = chips => (chips.length ? `<div class="fchips">${chips.map(c => (c.type ? typePill(c.type)
+  : `<a class="chip small" href="#/pokemon/${c.poke.id}">${pokeImg(c.poke, 'small', 'thumb')}${esc(pname(c.poke))}</a>`)).join('')}</div>` : '');
+const findHTML = (f, kind) => `<li class="find ${kind}"><span class="mark" aria-hidden="true">${kind === 'bad' ? '!' : '✓'}</span>
+  <div><b>${t(`an_${f.key}_t`, f.vars)}</b><p>${t(`an_${f.key}_d`, f.vars)}</p>${chipsHTML(f.chips)}</div></li>`;
+function teamHTML() {
+  const team = [...favs].map(id => BYID.get(id)).filter(Boolean);
+  if (team.length < 3) return `<section class="team need"><h4>${t('an_title')}</h4><p>${t('an_need')}</p></section>`;
+  const a = analyzeTeam(team);
+  const info = scoreInfo(a.score);
+  const parts = a.parts.map(p => `<div class="tpart"><span class="k">${t(`an_p_${p.k}`)}</span><span class="v">${Math.round(p.v)}/${p.max}</span>
+    <div class="bar"><i style="--w:${(p.v / p.max * 100).toFixed(1)}%;--bc:${partColor(p.v / p.max)}"></i></div></div>`).join('');
+  return `<section class="team" aria-label="${t('an_title')}">
+    <div class="team-head"><div class="score" style="--sc:${info.c}"><b>${a.score}</b><small>/100</small></div>
+      <div><h3>${t(`an_s_${info.k}`)}</h3><p>${t('an_sub', { n: team.length })}</p>${team.length > 6 ? `<p>${t('an_over', { n: team.length })}</p>` : ''}</div></div>
+    <div class="tparts">${parts}</div>
+    <div><h4 class="bad">${t('an_bad')}</h4>${a.bad.length ? `<ul class="finds">${a.bad.map(f => findHTML(f, 'bad')).join('')}</ul>` : `<p class="note">${t('an_nobad')}</p>`}</div>
+    <div><h4 class="good">${t('an_good')}</h4>${a.good.length ? `<ul class="finds">${a.good.map(f => findHTML(f, 'good')).join('')}</ul>` : `<p class="note">${t('an_nogood')}</p>`}</div>
+    <p class="note">${t('an_note')}</p></section>`;
+}
+
 function tierBadge(r, extra = '', g = 0) { return `<span class="tier" style="--tier:${tierColor(r)}" ${extra}${g ? ` title="${t('tierInGen', { g })}"` : ''}>${tierNumHTML(r)}${esc(tierLabel(r))}${g ? `<small>G${g}</small>` : ''}</span>`; }
 
 function rowHTML(p) {
@@ -386,7 +409,9 @@ function renderResults(reset = true) {
     box.innerHTML = mv || head + `<div class="empty"><b>${t('emptyTitle')}</b>${state.favs && !favs.size ? t('emptyFavs') : t('emptyHint')}</div>`;
     return;
   }
-  box.innerHTML = head + `<div class="list">${list.slice(0, state.shown).map(rowHTML).join('')}</div><div class="sentinel"></div>`;
+  // en la vista de favoritos (sin otros filtros) se analiza el equipo
+  const analysis = state.favs && !fold(state.q) && !state.types.length && !state.tiers.length && !state.gen9 && !state.base ? teamHTML() : '';
+  box.innerHTML = analysis + head + `<div class="list">${list.slice(0, state.shown).map(rowHTML).join('')}</div><div class="sentinel"></div>`;
   watchSentinel();
 }
 function watchSentinel() {
