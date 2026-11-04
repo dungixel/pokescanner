@@ -18,7 +18,7 @@ const saveFavs = () => store.set('pk.favs', JSON.stringify([...favs]));
 
 const state = {
   view: 'home', q: '', sort: 'num', dir: 1, types: [], tiers: [], favs: false, base: false,
-  shown: 40, scroll: 0, randomMode: 'daily', randoms: null,
+  shown: 40, scroll: 0, randomMode: 'daily', randoms: null, filtersOpen: false,
 };
 let page = null; // estado de la ficha abierta
 let cmp = null;  // estado del comparador
@@ -181,6 +181,14 @@ function homeHTML() {
       placeholder="Busca por nombre o número" aria-label="Buscar Pokémon" value="${esc(state.q)}">
     <button class="clear" data-act="clear-q" aria-label="Borrar búsqueda">${I.close}</button>
   </div>
+  <div class="ftoggle">
+    <button class="chip" data-act="filters-toggle" aria-expanded="false" aria-controls="fpanel">
+      <svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
+      Filtros <span class="badge" id="fbadge"></span>
+      <svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+  </div>
+  <div class="fpanel" id="fpanel"><div class="fpanel-in">
   <section class="filters" id="filters" aria-label="Filtros">
     <div class="frow"><span>Ordenar por</span><div class="scroller">${SORTS.map(([k, l]) => chip(`data-act="sort" data-v="${k}"`, `${l}<span class="dir"></span>`)).join('')}</div></div>
     <div class="frow"><span>Tipo</span><div class="scroller">${TYPES.map(t => chip(`data-act="type" data-v="${t}"`, `${typeIcon(t)}${TYPE_ES[t]}`)).join('')}</div></div>
@@ -190,6 +198,7 @@ function homeHTML() {
       ${chip('data-act="flag" data-v="base"', 'Solo formas base')}
     </div></div>
   </section>
+  </div></div>
   <div id="results"></div>
   ${footerHTML()}`;
 }
@@ -208,6 +217,12 @@ function syncFilters() {
   const n = $('.favn', f);
   if (n) n.textContent = favs.size ? `(${favs.size})` : '';
   $('.search .clear')?.classList.toggle('on', !!state.q);
+  // el botón "Filtros" muestra cuántos hay activos y abre/cierra el panel
+  const active = state.types.length + state.tiers.length + (state.favs ? 1 : 0) + (state.base ? 1 : 0) + (state.sort !== 'num' || state.dir !== 1 ? 1 : 0);
+  $('#fbadge').textContent = active || '';
+  $('[data-act="filters-toggle"]').setAttribute('aria-expanded', state.filtersOpen);
+  $('#fpanel').classList.toggle('open', state.filtersOpen);
+  f.inert = !state.filtersOpen;
 }
 
 const isFiltering = () => !!fold(state.q) || state.types.length || state.tiers.length || state.favs || state.base || state.sort !== 'num' || state.dir !== 1;
@@ -548,6 +563,7 @@ document.addEventListener('click', e => {
   const v = el.dataset.v;
   switch (el.dataset.act) {
     case 'theme': toggleTheme(); break;
+    case 'filters-toggle': state.filtersOpen = !state.filtersOpen; syncFilters(); break;
     case 'close': closeSheet(); break;
 
     // inicio

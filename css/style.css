@@ -139,7 +139,18 @@ button.tier { cursor: pointer; }
 .search .clear.on { display: grid; }
 .search .clear svg { position: static; translate: none; width: 18px; height: 18px; stroke: currentColor; }
 
-.filters { margin-top: 18px; display: grid; gap: 12px; }
+.ftoggle { margin-top: 12px; display: flex; align-items: center; gap: 8px; }
+.ftoggle .chip svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ftoggle .chip .chev { width: 14px; height: 14px; transition: rotate .25s var(--ease); }
+.ftoggle .chip[aria-expanded="true"] .chev { rotate: 180deg; }
+.badge { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: var(--r-pill); background: var(--accent); color: #fff; font-size: .74rem; font-weight: 700; }
+.badge:empty { display: none; }
+.fpanel { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .3s var(--ease); }
+.fpanel.open { grid-template-rows: 1fr; }
+.fpanel-in { min-height: 0; overflow: hidden; margin: 0 -16px; padding: 0 16px; }
+.fpanel:not(.open) .filters { visibility: hidden; }
+@media (prefers-reduced-motion: reduce) { .fpanel { transition: none; } }
+.filters { padding: 16px 0 2px; display: grid; gap: 12px; }
 .frow { display: grid; gap: 6px; }
 .frow > span { font-size: .82rem; color: var(--muted); font-weight: 700; }
 .chip .dir { font-size: .8rem; opacity: .9; }
@@ -209,8 +220,10 @@ button.tier { cursor: pointer; }
 .rank .tier { height: 30px; font-size: .92rem; padding: 0 12px; }
 .rank small { color: var(--muted); }
 @media (prefers-reduced-motion: no-preference) {
-  .phero .art { animation: pop .7s var(--ease) both; }
-  @keyframes pop { from { opacity: 0; transform: translateY(14px) scale(.94); } to { opacity: 1; transform: none; } }
+  /* entrada y después respiración suave: se estira un poco hacia arriba desde los pies */
+  .phero .art { transform-origin: 50% 94%; animation: pop .6s var(--ease), breathe 4.2s ease-in-out .6s infinite; }
+  @keyframes pop { from { transform: translateY(14px) scale(.94); } to { transform: none; } }
+  @keyframes breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.012, 1.04); } }
 }
 
 /* Estadísticas */
@@ -293,10 +306,8 @@ dialog#sheet.wide { height: 88dvh; }
 dialog#sheet::backdrop { background: rgba(10, 12, 18, .5); backdrop-filter: blur(3px); }
 @media (min-width: 640px) { dialog#sheet { margin: auto; border-bottom: 1px solid var(--line); border-radius: var(--r-lg); } dialog#sheet.wide { height: min(88dvh, 780px); } }
 @media (prefers-reduced-motion: no-preference) {
-  dialog#sheet[open] { animation: up .32s var(--ease); }
-  dialog#sheet[open]::backdrop { animation: fade .25s; }
-  @keyframes up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
-  @keyframes fade { from { opacity: 0; } }
+  dialog#sheet[open] { animation: up .3s var(--ease); }
+  @keyframes up { from { transform: translateY(28px); } to { transform: none; } }
 }
 .sheet-inner { display: flex; flex-direction: column; max-height: inherit; height: 100%; }
 .sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 16px 16px 8px 20px; }
