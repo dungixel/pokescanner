@@ -1454,8 +1454,7 @@ function resultHTML() {
     <div class="block-title"><h2>${t('resultTitle')}</h2></div>
     <div class="resbox"><div class="vsnames"><span class="na">${aName}</span><span class="nb">${bName}</span></div>
       <div class="vsbar" role="img" aria-label="${pa}% / ${pb}%"><i class="va" style="width:${pa}%"><b>${pa}%</b></i><i class="vb"><b>${pb}%</b></i></div>
-      <h3 class="winline">${r.close ? t('resEven') : t('resWin', { name: winName })}</h3>
-      <p class="shint">${t('resChance', { p: r.pct, name: winName })}</p></div>
+      <h3 class="winline">${r.close ? t('resEven') : t('resWin', { name: winName })}</h3></div>
     <div class="block-title"><h2>${t('whyTitle')}</h2></div>${rs}
     ${planHTML(bt.res[bt.mode], bt.planSide)}
     <div class="block-title"><h2>${t('improveTitle')}</h2></div>${loserTips}${winnerTips}
