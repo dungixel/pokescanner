@@ -1406,18 +1406,21 @@ function planHTML(res, side) {
   const mine = side === 'A' ? ua : ub, foe = side === 'A' ? ub : ua, plan = r.plan[side], name = side === 'A' ? aName : bName, foeName = side === 'A' ? bName : aName;
   const tabs = `<div class="modetabs small" role="tablist">${['A', 'B'].map(sd => `<button role="tab" data-act="bt-plan" data-v="${sd}" aria-selected="${side === sd}">${sd === 'A' ? aName : bName}</button>`).join('')}</div>`;
   let body = '';
+  const sec = (title, inner, hint = '') => (inner ? `<div class="psec">${title ? `<h4>${title}</h4>` : ''}${inner}${hint ? `<p class="shint">${hint}</p>` : ''}</div>` : '');
   if (r.mode === 'doubles') {
-    const pairs = plan.leads.map((l, k) => `<div class="pairrow ${k ? 'alt' : 'main'}"><span class="pairlab">${k ? t('pl_leadAlt') : t('pl_lead')}</span>${l.i.map(i => uChip(mine[i])).join('<span class="plus">+</span>')}</div>`).join('');
-    const t1 = plan.turn1.length ? `<h4>${t('pl_t1')}</h4><ul class="acts">${plan.turn1.map(a => `<li>${actionText(a, mine, foe)}</li>`).join('')}</ul>` : '';
-    const fl = plan.foeLeads.length ? `<h4>${t('pl_foeLead')}</h4>${plan.foeLeads.slice(0, 2).map(l => `<div class="pairrow alt">${l.j.map(j => uChip(foe[j])).join('<span class="plus">+</span>')}</div>`).join('')}` : '';
-    body = `<h4>${t('pl_bring')}</h4><div class="chipline">${plan.bring.map(i => uChip(mine[i])).join('')}</div><p class="shint">${t('pl_bringHint')}</p>
-      ${pairs}${t1}${fl}
-      <h4>${t('pl_focus')}</h4>${focusHTML(plan, mine, foe, plan.bring)}`;
+    const pairs = plan.leads.map((l, k) => `<div class="pairrow ${k ? 'alt' : 'main'}"><span class="pairlab">${k ? t('pl_leadAlt') : t('pl_lead')}</span><span class="pairchips">${l.i.map(i => uChip(mine[i])).join('<span class="plus">+</span>')}</span></div>`).join('');
+    body = sec(t('pl_bring'), `<div class="chipline">${plan.bring.map(i => uChip(mine[i])).join('')}</div>`, t('pl_bringHint'))
+      + sec('', pairs)
+      + sec(t('pl_t1'), plan.turn1.length ? `<ul class="acts">${plan.turn1.map(a => `<li>${actionText(a, mine, foe)}</li>`).join('')}</ul>` : '')
+      + sec(t('pl_foeLead'), plan.foeLeads.slice(0, 2).map(l => `<div class="pairrow"><span class="pairchips">${l.j.map(j => uChip(foe[j])).join('<span class="plus">+</span>')}</span></div>`).join(''))
+      + sec(t('pl_focus'), `<div class="focuslist">${focusHTML(plan, mine, foe, plan.bring)}</div>`);
   } else {
-    const leads = plan.leads.map((l, k) => `<div class="pairrow ${k ? 'alt' : 'main'}"><span class="pairlab">${k ? t('pl_leadAlt') : t('pl_lead')}</span>${uChip(mine[l.i])}</div>`).join('');
-    const fl = plan.foeLeads.length ? `<h4>${t('pl_foeLead')}</h4><div class="chipline">${plan.foeLeads.map(l => uChip(foe[l.j])).join('')}</div>` : '';
+    const leads = plan.leads.map((l, k) => `<div class="pairrow ${k ? 'alt' : 'main'}"><span class="pairlab">${k ? t('pl_leadAlt') : t('pl_lead')}</span><span class="pairchips">${uChip(mine[l.i])}</span></div>`).join('');
     const ans = plan.answers.map(x => `<li>${uChip(foe[x.foe])}<span class="arrow">→</span>${uChip(mine[x.mine])}<span>${x.move ? `<b>${mvLabel(x.move)}</b> <small>${pctText(x)} · ${hitsText(x)}</small>` : ''}</span></li>`).join('');
-    body = `${leads}${fl}<h4>${t('pl_answers')}</h4><ul class="pans">${ans}</ul><h4>${t('pl_focus')}</h4>${focusHTML(plan, mine, foe)}`;
+    body = sec('', leads)
+      + sec(t('pl_foeLead'), plan.foeLeads.length ? `<div class="chipline">${plan.foeLeads.map(l => uChip(foe[l.j])).join('')}</div>` : '')
+      + sec(t('pl_answers'), `<ul class="pans">${ans}</ul>`)
+      + sec(t('pl_focus'), `<div class="focuslist">${focusHTML(plan, mine, foe)}</div>`);
   }
   return `<div class="block-title"><h2>${t('planTitle')}</h2></div><div class="plan">${tabs}<p class="shint">${t('planHint')}</p>${body}</div>`;
 }
@@ -1435,7 +1438,7 @@ function resultHTML() {
   // si está igualado no hay ganador: se enseña lo que aporta cada equipo
   const why = r.close
     ? `<div class="block-title"><h2>${t('whyEven')}</h2></div><div class="evenwhy"><h3>${t('strengthsOf', { name: aName })}</h3>${reasonList(reasA)}<h3>${t('strengthsOf', { name: bName })}</h3>${reasonList(reasB)}</div>`
-    : `<div class="block-title"><h2>${t('whyTitle')}</h2></div>${reasonList(r.reasons)}`;
+    : `<div class="block-title"><h2>${t('whyFor', { name: winName })}</h2></div>${reasonList(r.reasons)}`;
   const tipBlock = (name, tips, side) => `<div class="tipbox"><h3>${t('tipsTitle', { name })}</h3>${tips.length ? `<ul class="tips">${tips.map(tipHTML).join('')}</ul>` : `<p class="shint">${t('tipsNone')}</p>`}${swapHTML(swaps?.[side], side)}</div>`;
   const loserTips = r.win === 'A' ? tipBlock(bName, r.tipsB, 'B') : tipBlock(aName, r.tipsA, 'A');
   const winnerTips = r.close ? (r.win === 'A' ? tipBlock(aName, r.tipsA, 'A') : tipBlock(bName, r.tipsB, 'B')) : '';
@@ -1466,7 +1469,7 @@ function resultHTML() {
     <div class="block-title"><h2>${t(r.mode === 'doubles' ? 'extraMatrixD' : 'extraMatrix')}</h2></div><p class="shint">${t(r.mode === 'doubles' ? 'extraMatrixHintD' : 'extraMatrixHint')}</p>${matrix}
     <div class="block-title"><h2>${t('extraStars')}</h2></div><div class="starsgrid">${star(r.rowA, aName)}${star(r.rowB, bName)}</div>
     <div class="block-title"><h2>${t('extraSpeed')}</h2></div><div class="spdlist">${speed}</div>
-    <div class="block-title"><h2>${t('extraFactors')}</h2></div><div class="factors">${factors}</div><p class="shint facthint"><span>← ${aName}</span><span>${bName} →</span></p>
+    <div class="block-title"><h2>${t('extraFactors')}</h2></div><div class="factbox"><div class="factors">${factors}</div><p class="shint facthint"><span>← ${aName}</span><span>${bName} →</span></p></div>
     ${est.length ? `<p class="shint">${t('estNote', { list: est.map(u => esc(pname(u.p))).join(', ') })}</p>` : ''}
     <p class="note">${r.trials ? t('resNote2', { n: r.trials.toLocaleString(lang()) }) : t('resNote')}</p></section>`;
 }
