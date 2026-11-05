@@ -63,7 +63,7 @@ const I = {
 const FLAG = { es: 'icons/flags/es.svg', en: 'icons/flags/gb.svg' };
 const LANGS = { es: 'Español', en: 'English' };
 const smodal = document.getElementById('smodal');
-let modalKind = null; // 'settings' | 'login' | 'teampick' | 'picker' | 'saveteam'
+let modalKind = null; // 'settings' | 'login' | 'teampick' | 'picker' | 'saveteam' | 'publish'
 let pending = null;   // lo que la persona quería hacer cuando se le pidió iniciar sesión
 const themePref = () => { const v = store.get('pk.theme'); return v === 'light' || v === 'dark' ? v : 'system'; };
 const THEME_ICON = { system: 'desktop', light: 'sun', dark: 'moon' };
@@ -107,7 +107,7 @@ function loginHTML() {
       <button class="ghostbtn" data-act="settings-close">${t('notNow')}</button></div>
   </div>`;
 }
-const modalHTML = () => (modalKind === 'login' ? loginHTML() : modalKind === 'saveteam' ? saveTeamHTML() : modalKind === 'teampick' ? teamPickHTML() : modalKind === 'picker' ? pickerHTML() : settingsHTML());
+const modalHTML = () => (modalKind === 'login' ? loginHTML() : modalKind === 'publish' ? publishModalHTML() : modalKind === 'saveteam' ? saveTeamHTML() : modalKind === 'teampick' ? teamPickHTML() : modalKind === 'picker' ? pickerHTML() : settingsHTML());
 const refreshModal = () => { if (!smodal.hidden) smodal.innerHTML = modalHTML(); };
 function showModal(kind) {
   modalKind = kind;
@@ -1499,22 +1499,25 @@ function openPublish() {
   if (!requireLogin({ type: 'community', hash: location.hash })) return;
   const first = teams.findIndex(tm => tm.members.length);
   pubCtx = { slot: first, name: first >= 0 ? teams[first].name.slice(0, 30) : '', nameTouched: false, desc: '' };
-  openSheet(t('comPubTitle'), publishHTML());
+  showModal('publish');
 }
-sheet.addEventListener('input', e => {
+const publishModalHTML = () => `<div class="scard" role="dialog" aria-modal="true" aria-label="${t('comPubTitle')}">
+  <div class="shead"><button class="iconbtn" data-act="settings-close" aria-label="${t('close')}">${IC.x}</button><h2>${t('comPubTitle')}</h2></div>
+  <div id="pub-body">${publishHTML()}</div></div>`;
+smodal.addEventListener('input', e => {
   if (!pubCtx) return;
   if (e.target.id === 'pub-name') { pubCtx.name = e.target.value; pubCtx.nameTouched = true; }
-  if (e.target.id === 'pub-desc') { pubCtx.desc = e.target.value; const c = $('#pub-cnt', sheet); if (c) c.textContent = `${e.target.value.length}/280`; }
+  if (e.target.id === 'pub-desc') { pubCtx.desc = e.target.value; const c = $('#pub-cnt', smodal); if (c) c.textContent = `${e.target.value.length}/280`; }
 });
 async function doPublish() {
-  const c = pubCtx, msg = $('#pub-msg', sheet), btn = $('#pub-go', sheet);
+  const c = pubCtx, msg = $('#pub-msg', smodal), btn = $('#pub-go', smodal);
   const members = (teams[c.slot]?.members || []).map(m => { const o = { id: m.id }; if (m.s != null) o.s = m.s; if (m.b) o.b = m.b; return o; });
   const name = c.name.trim() || teamName(c.slot);
   if (!members.length) return;
   btn.disabled = true; msg.textContent = '';
   try {
     await auth.publishPost(name.slice(0, 30), c.desc.trim().slice(0, 280), members);
-    pubCtx = null; closeSheet(); toast(t('comPublished'));
+    pubCtx = null; closeSettings(); toast(t('comPublished'));
     if (state.view === 'community') { com.sort = 'new'; loadFeed(true); } else location.hash = '#/community';
   } catch (err) {
     msg.textContent = err.message === 'text_banned' ? t('comPubBanned') : t('comPubFail');
@@ -2155,7 +2158,7 @@ document.addEventListener('click', e => {
     case 'com-del-no': com.confirm = null; state.view === 'post' ? paintPost() : paintCom(); break;
     case 'com-del-yes': removePost(v); break;
     case 'com-publish': openPublish(); break;
-    case 'pub-pick': { const i = Number(v); if (!pubCtx) break; pubCtx.slot = i; if (!pubCtx.nameTouched) pubCtx.name = teams[i].name.slice(0, 30); const body = $('.sheet-body', sheet); body.innerHTML = publishHTML(); break; }
+    case 'pub-pick': { const i = Number(v); if (!pubCtx) break; pubCtx.slot = i; if (!pubCtx.nameTouched) pubCtx.name = teams[i].name.slice(0, 30); $('#pub-body', smodal).innerHTML = publishHTML(); break; }
     case 'pub-go': doPublish(); break;
     case 'com-login': openLogin({ type: 'community', hash: location.hash }); break;
     case 'com-send': sendComment(); break;
