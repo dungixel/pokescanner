@@ -11,7 +11,7 @@ const RAW = path.join(ROOT, 'raw');
 const SMOGON = 'https://raw.githubusercontent.com/pkmn/smogon/main/data/sets/gen9.json';
 const POKEAPI = 'https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/csv';
 const CSVS = [
-  'pokemon', 'pokemon_species_names', 'moves', 'move_names', 'move_flavor_text',
+  'pokemon', 'pokemon_species_names', 'pokemon_species', 'pokemon_stats', 'pokemon_egg_groups', 'egg_groups', 'egg_group_prose', 'stats', 'moves', 'move_names', 'move_flavor_text',
   'abilities', 'ability_names', 'ability_flavor_text', 'items', 'item_names', 'item_flavor_text',
   // dónde capturarlos
   'encounters', 'encounter_slots', 'encounter_methods', 'encounter_method_prose', 'encounter_conditions', 'encounter_condition_values', 'encounter_condition_value_prose',

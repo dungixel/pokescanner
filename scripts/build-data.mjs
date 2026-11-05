@@ -73,6 +73,13 @@ for (const r of csv('pokemon')) {
   pokeapiInfo.set(Number(r.id), { h: Number(r.height) / 10, w: Number(r.weight) / 10 });
 }
 const pokeapiKeys = [...pokeapiIds.keys()];
+// datos de especie: captura, felicidad, género, huevos, EVs que da
+const speciesInfo = new Map();
+for (const r of csv('pokemon_species')) speciesInfo.set(Number(r.id), { cr: Number(r.capture_rate), bh: Number(r.base_happiness), gr: Number(r.gender_rate), hc: Number(r.hatch_counter), gx: Number(r.growth_rate_id), eg: [] });
+const eggIdent = new Map(csv('egg_groups').map(r => [r.id, r.identifier]));
+for (const r of csv('pokemon_egg_groups')) speciesInfo.get(Number(r.species_id))?.eg.push(eggIdent.get(r.egg_group_id));
+const effortOf = new Map();
+for (const r of csv('pokemon_stats')) { const k = Number(r.pokemon_id); if (!effortOf.has(k)) effortOf.set(k, [0, 0, 0, 0, 0, 0]); effortOf.get(k)[Number(r.stat_id) - 1] = Number(r.effort); }
 
 // ───────────────────────── Traducciones fijas ─────────────────────────
 const NATURES_ES = {
@@ -371,6 +378,21 @@ for (const s of allSpecies) {
   const levelMoves = lv.filter(([l, mv]) => (seen.has(`${l}-${mv}`) ? false : seen.add(`${l}-${mv}`))).map(([l, mv]) => [l, addMove(mv)]);
   if (levelMoves.length) withLevelMoves++;
 
+  // movimientos por MT/MO, tutor y huevo (última generación de datos). Los de huevo salen de la primera etapa de la línea evolutiva.
+  const how = { M: new Set(), T: new Set(), E: new Set() };
+  for (const [mv, src] of Object.entries(ls?.learnset || {})) for (const code of src) { const m = /^(\d)([MT])$/.exec(code); if (m && Number(m[1]) === lg) how[m[2]].add(mv); }
+  {
+    let root = s;
+    for (let n = 0; root.prevo && n < 4; n++) { const pv = gen.species.get(root.prevo); if (!pv?.exists) break; root = pv; }
+    for (const sp of new Set([s, root])) {
+      let l = await gen.learnsets.get(sp.id);
+      if (!l?.learnset) l = await gen.learnsets.get(toID(sp.baseSpecies));
+      for (const [mv, src] of Object.entries(l?.learnset || {})) if (src.some(c => c === `${lg}E`)) how.E.add(mv);
+    }
+  }
+  const byMethod = k => [...how[k]].map(addMove).filter((v, i, a) => a.indexOf(v) === i);
+  const si = speciesInfo.get(s.num), ef = effortOf.get(sid) || effortOf.get(s.num);
+
   // todo lo que puede llevar (con lo de sus preevoluciones): sirve para el editor de builds
   {
     const all = new Set();
@@ -416,6 +438,8 @@ for (const s of allSpecies) {
     id: s.id, num: s.num, es: entry.es, en: s.name, t: types, r: tier, ...(old ? { g: old.g, lg, gt: old.all } : {}), ...(doublesTier ? { dr: doublesTier } : {}),
     s: entry.s, h: pokeapiInfo.get(sid)?.h ?? pokeapiInfo.get(s.num)?.h ?? null, w: s.weightkg || pokeapiInfo.get(sid)?.w || null, sp: sid, ss: entry.ss,
     ab: abilities, lv: levelMoves, sets, evo: evoTree(s),
+    ...(how.M.size ? { mt: byMethod('M') } : {}), ...(how.T.size ? { tu: byMethod('T') } : {}), ...(how.E.size ? { eggm: byMethod('E') } : {}),
+    ...(ef ? { ev: ef } : {}), ...(si ? { cr: si.cr, bh: si.bh, gr: si.gr, hc: si.hc, gx: si.gx, eg: si.eg } : {}),
   };
   if (detail.h != null) entry.h = detail.h; // altura y peso también en el índice: sirven para ordenar la lista
   if (detail.w != null) entry.w = detail.w;

@@ -1198,6 +1198,48 @@ function levelMovesHTML(expanded) {
   return `<ul class="lvl">${rows}</ul>${!expanded && lv.length > LIMIT ? `<button class="chip more" data-act="more">${t('showAllMoves', { n: lv.length })}</button>` : ''}`;
 }
 
+// ───────── Pestañas de movimientos y datos de la especie ─────────
+const EGG_ES = { monster: 'Monstruo', water1: 'Agua 1', bug: 'Bicho', flying: 'Volador', ground: 'Campo', fairy: 'Hada', plant: 'Planta', humanshape: 'Humanoide', water3: 'Agua 3', mineral: 'Mineral', indeterminate: 'Amorfo', water2: 'Agua 2', ditto: 'Ditto', dragon: 'Dragón', 'no-eggs': 'Desconocido' };
+const EGG_EN = { monster: 'Monster', water1: 'Water 1', bug: 'Bug', flying: 'Flying', ground: 'Field', fairy: 'Fairy', plant: 'Grass', humanshape: 'Human-Like', water3: 'Water 3', mineral: 'Mineral', indeterminate: 'Amorphous', water2: 'Water 2', ditto: 'Ditto', dragon: 'Dragon', 'no-eggs': 'Undiscovered' };
+const GROWTH = { 1: ['Lento', 'Slow'], 2: ['Medio rápido', 'Medium Fast'], 3: ['Rápido', 'Fast'], 4: ['Medio lento', 'Medium Slow'], 5: ['Errático', 'Erratic'], 6: ['Fluctuante', 'Fluctuating'] };
+const pct1 = n => `${(Math.round(n * 10) / 10).toLocaleString(lang() === 'en' ? 'en' : 'es')} %`;
+function speciesDataHTML(d) {
+  if (d.cr == null && !d.ev) return '';
+  const ev = (d.ev || []).map((n, i) => (n ? `+${n} ${statName(['hp', 'atk', 'def', 'spa', 'spd', 'spe'][i])}` : '')).filter(Boolean).join(', ');
+  const male = d.gr < 0 ? null : 100 - d.gr * 12.5;
+  const gender = male == null ? `<b>${t('dtNoGender')}</b>`
+    : `<div class="gbar" role="img" aria-label="♂ ${pct1(male)} · ♀ ${pct1(100 - male)}"><i style="width:${male}%"></i></div><b class="gtx"><span style="color:#3B82F6">♂ ${pct1(male)}</span> · <span style="color:#EC4899">♀ ${pct1(100 - male)}</span></b>`;
+  const egg = (d.eg || []).map(g => (lang() === 'en' ? EGG_EN : EGG_ES)[g] || g).join(' · ');
+  const row = (k, v) => (v ? `<div><span>${k}</span><div class="dv">${v}</div></div>` : '');
+  return `<section class="sec"><h2>${t('dtTitle')}</h2><div class="dlist">
+    ${row(t('dtEv'), ev ? `<b>${ev}</b>` : `<b>—</b>`)}
+    ${d.cr != null ? row(t('dtCatch'), `<b>${d.cr}</b> <small>(≈ ${pct1(d.cr / 7.65)} · Poké Ball)</small>`) : ''}
+    ${d.bh != null ? row(t('dtHappy'), `<b>${d.bh}</b>`) : ''}
+    ${d.gr != null ? row(t('dtGender'), gender) : ''}
+    ${egg ? row(t('dtEgg'), `<b>${egg}</b>`) : ''}
+    ${d.hc ? row(t('dtHatch'), `<b>${(d.hc * 256).toLocaleString(lang() === 'en' ? 'en' : 'es')}</b> <small>${t('dtSteps')}</small>`) : ''}
+    ${d.gx ? row(t('dtGrowth'), `<b>${GROWTH[d.gx]?.[lang() === 'en' ? 1 : 0] || ''}</b>`) : ''}
+  </div></section>`;
+}
+function formsHTML(d) {
+  const fs = INDEX.filter(p => p.num === d.num && p.id !== d.id);
+  if (!fs.length) return '';
+  return `<section class="sec"><h2>${t('dtForms')} <small>${fs.length + 1}</small></h2><div class="forms">${fs.map(p => `<a class="evo-card" href="#/pokemon/${p.id}">${pokeImg(p, 'small')}<span class="evo-txt"><b>${esc(pname(p))}</b><small>${dexNum(p.num)}</small><span class="types" style="display:flex;gap:4px;margin-top:6px">${p.t.map(typeDot).join('')}</span></span></a>`).join('')}</div></section>`;
+}
+const MTABS = [['lv', 'mtLevel'], ['mt', 'mtTm'], ['eggm', 'mtEgg'], ['tu', 'mtTutor']];
+function methodListHTML(ids) {
+  const list = ids.map(id => ({ id, m: DICT.moves[id] })).filter(x => x.m).sort((a, b) => dn(a.m).localeCompare(dn(b.m), lang()));
+  return `<ul class="lvl">${list.map(({ id, m }) => `<li><button class="lm solo" style="--tc:${TYPE_COLOR[m.t]}" data-act="move" data-v="${id}">${typeIcon(m.t)}<span class="n">${esc(dn(m))}</span>${catIcon(m.c)}<span class="pw">${m.p || '—'}</span></button></li>`).join('')}</ul>`;
+}
+function movesSectionHTML() {
+  const { d } = page, tab = page.mtab || 'lv';
+  const tabs = MTABS.filter(([k]) => k === 'lv' || d[k]?.length);
+  const cnt = k => (k === 'lv' ? d.lv.length : d[k].length);
+  const body = tab === 'lv' ? (d.lv.length ? levelMovesHTML(page.expanded) : `<p class="hint">${t('noLevelMoves')}</p>`) : methodListHTML(d[tab] || []);
+  return `<h2>${t('movesTitle')} <small>${d.g ? `${t('gen', { g: d.lg })} · ` : ''}${cnt(tab)}</small></h2>
+    ${tabs.length > 1 ? `<div class="chips mtabs" role="tablist">${tabs.map(([k, lbl]) => `<button class="chip ${k === tab ? 'on' : ''}" role="tab" aria-selected="${k === tab}" data-act="mtab" data-v="${k}">${t(lbl)} <small>${cnt(k)}</small></button>`).join('')}</div>` : ''}
+    <div id="lvl">${body}</div>`;
+}
 const favBtnInner = on => (on ? `${IC.starF}${t('favAddedBtn')}` : `${IC.star}${t('favAddBtn')}`);
 // ───────── Dónde capturarlo (PokeAPI, gen 1–8) ─────────
 let ENCD = null; const encCache = new Map();
@@ -1284,7 +1326,9 @@ function pokemonHTML() {
 
   ${countNodes(d.evo) > 1 ? `<section class="sec"><h2>${t('evolution')}</h2><div class="evo">${evoHTML(d.evo, d.id)}</div></section>` : ''}
 
-  <section class="sec"><h2>${t('levelMoves')} <small>${d.g ? `${t('gen', { g: d.lg })} · ` : ''}${d.lv.length}</small></h2><div id="lvl">${d.lv.length ? levelMovesHTML(page.expanded) : `<p class="hint">${t('noLevelMoves')}</p>`}</div></section>
+  ${speciesDataHTML(d)}
+  ${formsHTML(d)}
+  <section class="sec" id="moves">${movesSectionHTML()}</section>
   <section class="sec" id="enc">${encHTML()}</section>
   ${footerHTML()}`;
 }
@@ -2394,6 +2438,7 @@ document.addEventListener('click', e => {
     case 'set': page.idx = Number(v); $('#build').innerHTML = buildHTML(); break;
     case 'copy': copyText(showdownText()); break;
     case 'more': page.expanded = true; $('#lvl').innerHTML = levelMovesHTML(true); break;
+    case 'mtab': page.mtab = v; $('#moves').innerHTML = movesSectionHTML(); break;
 
     // comparador
     case 'pick':
