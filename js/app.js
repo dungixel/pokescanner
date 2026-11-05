@@ -2,7 +2,7 @@ import {
   TYPES, TYPE_ES, TYPE_EN, TYPE_COLOR, STATS, typeName, statName, catName, tierInfo, TIER_ORDER, formatName,
   esc, fold, dexNum, fmtNum, store, matchups, bst, statColor, tierLabel, tierColor, tierNum, tierNumHTML, TIER_MAX, formatRank,
   pname, pname2, dn, dn2, dd, how,
-  pokeImg, itemImg, typeIcon, typePill, typeDot, catIcon, SPR, img, spriteChain, smallSprite,
+  pokeImg, itemImg, typeIcon, typePill, typeDot, catIcon, SPR, img, spriteChain, smallSprite, SFIX, shinyStyle,
 } from './util.js';
 import { t, lang, setLang } from './i18n.js';
 import { analyzeTeam, scoreInfo } from './team.js';
@@ -445,7 +445,7 @@ async function getJSON(url) {
   return r.json();
 }
 let dictP = null, learnersP = null, LEARNERS = null, abilP = null, ABIL = null, itemP = null, ITEMS = null;
-const getDict = () => (dictP ??= getJSON('data/dict.json').then(d => (DICT = d)).catch(e => { dictP = null; throw e; }));
+const getDict = () => (dictP ??= Promise.all([getJSON('data/dict.json'), getJSON('data/shinyfix.json').then(f => Object.assign(SFIX, f)).catch(() => {})]).then(([d]) => (DICT = d)).catch(e => { dictP = null; throw e; }));
 const getAbil = () => (abilP ??= getJSON('data/abilities.json').then(d => (ABIL = d)).catch(e => { abilP = null; throw e; }));
 const getItems = () => (itemP ??= getJSON('data/items.json').then(d => (ITEMS = d)).catch(e => { itemP = null; throw e; }));
 const getLearners = () => (learnersP ??= getJSON('data/learners.json').then(d => (LEARNERS = d)).catch(e => { learnersP = null; throw e; }));
@@ -1326,7 +1326,7 @@ const SPARK = '<svg viewBox="0 0 24 24"><path d="M10 4l1.7 4.6L16.3 10l-4.6 1.7L
 const artImg = d => {
   const sh = page?.shiny;
   const srcs = sh ? [`${SPR}/pokemon/other/official-artwork/shiny/${d.sp}.png`, `${SPR}/pokemon/other/home/shiny/${d.sp}.png`, `https://play.pokemonshowdown.com/sprites/gen5-shiny/${d.ss}.png`] : spriteChain({ sp: d.sp, ss: d.ss }, 'art');
-  return img(srcs, { cls: 'poke art', alt: '', w: 300, h: 300 }).replace('loading="lazy"', 'fetchpriority="high"');
+  return img(srcs, { cls: 'poke art', alt: '', w: 300, h: 300, style: sh ? shinyStyle(d.sp) : '' }).replace('loading="lazy"', 'fetchpriority="high"');
 };
 
 function customBuildHTML() {

@@ -784,9 +784,9 @@ img.mini { width: 28px; height: 28px; object-fit: contain; flex: none; }
 
 /* zoom suave al pasar el ratón (solo ratón, solo piezas pequeñas; las cajas anchas y los desplegables no se agrandan) */
 @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
-  .chip:not(:disabled):hover, .iconbtn:not(:disabled):hover, .backfab:hover, .avatarbtn:hover, .dk a:hover, .dk button:hover { transform: scale(1.06) !important; transition: transform .14s ease-out !important; }
+  button.chip:not(:disabled):hover, a.chip:hover, .iconbtn:not(:disabled):hover, .backfab:hover, .avatarbtn:hover, .dk a:hover, .dk button:hover { transform: scale(1.06) !important; transition: transform .14s ease-out !important; }
   a.row:hover, a.card:hover, a.evo-card:hover { transform: scale(1.02) !important; transition: transform .14s ease-out !important; }
-  .chip:not(:disabled):active, .iconbtn:active, .backfab:active, a.row:active, a.card:active, a.evo-card:active { transform: scale(.97) !important; }
+  button.chip:not(:disabled):active, a.chip:active, .iconbtn:active, .backfab:active, a.row:active, a.card:active, a.evo-card:active { transform: scale(.97) !important; }
 }
 
 /* puntuación del equipo en el círculo de cada hueco */

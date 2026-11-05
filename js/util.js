@@ -168,12 +168,15 @@ export const spriteChain = (p, kind, shiny = false) => (shiny
   : [smallSprite(p), artSprite(p), showdownSprite(p)]);
 
 /** <img> con cadena de alternativas (el manejador de errores global prueba la siguiente) */
-export function img(srcs, { cls = '', alt = '', lazy = true, w, h } = {}) {
+/** Algunas ilustraciones shiny oficiales vienen a otra escala que las normales: SFIX[sp] = [escala, dx %, dy %] las iguala */
+export const SFIX = {};
+export const shinyStyle = sp => { const f = SFIX[sp]; return f ? `translate:${f[1]}% ${f[2]}%;scale:${f[0]}` : ''; };
+export function img(srcs, { cls = '', alt = '', lazy = true, w, h, style = '' } = {}) {
   const [first, ...rest] = srcs;
   return `<img class="${cls}" src="${esc(first)}" ${rest.length ? `data-fb="${esc(rest.join('|'))}"` : ''} alt="${esc(alt)}"` +
-    `${lazy ? ' loading="lazy"' : ''} decoding="async"${w ? ` width="${w}"` : ''}${h ? ` height="${h}"` : ''}>`;
+    `${lazy ? ' loading="lazy"' : ''} decoding="async"${w ? ` width="${w}"` : ''}${h ? ` height="${h}"` : ''}${style ? ` style="${style}"` : ''}>`;
 }
-export const pokeImg = (p, kind = 'small', cls = '', size, shiny = false) => img(spriteChain(p, kind, shiny), { cls: `poke ${cls}`, alt: '', w: size, h: size });
+export const pokeImg = (p, kind = 'small', cls = '', size, shiny = false) => img(spriteChain(p, kind, shiny), { cls: `poke ${cls}`, alt: '', w: size, h: size, style: shiny && kind === 'art' ? shinyStyle(p.sp) : '' });
 export const itemImg = (it, cls = '') => (it?.i ? img([`${SPR}/items/${it.i}.png`], { cls: `item ${cls}`, alt: '', w: 32, h: 32 }) : '');
 
 export const typeIcon = (t, cls = '') =>
