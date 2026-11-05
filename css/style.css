@@ -1136,3 +1136,16 @@ input.edr:focus-visible::-webkit-slider-thumb { outline: 3px solid color-mix(in 
 .chip.pkf { padding-left: 6px; gap: 4px; }
 .chip.pkf .thumb { width: 26px; height: 26px; }
 .chip.pkf .x svg { width: 14px; height: 14px; }
+
+/* Favoritos: lista simple y una página por equipo */
+.slothead { grid-template-columns: 38px minmax(0, 1fr) auto; }
+button.slot.slothead { cursor: pointer; }
+.mrow { grid-template-columns: minmax(0, 1fr) 44px 44px; }
+.tnrow { display: flex; align-items: center; gap: 10px; }
+.tnrow h1 { flex: 1; min-width: 0; font-size: 1.7rem; overflow-wrap: anywhere; }
+.tninput { flex: 1; min-width: 0; font: inherit; font-size: 1.5rem; font-weight: 800; padding: 6px 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+.thead { display: grid; gap: 8px; padding-top: 6px; }
+.thead .minis { flex-wrap: wrap; }
+.tdiv { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
+#teams-root > .list { margin-bottom: 12px; }
+#teams-root > .slotacts { margin-bottom: 8px; }

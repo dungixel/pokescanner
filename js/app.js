@@ -161,7 +161,7 @@ function saveSlot(i) {
 function afterTeamsChange() {
   rebuildFavs(); paintFavBtn(); refreshModal();
   document.querySelectorAll('.favdot[data-v]').forEach(b => { const on = favs.has(b.dataset.v); b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); b.innerHTML = on ? IC.starF : IC.star; });
-  if (state.view === 'teams') paintTeams();
+  if (inTeams()) paintTeams();
   document.querySelectorAll('.favn').forEach(n => { n.textContent = favs.size ? `(${favs.size})` : ''; });
 }
 /** Mete o saca un Pokémon de un equipo. Devuelve true si cambió algo */
@@ -191,7 +191,7 @@ async function onAuth(event, s) {
     pending = null; me = null; resetTeams(); if (state.view === 'community') paintCom(); else if (state.view === 'post') paintPost(); else if (state.view === 'user') paintUser();
     auth.untrackPresence().catch(() => {}); auth.unwatchFriends().catch(() => {});
     refreshModal(); paintFavBtn();
-    if (state.view === 'home') renderResults(); else if (state.view === 'teams') paintTeams(); else if (state.view === 'battle') renderBattle();
+    if (state.view === 'home') renderResults(); else if (inTeams()) paintTeams(); else if (state.view === 'battle') renderBattle();
     return;
   }
   const u = auth.userInfo();
@@ -224,7 +224,7 @@ async function onAuth(event, s) {
   } catch { /* se queda con lo local */ }
   auth.trackPresence().catch(() => {});
   if (!smodal.hidden) closeSettings();
-  if (state.view === 'home') renderResults(); else if (state.view === 'teams') paintTeams(); else if (state.view === 'battle') renderBattle();
+  if (state.view === 'home') renderResults(); else if (inTeams()) paintTeams(); else if (state.view === 'battle') renderBattle();
   paintFavBtn();
   refreshModal();
   await auth.checkAdmin().catch(() => {});
@@ -319,7 +319,7 @@ function renderDock() {
 }
 function updateDock() {
   const home = state.view === 'home';
-  const on = { 'dock-home': home, 'dock-community': state.view === 'community' || state.view === 'post' || state.view === 'user', 'dock-battle': state.view === 'battle', 'dock-favs': state.view === 'teams', 'dock-settings': !smodal.hidden };
+  const on = { 'dock-home': home, 'dock-community': state.view === 'community' || state.view === 'post' || state.view === 'user', 'dock-battle': state.view === 'battle', 'dock-favs': state.view === 'teams' || state.view === 'team', 'dock-settings': !smodal.hidden };
   dockEl.querySelectorAll('.dk').forEach(b => b.classList.toggle('on', !!on[b.dataset.act]));
 }
 /** Vuelve al buscador con los filtros que se indiquen (el resto se limpia) */
@@ -702,11 +702,12 @@ function route() {
   if (back) { copyKeys(back, state); state.scroll = back.y; state.restoreY = back.y; } // se vuelve a una página ya vista: se recupera tal cual
   const m = location.hash.match(/^#\/pokemon\/([a-z0-9]+)/);
   const d = location.hash.match(/^#\/(move|ability|item|tier)\/([A-Za-z0-9]+)/);
+  const tp = location.hash.match(/^#\/team\/(\d)/);
   const um = location.hash.match(/^#\/user\/([0-9a-f-]{36})/);
   const cm = location.hash.match(/^#\/community\/(\d+)/);
   const sh = location.hash.match(/^#\/t\/([a-z0-9,]*)(?:\?n=(.*))?$/);
   if (state.view === 'battle' && location.hash !== '#/battle') auth.unwatchFriends().catch(() => {});
-  if (sh) renderShared(sh[1], sh[2]); else if (m) renderPokemon(m[1]); else if (d) renderDetailPage(d[1], d[2]); else if (um) renderUser(um[1]); else if (cm) renderPost(cm[1]); else if (location.hash === '#/community') renderCommunity(); else if (location.hash === '#/types') renderTypes(); else if (location.hash === '#/teams') renderTeams(); else if (location.hash === '#/battle') renderBattle(); else renderHome();
+  if (sh) renderShared(sh[1], sh[2]); else if (m) renderPokemon(m[1]); else if (d) renderDetailPage(d[1], d[2]); else if (tp) renderTeamPage(tp[1]); else if (um) renderUser(um[1]); else if (cm) renderPost(cm[1]); else if (location.hash === '#/community') renderCommunity(); else if (location.hash === '#/types') renderTypes(); else if (location.hash === '#/teams') renderTeams(); else if (location.hash === '#/battle') renderBattle(); else renderHome();
   updateDock();
   if (wentBack) { $app.classList.remove('goback'); void $app.offsetWidth; $app.classList.add('goback'); setTimeout(() => $app.classList.remove('goback'), 260); }
 }
@@ -881,7 +882,7 @@ function suggestMissing(team, max = 5) {
   return out;
 }
 const missingHTML = team => {
-  if (state.view !== 'teams' || team.length < 3 || team.length >= MAXTEAM || teamsSel.open < 0) return '';
+  if (state.view !== 'team' || team.length < 3 || team.length >= MAXTEAM || teamsSel.open < 0) return '';
   const picks = suggestMissing(team);
   if (!picks.length) return '';
   return `<div class="swap missing"><h4>${t('an_missing')}</h4><p>${t('an_missingHint', { n: MAXTEAM - team.length })}</p><ul class="pans">${picks.map(x => `<li><span class="lft">${chipPoke(x.p)}<small>${t('an_missingGain', { k: x.gain })}</small></span><button class="chip small accent" data-act="team-sugg-add" data-v="${x.p.id}">${IC.plus}${t('sugAdd')}</button></li>`).join('')}</ul></div>`;
@@ -1399,7 +1400,7 @@ function persistEditor() {
   const { slot, k, base, cur } = ed, m = teams[slot]?.members[k]; if (!m) return;
   const b = diffBuild(base, cur);
   if (b) m.b = b; else delete m.b;
-  saveSlot(slot); if (state.view === 'teams') paintTeams();
+  saveSlot(slot); if (inTeams()) paintTeams();
 }
 function onEditorInput(e) {
   const el = e.target, kind = el.dataset.ed, i = Number(el.dataset.k), { cur, d } = ed;
@@ -1730,35 +1731,44 @@ const bansModalHTML = () => `<div class="scard" role="dialog" aria-modal="true" 
   ${usr.bans == null ? '<p class="shint">…</p>' : usr.bans.length ? `<ul class="banlist">${usr.bans.map(b => `<li>${avatarImg(b.avatar, 'sm')}<a href="#/user/${b.user_id}" data-act="settings-close"><b>${esc(b.username || '?')}</b></a><button class="chip" data-act="adm-unban" data-v="${b.user_id}">${t('admUnban')}</button></li>`).join('')}</ul>` : `<p class="shint">${t('admNoBans')}</p>`}</div>`;
 
 // ───────────────────────── Favoritos: 9 equipos ─────────────────────────
-const teamsSel = { open: 0 };
+const teamsSel = { open: 0, rename: false };
+const inTeams = () => state.view === 'teams' || state.view === 'team';
 const loginCta = (title, action) => `<div class="empty"><b>${t(title)}</b>${t('loginText')}<div class="ctarow"><button class="chip accent" data-act="login-open" data-v="${action}">${IC.user}${t('loginGoogle')}</button></div></div>`;
 function memberRow(p, slot, k) {
   const m = teams[slot]?.members[k];
   return `<div class="mrow">${rowCore(p, m?.b?.sh)}<button class="iconbtn ${m?.b ? 'on' : ''}" data-act="ed-open" data-v="${slot}:${k}" aria-label="${t('edTitle')}">${IC.pencil}</button><button class="iconbtn" data-act="team-remove" data-v="${p.id}" aria-label="${t('removePoke')}">${IC.trash}</button></div>`;
 }
 function slotHTML(i) {
-  const tm = teams[i], open = teamsSel.open === i;
+  const tm = teams[i];
   const members = tm.members.map(m => BYID.get(m.id)).filter(Boolean);
-  const body = !open ? '' : `<div class="slotbody">
-    <label class="tname"><span>${t('teamName')}</span><input class="unin" id="tn" data-slot="${i}" value="${esc(tm.name)}" placeholder="${t('teamN', { n: i + 1 })}" maxlength="24" autocomplete="off" autocapitalize="sentences"></label>
+  return `<button class="slot slothead" data-act="slot-go" data-v="${i}">
+      ${members.length >= 3 ? (sc => `<span class="sn sc" style="--sc:${scoreInfo(sc).c}" title="${t('an_title')}">${sc}</span>`)(analyzeTeam(members).score) : `<span class="sn sc none" title="${t('an_title')}">-</span>`}
+      <span class="sname"><b>${esc(teamName(i))}</b><span class="minis">${members.map((p, k) => pokeImg(p, 'small', 'mini', undefined, !!tm.members[k]?.b?.sh)).join('') || `<small>${t('teamEmpty')}</small>`}</span></span>
+      <span class="scount">${members.length}/${MAXTEAM}</span></button>`;
+}
+function teamPageHTML(i) {
+  const tm = teams[i];
+  const members = tm.members.map(m => BYID.get(m.id)).filter(Boolean);
+  const name = teamsSel.rename
+    ? `<input class="tninput" id="tn" data-slot="${i}" value="${esc(tm.name)}" placeholder="${t('teamN', { n: i + 1 })}" maxlength="24" autocomplete="off" autocapitalize="sentences" aria-label="${t('teamName')}">`
+    : `<h1>${esc(teamName(i))}</h1>`;
+  return `<header class="thead"><div class="tnrow">${name}<button class="iconbtn" data-act="tn-edit" aria-label="${t('teamName')}">${teamsSel.rename ? IC.check : IC.pencil}</button></div>
+      <span class="minis">${members.map((p, k) => pokeImg(p, 'small', 'mini', undefined, !!tm.members[k]?.b?.sh)).join('') || `<small>${t('teamEmpty')}</small>`}</span></header>
+    <hr class="tdiv">
     ${members.length ? `<div class="list">${tm.members.map((m, k) => (BYID.get(m.id) ? memberRow(BYID.get(m.id), i, k) : '')).join('')}</div>` : `<p class="shint">${t('teamEmptyHint')}</p>`}
     <div class="slotacts">${members.length < MAXTEAM ? `<button class="chip" data-act="slot-add">${IC.plus}${t('addPoke')}</button>` : ''}${members.length ? `<button class="chip" data-act="team-share" data-v="${i}">${IC.share}${t('shareTeam')}</button>` : ''}</div>
-    ${members.length ? teamHTML(members) : ''}</div>`;
-  return `<section class="slot ${open ? 'open' : ''}">
-    <button class="slothead" data-act="slot-open" data-v="${i}" aria-expanded="${open}">
-      <span class="chev">${I.chev}</span>
-      ${members.length >= 3 ? (sc => `<span class="sn sc" style="--sc:${scoreInfo(sc).c}" title="${t('an_title')}">${sc}</span>`)(analyzeTeam(members).score) : `<span class="sn sc none" title="${t('an_title')}">-</span>`}
-      <span class="sname"><b>${esc(teamName(i))}</b><span class="minis">${members.map(p => pokeImg(p, 'small', 'mini')).join('') || `<small>${t('teamEmpty')}</small>`}</span></span>
-      <span class="scount">${members.length}/${MAXTEAM}</span></button>${body}</section>`;
+    ${members.length ? teamHTML(members) : ''}`;
 }
 function teamsHTML() {
   if (!auth.currentUser()) return `<header class="hero"><h1>${t('teamsTitle')}</h1><p>${t('teamsLead')}</p></header>${loginCta('loginTitle', 'favs')}`;
+  if (state.view === 'team') return teamPageHTML(teamsSel.open);
   return `<header class="hero"><h1>${t('teamsTitle')}</h1><p>${t('teamsLead')}</p></header><div class="slots">${teams.map((_, i) => slotHTML(i)).join('')}</div>`;
 }
 function paintTeams() {
   const root = $('#teams-root'); if (!root) return;
-  const y = window.scrollY;
+  const y = window.scrollY, had = document.activeElement?.id === 'tn';
   root.innerHTML = teamsHTML();
+  if (had) { const n = $('#tn'); n?.focus({ preventScroll: true }); }
   window.scrollTo(0, y);
 }
 function renderShared(idStr, nameRaw) {
@@ -1774,6 +1784,15 @@ function renderShared(idStr, nameRaw) {
       <div class="sharedacts"><button class="chip accent" data-act="shared-save">${IC.star}${t('sharedSave')}</button><button class="chip" data-act="shared-compare">${IC.battle}${t('sharedCompare')}</button><button class="chip" data-act="shared-share">${IC.share}${t('shareTeam')}</button></div>
       <div class="list">${ps.map(rowCore).join('')}</div>${ps.length >= 3 ? teamHTML(ps, true) : ''}`
     : `<div class="empty"><b>${t('sharedEmpty')}</b></div>`);
+  window.scrollTo(0, 0);
+  updateDock();
+}
+function renderTeamPage(n) {
+  state.view = 'team'; teamsSel.open = Math.min(Math.max(Number(n) || 0, 0), SLOTS - 1); teamsSel.rename = false;
+  document.title = `${teamName(teamsSel.open)} · PokeScanner`;
+  document.documentElement.style.removeProperty('--accent');
+  $app.innerHTML = topbarHTML() + '<div id="teams-root"></div>';
+  paintTeams();
   window.scrollTo(0, 0);
   updateDock();
 }
@@ -2114,7 +2133,6 @@ document.addEventListener('input', e => {
   if (id === 'tn') {
     const i = Number(e.target.dataset.slot);
     teams[i].name = e.target.value.slice(0, 24); saveSlot(i);
-    const b = document.querySelector('.slot.open .slothead b'); if (b) b.textContent = teamName(i);
     return;
   }
   if (id !== 'q') return;
@@ -2161,6 +2179,7 @@ async function addFriend() {
   paintBattle();
 }
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'fr-name') { e.preventDefault(); addFriend(); } });
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'tn') { e.preventDefault(); teamsSel.rename = false; paintTeams(); document.title = `${teamName(teamsSel.open)} · PokeScanner`; } });
 // el menú de equipos se cierra al pulsar fuera o con Escape
 document.addEventListener('pointerdown', e => { if (bt.menu && !e.target.closest('.tmenu, [data-act="team-menu"]')) { bt.menu = null; paintBattle(); } });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && bt.menu) { bt.menu = null; paintBattle(); } });
@@ -2238,7 +2257,8 @@ document.addEventListener('click', e => {
       if (toggleInTeam(i, pickId)) { closeSettings(); toast(t(had ? 'removedFrom' : 'addedTo', { name: pname(p), team: teamName(i) })); }
       break;
     }
-    case 'slot-open': teamsSel.open = teamsSel.open === Number(v) ? -1 : Number(v); paintTeams(); break;
+    case 'slot-go': location.hash = `#/team/${v}`; break;
+    case 'tn-edit': teamsSel.rename = !teamsSel.rename; paintTeams(); if (teamsSel.rename) { const n = $('#tn'); n?.focus(); n?.setSelectionRange(n.value.length, n.value.length); } else document.title = `${teamName(teamsSel.open)} · PokeScanner`; break;
     case 'slot-add': if (teamsSel.open >= 0) openPicker({ mode: 'team', slot: teamsSel.open }); break;
     case 'team-sugg-add': if (teamsSel.open >= 0) { const had = teams[teamsSel.open].members.some(m => m.id === v); if (!had && toggleInTeam(teamsSel.open, v)) toast(t('addedTo', { name: pname(BYID.get(v)), team: teamName(teamsSel.open) })); } break;
     case 'fb-kind': fbKind = v; document.querySelectorAll('[data-act="fb-kind"]').forEach(b => { const on = b.dataset.v === v; b.setAttribute('aria-pressed', on); b.setAttribute('aria-checked', on); }); break;
