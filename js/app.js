@@ -229,7 +229,7 @@ function teamPickHTML() {
       const has = tm.members.some(m => m.id === pickId), full = tm.members.length >= MAXTEAM && !has;
       return `<button class="slotopt ${has ? 'on' : ''}" data-act="team-toggle" data-v="${i}" ${full ? 'disabled' : ''}>
         <span class="sn">${i + 1}</span>
-        <span class="sname"><b>${esc(teamName(i))}</b><span class="minis">${tm.members.map(m => miniPoke(m.id)).join('') || `<small>${t('teamEmpty')}</small>`}</span></span>
+        <span class="sname"><b>${full ? `<span class="fulltag">${t('fullTag')}</span> ` : ''}${esc(teamName(i))}</b><span class="minis">${tm.members.map(m => miniPoke(m.id)).join('') || `<small>${t('teamEmpty')}</small>`}</span></span>
         <span class="scount">${tm.members.length}/${MAXTEAM}</span>
         <span class="sck">${has ? IC.check : full ? '' : IC.plus}</span></button>`;
     }).join('')}</div></div>`;

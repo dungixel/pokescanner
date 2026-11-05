@@ -98,7 +98,7 @@ const STR = {
     // ── equipos, batalla, perfil ──
     dockBattle: 'Batalla', teamN: 'Equipo {n}', teamsTitle: 'Favoritos', teamsLead: 'Guarda hasta 9 equipos de 6 Pokémon. Toca uno para editarlo y ver su análisis.',
     teamEmpty: 'Vacío', teamEmptyHint: 'Este equipo está vacío. Añade Pokémon desde aquí o desde su ficha con «Añadir a favoritos».', teamName: 'Nombre del equipo',
-    addPoke: 'Añadir Pokémon', removePoke: 'Quitar del equipo', teamFull: 'Este equipo ya tiene 6 Pokémon.',
+    fullTag: '(lleno)', addPoke: 'Añadir Pokémon', removePoke: 'Quitar del equipo', teamFull: 'Este equipo ya tiene 6 Pokémon.',
     pickTeamTitle: 'Añadir a un equipo', pickTeamText: '¿En qué equipo guardas a {name}? Toca uno que ya lo tenga para quitarlo.',
     addedTo: '{name} añadido a «{team}»', removedFrom: '{name} quitado de «{team}»', pickerSearch: 'Buscar Pokémon…', pickerNone: 'No hay resultados.',
     avatarPick: 'Elige tu foto', avatarChange: 'Cambiar foto', username: 'Nombre de usuario', saveBtn: 'Guardar', unHint: 'De 3 a 16 letras, números o _. Es lo que ven tus amigos.',
@@ -231,7 +231,7 @@ const STR = {
     // ── teams, battle, profile ──
     dockBattle: 'Battle', teamN: 'Team {n}', teamsTitle: 'Favorites', teamsLead: 'Save up to 9 teams of 6 Pokémon. Tap one to edit it and see its analysis.',
     teamEmpty: 'Empty', teamEmptyHint: 'This team is empty. Add Pokémon from here or from their page with “Add to favorites”.', teamName: 'Team name',
-    addPoke: 'Add Pokémon', removePoke: 'Remove from team', teamFull: 'This team already has 6 Pokémon.',
+    fullTag: '(full)', addPoke: 'Add Pokémon', removePoke: 'Remove from team', teamFull: 'This team already has 6 Pokémon.',
     pickTeamTitle: 'Add to a team', pickTeamText: 'Which team do you want to save {name} in? Tap a team that already has it to remove it.',
     addedTo: '{name} added to “{team}”', removedFrom: '{name} removed from “{team}”', pickerSearch: 'Search Pokémon…', pickerNone: 'No results.',
     avatarPick: 'Choose your picture', avatarChange: 'Change picture', username: 'Username', saveBtn: 'Save', unHint: '3 to 16 letters, numbers or _. This is what your friends see.',

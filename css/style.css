@@ -817,3 +817,5 @@ img.mini { width: 28px; height: 28px; object-fit: contain; flex: none; }
 .result .factors { margin-top: 16px; gap: 14px; }
 .result .facthint { margin-top: 12px; margin-bottom: 18px; }
 .result .note { margin-top: 12px; line-height: 1.5; }
+
+.fulltag { font-weight: 600; color: var(--muted); margin-right: 2px; }
