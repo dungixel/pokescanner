@@ -140,6 +140,9 @@ export const pname2 = p => (lang() === 'en' ? '' : p.en);
 export const dn = x => (lang() === 'en' ? x.e : x.n);
 export const dn2 = x => (lang() === 'en' ? '' : x.e);
 export const dd = x => (lang() === 'en' ? (x.de || x.d) : x.d);
+/** descripción precisa (con cifras) si existe; si no, el texto del juego */
+export const dp = x => (lang() === 'en' ? (x.xe || x.de || x.d) : (x.x || x.d)) || '';
+export const hasPrecise = x => !!(lang() === 'en' ? x.xe : x.x);
 export const how = n => (lang() === 'en' ? (n.hx || n.how) : n.how);
 
 // ───────── utilidades de texto ─────────

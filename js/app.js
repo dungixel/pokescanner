@@ -1,7 +1,7 @@
 import {
   TYPES, TYPE_ES, TYPE_EN, TYPE_COLOR, STATS, typeName, statName, catName, tierInfo, TIER_ORDER, formatName,
   esc, fold, dexNum, fmtNum, store, matchups, bst, statColor, tierLabel, tierColor, tierNum, tierNumHTML, TIER_MAX, formatRank,
-  pname, pname2, dn, dn2, dd, how,
+  pname, pname2, dn, dn2, dd, dp, hasPrecise, how,
   pokeImg, itemImg, typeIcon, typePill, typeDot, catIcon, SPR, img, spriteChain, smallSprite, SFIX, shinyStyle,
 } from './util.js';
 import { t, lang, setLang } from './i18n.js';
@@ -159,6 +159,11 @@ const avatarImg = (n, cls = '') => `<img class="av ${cls}" src="${SPR}/pokemon/$
 const miniPoke = id => (BYID.get(id) ? pokeImg(BYID.get(id), 'small', 'mini') : '');
 
 /** miembro que representa la ficha abierta: el Pokémon tal cual o, en una ficha personalizada, su build editada */
+const descHTML = x => {
+  const fl = dd(x);
+  if (!hasPrecise(x)) return `<p class="desc">${esc(fl) || `<span class="dim">${t('noDesc')}</span>`}</p>`;
+  return `<p class="desc strong">${esc(dp(x))}</p>${fl ? `<p class="flavor"><small>${t('inGameText')}</small>${esc(fl)}</p>` : ''}`;
+};
 const pageMember = () => (page?.bm ? { id: page.d.id, ...(page.bm.s != null ? { s: page.bm.s } : {}), b: page.bm.b } : { id: page.d.id });
 function paintFavBtn() {
   const b = $('.favbtn'); if (!b || !page?.d) return;
@@ -630,7 +635,7 @@ function moveHTML(id) {
     <div><b>${m.pp || '—'}</b><small>PP</small></div>
     <div><b>${m.pr > 0 ? '+' + m.pr : m.pr}</b><small>${t('priority')}</small></div>
   </div></section>
-  <section class="sec"><h2>${t('description')}</h2><p class="desc">${esc(dd(m)) || `<span class="dim">${t('noDesc')}</span>`}</p></section>
+  <section class="sec"><h2>${t('description')}</h2>${descHTML(m)}</section>
   ${(L.s.length + L.l.length) ? pfBar() : ''}
   ${body}${footerHTML()}`;
 }
@@ -649,7 +654,7 @@ function abilityHTML(id) {
     <h1>${esc(dn(a))}</h1>
     ${dn2(a) && dn2(a) !== dn(a) ? `<span class="en">${esc(dn2(a))}</span>` : ''}
   </section>
-  <section class="sec"><h2>${t('description')}</h2><p class="desc">${esc(dd(a)) || `<span class="dim">${t('noDesc')}</span>`}</p></section>
+  <section class="sec"><h2>${t('description')}</h2>${descHTML(a)}</section>
   ${any ? pfBar() : ''}
   ${listSection('users', t('ab_best'), t('ab_bestNote'), users, fitRow, 'list')}
   ${listSection('normal', t('ab_normal'), '', normal, chipPoke, 'chips')}
@@ -669,7 +674,7 @@ function itemHTML(id) {
     <h1>${esc(dn(it))}</h1>
     ${dn2(it) && dn2(it) !== dn(it) ? `<span class="en">${esc(dn2(it))}</span>` : ''}
   </section>
-  <section class="sec"><h2>${t('description')}</h2><p class="desc">${esc(dd(it)) || `<span class="dim">${t('noDesc')}</span>`}</p></section>
+  <section class="sec"><h2>${t('description')}</h2>${descHTML(it)}</section>
   ${L.length ? pfBar() : ''}
   ${users.length ? listSection('users', t('it_best'), t('it_bestNote'), users, fitRow, 'list') : pfActive() ? pfEmpty() : `<section class="sec"><p class="hint">${t('it_none')}</p></section>`}
   ${footerHTML()}`;
@@ -1573,7 +1578,7 @@ function editorPickHTML() {
   const { d, cur, pick, q } = ed, f = fold(q || '');
   const head = `<div class="edph"><button class="iconbtn" data-act="ed-back" aria-label="${t('backShort')}">${I.back}</button>${/^(m\d|item)$/.test(pick) ? `<input id="ed-q" class="unin" value="${esc(q || '')}" placeholder="${t('edSearch')}" autocomplete="off" autocapitalize="off" spellcheck="false">` : `<b>${t(pick === 'ability' ? 'edAbility' : 'edNature')}</b>`}</div>`;
   let opts = '';
-  if (pick === 'ability') opts = d.ab.map(a => { const x = DICT.abilities[a.id]; return `<button class="edopt ${cur.a === a.id ? 'on' : ''}" data-act="ed-set" data-v="${a.id}"><b>${esc(dn(x))}${a.h ? ` <small>${t('hidden')}</small>` : ''}</b><small>${esc(dd(x))}</small></button>`; }).join('');
+  if (pick === 'ability') opts = d.ab.map(a => { const x = DICT.abilities[a.id]; return `<button class="edopt ${cur.a === a.id ? 'on' : ''}" data-act="ed-set" data-v="${a.id}"><b>${esc(dn(x))}${a.h ? ` <small>${t('hidden')}</small>` : ''}</b><small>${esc(dp(x))}</small></button>`; }).join('');
   else if (pick === 'nature') opts = Object.keys(DICT.natures).sort((a, b) => dn(DICT.natures[a]).localeCompare(dn(DICT.natures[b]))).map(id => `<button class="edopt ${cur.n === id ? 'on' : ''}" data-act="ed-set" data-v="${id}"><b>${natLabel(id)}</b></button>`).join('');
   else if (pick === 'item') {
     const ids = Object.keys(ED.items).filter(id => !f || fold(dn(DICT.items[id])).includes(f) || fold(DICT.items[id].e).includes(f)).sort((a, b) => dn(DICT.items[a]).localeCompare(dn(DICT.items[b]))).slice(0, 80);
