@@ -1071,3 +1071,25 @@ input.edr:focus-visible::-webkit-slider-thumb { outline: 3px solid color-mix(in 
 .slotopt:not(.on) .sck { opacity: 0; }
 .modtag { font-size: .4em; font-weight: 600; color: var(--muted); letter-spacing: 0; white-space: nowrap; vertical-align: middle; }
 .cb-poke .modtag { font-size: .72rem; line-height: 1.1; }
+
+/* detalle de publicación: más aire y elementos pulsables */
+.cbuilds { gap: 12px; }
+.cbuild { gap: 16px; padding: 16px 16px 14px; }
+.cb-poke { width: 96px; gap: 4px; }
+.cb-poke b { line-height: 1.2; }
+.cb-poke .modtag { display: block; margin-top: 1px; }
+.cb-info { gap: 12px; font-size: .9rem; padding-top: 2px; }
+.cb-line { gap: 6px 14px; line-height: 1.35; }
+.cb-moves { gap: 7px; }
+.cb-mv { padding: 5px 11px 5px 7px; gap: 6px; border: 0; color: inherit; font: inherit; font-size: .85rem; cursor: pointer; }
+.cb-mv svg, .cb-mv img { width: 16px; height: 16px; }
+.cb-item, .cb-ab { background: none; border: 0; padding: 0; font: inherit; color: var(--ink); cursor: pointer; display: inline-flex; align-items: center; gap: 4px; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+.cb-ev { line-height: 1.4; }
+
+/* puntuación del equipo a la derecha de cada publicación */
+.cpost { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; }
+.cpost .cmain { grid-column: 1; grid-row: 1; }
+.cpost .cscore { grid-column: 2; grid-row: 1; align-self: center; }
+.cpost .cacts { grid-column: 1 / -1; grid-row: 2; }
+.sn.sc.big { width: 46px; height: 46px; font-size: 1.15rem; }
+.cacts .sn.sc.big { width: 36px; height: 36px; font-size: 1rem; margin-right: 6px; }

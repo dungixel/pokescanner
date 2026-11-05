@@ -13,17 +13,19 @@ export const userInfo = () => {
   return { id: u.id, name: m.full_name || m.name || u.email || '', email: u.email || '', avatar: m.avatar_url || m.picture || '' };
 };
 
-async function client() {
-  if (sb) return sb;
-  const { createClient } = await import('../vendor/supabase.js');
-  sb = createClient(SB_URL, SB_KEY, { auth: { flowType: 'pkce', persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
-  sb.auth.onAuthStateChange((event, s) => {
-    const was = session?.user?.id;
-    session = s;
-    // INITIAL_SESSION / SIGNED_IN se repiten (p. ej. al volver a la pestaña): solo avisamos si cambió el usuario
-    if (event === 'SIGNED_OUT' || (s?.user?.id !== was)) setTimeout(() => onChange(event, s), 0);
-  });
-  return sb;
+let clientP = null; // una sola instancia aunque varias partes la pidan a la vez (dos clientes se pisarían la sesión)
+function client() {
+  return (clientP ??= (async () => {
+    const { createClient } = await import('../vendor/supabase.js');
+    sb = createClient(SB_URL, SB_KEY, { auth: { flowType: 'pkce', persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
+    sb.auth.onAuthStateChange((event, s) => {
+      const was = session?.user?.id;
+      session = s;
+      // INITIAL_SESSION / SIGNED_IN se repiten (p. ej. al volver a la pestaña): solo avisamos si cambió el usuario
+      if (event === 'SIGNED_OUT' || (s?.user?.id !== was)) setTimeout(() => onChange(event, s), 0);
+    });
+    return sb;
+  })().catch(e => { clientP = null; throw e; }));
 }
 
 /** Arranca la cuenta: si hay sesión guardada (o se vuelve de Google) carga la librería y la recupera */
@@ -199,13 +201,13 @@ export async function unwatchFriends() {
 // ───────── Comunidad ─────────
 const comErr = error => { const m = String(error?.message || ''); return Object.assign(new Error(/rate_limit/.test(m) ? 'rate_limit' : /text_banned/.test(m) ? 'text_banned' : m || 'fail'), { code: error?.code }); };
 export async function communityFeed(sort = 'new', offset = 0, limit = 20, post = null) {
-  const c = await client();
+  const c = await client(); await c.auth.getSession();
   const { data, error } = await c.rpc('community_feed', { p_sort: sort, p_offset: offset, p_limit: limit, p_post: post == null ? null : Number(post) });
   if (error) throw comErr(error);
   return data || [];
 }
 export async function communityComments(postId) {
-  const c = await client();
+  const c = await client(); await c.auth.getSession();
   const { data, error } = await c.rpc('community_comments', { p_post: Number(postId) });
   if (error) throw comErr(error);
   return data || [];

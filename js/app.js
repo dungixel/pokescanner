@@ -227,7 +227,7 @@ async function onAuth(event, s) {
   if (state.view === 'home') renderResults(); else if (state.view === 'teams') paintTeams(); else if (state.view === 'battle') renderBattle();
   paintFavBtn();
   refreshModal();
-  if (state.view === 'community') paintCom(); else if (state.view === 'post') renderPost(com.post?.id || curPostId);
+  if (state.view === 'community') loadFeed(true); else if (state.view === 'post') renderPost(curPostId);
   if (wanted?.type === 'favs') location.hash = '#/teams';
   else if (wanted?.type === 'community') location.hash = wanted.hash || '#/community';
   else if (wanted?.type === 'fav' && BYID.has(wanted.id)) openTeamPick(wanted.id);
@@ -1425,6 +1425,7 @@ const ago = iso => {
 const heart = on => `<svg viewBox="0 0 24 24" class="hrt ${on ? 'on' : ''}" aria-hidden="true"><path d="M19.5 12.572l-7.5 7.428l-7.5 -7.428a5 5 0 1 1 7.5 -6.566a5 5 0 1 1 7.5 6.572"/></svg>`;
 const bubble = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20l1.3 -3.9a9 8 0 1 1 3.4 2.9l-4.7 1"/></svg>';
 const postMinis = ms => `<span class="minis">${ms.map(m => { const p = BYID.get(m.id); return p ? pokeImg(p, 'small', 'mini', undefined, !!m.b?.sh) : ''; }).join('')}</span>`;
+const scoreBadge = ms => { const ps = (ms || []).map(m => BYID.get(m.id)).filter(Boolean); return ps.length >= 3 ? (sc => `<span class="sn sc big" style="--sc:${scoreInfo(sc).c}" title="${t('an_title')}">${sc}</span>`)(analyzeTeam(ps).score) : `<span class="sn sc big none" title="${t('an_title')}">-</span>`; };
 function postCardHTML(x) {
   const del = x.mine ? (String(com.confirm) === String(x.id)
     ? `<button class="cact danger" data-act="com-del-yes" data-v="${x.id}">${t('comDeleteSure')}</button><button class="cact" data-act="com-del-no">${t('comCancel')}</button>`
@@ -1436,6 +1437,7 @@ function postCardHTML(x) {
       ${x.description ? `<span class="cdesc">${esc(x.description)}</span>` : ''}
       ${postMinis(x.members || [])}
     </button>
+    <div class="cscore">${scoreBadge(x.members)}</div>
     <div class="cacts"><button class="cact like ${x.liked ? 'on' : ''}" data-act="com-like" data-v="${x.id}" aria-pressed="${!!x.liked}" aria-label="${t('comLike')}">${heart(x.liked)}<span>${x.likes}</span></button>
       <button class="cact" data-act="com-open" data-v="${x.id}" aria-label="${t('comComments')}">${bubble}<span>${x.comments}</span></button><span class="grow"></span>${del}</div>
   </article>`;
@@ -1456,15 +1458,17 @@ function paintCom() {
   window.scrollTo(0, y);
 }
 async function loadFeed(reset) {
-  if (com.loading) return;
+  if (com.loading && !reset) return;
+  const seq = com.seq = (com.seq || 0) + 1; // si se pide otra vez (p. ej. al terminar de iniciar sesión) solo vale la última respuesta
   com.loading = true; com.err = false;
   if (reset) { com.items = []; com.more = false; }
   paintCom();
   try {
     const rows = await auth.communityFeed(com.sort, com.items.length, PAGE);
+    if (seq !== com.seq) return;
     com.items = com.items.concat(rows.filter(r => !com.items.some(x => String(x.id) === String(r.id))));
     com.more = rows.length === PAGE;
-  } catch { com.err = true; if (com.items.length) toast(t('comLoadFail')); }
+  } catch { if (seq !== com.seq) return; com.err = true; if (com.items.length) toast(t('comLoadFail')); }
   com.loading = false;
   if (state.view === 'community') paintCom();
 }
@@ -1562,8 +1566,8 @@ function buildCardHTML({ m, d, cur }) {
   const ivs = cur.v.some(v => v !== 31) ? cur.v.map((v, i) => (v !== 31 ? `${v} ${statName(EDK[i])}` : '')).filter(Boolean).join(' / ') : '';
   return `<div class="cbuild">${(mod => `<a class="cb-poke" href="#/pokemon/${d.id}${mod ? '?mod=1' : ''}">${pokeImg(d, 'small', 'thumb', undefined, cur.sh)}<b>${esc(pname(d))}</b>${mod ? `<small class="modtag">(${t('modified')})</small>` : ''}</a>`)(!!m.b && Object.keys(m.b).some(k => k !== 'sh'))}
     <div class="cb-info">
-      <div class="cb-line">${it ? `<span class="cb-item">${itemImg(it)}${esc(dn(it))}</span>` : ''}${ab ? `<span>${esc(dn(ab))}</span>` : ''}${nat ? `<span>${esc(dn(nat))}${nat.plus ? ` <small>+${statName(nat.plus)} −${statName(nat.minus)}</small>` : ''}</span>` : ''}</div>
-      <div class="cb-moves">${cur.m.map(id => { const mv = DICT.moves[id]; return mv ? `<span class="cb-mv" style="--tc:${TYPE_COLOR[mv.t]}">${typeIcon(mv.t)}${esc(dn(mv))}</span>` : ''; }).join('')}</div>
+      <div class="cb-line">${it ? `<button class="cb-item" data-act="item" data-v="${cur.i}">${itemImg(it)}${esc(dn(it))}</button>` : ''}${ab ? `<button class="cb-ab" data-act="ability" data-v="${ab.id}">${esc(dn(DICT.abilities[ab.id] || ab))}</button>` : ''}${nat ? `<span>${esc(dn(nat))}${nat.plus ? ` <small>(+${statName(nat.plus)} −${statName(nat.minus)})</small>` : ''}</span>` : ''}</div>
+      <div class="cb-moves">${cur.m.map(id => { const mv = DICT.moves[id]; return mv ? `<button class="cb-mv" style="--tc:${TYPE_COLOR[mv.t]}" data-act="move" data-v="${id}">${typeIcon(mv.t)}${esc(dn(mv))}</button>` : ''; }).join('')}</div>
       <small class="cb-ev">${evs ? `EVs ${evs}` : ''}${ivs ? ` · IVs ${ivs}` : ''}</small>
     </div></div>`;
 }
@@ -1582,7 +1586,7 @@ function postHTML() {
     : `<div class="ctarow"><button class="chip accent" data-act="com-login">${IC.user}${t('comLoginAct')}</button></div>`;
   return `<header class="chero"><div class="chead">${avatarImg(x.avatar, 'sm')}<b>${esc(x.username || '?')}</b><small>${ago(x.created_at)}</small></div>
       <h1>${esc(x.name)}</h1>${x.description ? `<p class="cdesc full">${esc(x.description)}</p>` : ''}</header>
-    <div class="cacts"><button class="cact like ${x.liked ? 'on' : ''}" data-act="com-like" data-v="${x.id}" aria-pressed="${!!x.liked}" aria-label="${t('comLike')}">${heart(x.liked)}<span>${x.likes}</span></button><span class="grow"></span>${del}</div>
+    <div class="cacts"><button class="cact like ${x.liked ? 'on' : ''}" data-act="com-like" data-v="${x.id}" aria-pressed="${!!x.liked}" aria-label="${t('comLike')}">${heart(x.liked)}<span>${x.likes}</span></button><span class="grow"></span>${scoreBadge(x.members)}${del}</div>
     <div class="sharedacts"><button class="chip accent" data-act="com-save">${IC.star}${t('comSave')}</button><button class="chip" data-act="com-compare">${IC.battle}${t('comCompare')}</button></div>
     <div class="cbuilds">${(com.full || []).map(buildCardHTML).join('')}</div>
     ${(ps => (ps.length >= 3 ? teamHTML(ps, true) : ''))((x.members || []).map(m => BYID.get(m.id)).filter(Boolean))}
