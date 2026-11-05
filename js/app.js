@@ -75,6 +75,7 @@ function accountHTML() {
       <button class="chip accent" data-act="un-save" disabled>${t('saveBtn')}</button></div>
     <small id="un-msg" class="unmsg">${t('unHint')}</small></div>`;
 }
+let sdd = null; // desplegable abierto en Ajustes: 'lang' | 'theme'
 let fbKind = 'bug';
 const FB_KINDS = [['bug', 'fbBug'], ['idea', 'fbIdea'], ['other', 'fbOther']];
 const feedbackHTML = () => `<div class="sgroup fb"><h3>${IC.mail}${t('feedbackTitle')}</h3>
@@ -87,10 +88,11 @@ function settingsHTML() {
   return `<div class="scard" role="dialog" aria-modal="true" aria-label="${t('settings')}">
     <div class="shead"><button class="iconbtn" data-act="settings-close" aria-label="${t('close')}">${I.x}</button><h2>${t('settings')}</h2></div>
     ${accountHTML()}
-    <div class="sgroup"><h3>${I.language}${t('language')}</h3>
-      ${['es', 'en'].map(l => `<button class="sopt" role="radio" data-act="set-lang" data-v="${l}" aria-checked="${lang() === l}"><img class="flag" src="${FLAG[l]}" alt="" width="24" height="18">${LANGS[l]}<span class="ck">${I.check}</span></button>`).join('')}</div>
-    <div class="sgroup"><h3>${I[THEME_ICON[pref]]}${t('theme')}</h3>
-      ${['system', 'light', 'dark'].map(m => `<button class="sopt" role="radio" data-act="set-theme" data-v="${m}" aria-checked="${pref === m}">${I[THEME_ICON[m]]}${t(m === 'system' ? 'themeSystem' : m)}<span class="ck">${I.check}</span></button>`).join('')}</div>
+    <div class="sgroup"><div class="spills">
+      <button class="ddbtn spill" data-act="sdd" data-v="lang" aria-expanded="${sdd === 'lang'}" aria-haspopup="listbox"><span class="ddl">${t('language')}</span><span class="ddv"><img class="flag" src="${FLAG[lang()]}" alt="" width="18" height="14">${LANGS[lang()]}</span><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+      <button class="ddbtn spill" data-act="sdd" data-v="theme" aria-expanded="${sdd === 'theme'}" aria-haspopup="listbox"><span class="ddl">${t('theme')}</span><span class="ddv">${t(pref === 'system' ? 'themeSystem' : pref)}</span><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button></div>
+      ${sdd === 'lang' ? `<div class="sdl" role="listbox">${['es', 'en'].map(l => `<button class="sopt" role="radio" data-act="set-lang" data-v="${l}" aria-checked="${lang() === l}"><img class="flag" src="${FLAG[l]}" alt="" width="24" height="18">${LANGS[l]}<span class="ck">${I.check}</span></button>`).join('')}</div>` : ''}
+      ${sdd === 'theme' ? `<div class="sdl" role="listbox">${['system', 'light', 'dark'].map(m => `<button class="sopt" role="radio" data-act="set-theme" data-v="${m}" aria-checked="${pref === m}">${I[THEME_ICON[m]]}${t(m === 'system' ? 'themeSystem' : m)}<span class="ck">${I.check}</span></button>`).join('')}</div>` : ''}</div>
     ${auth.userInfo() ? feedbackHTML() : ''}
     ${auth.userInfo() ? `<div class="sgroup"><button class="sopt" data-act="sign-out">${I.logout}${t('signOut')}</button></div>` : ''}
   </div>`;
@@ -118,6 +120,7 @@ function showModal(kind) {
 const openSettings = () => showModal('settings');
 const openLogin = action => { pending = action; showModal('login'); };
 function closeSettings() {
+  sdd = null;
   if (smodal.hidden) return;
   if (!matchMedia('(prefers-reduced-motion: reduce)').matches) { // sale con un fundido: se anima una copia mientras el original ya está cerrado
     const g = smodal.cloneNode(true); g.removeAttribute('id'); g.classList.remove('enter'); g.classList.add('ghost-out'); g.inert = true;
@@ -1140,6 +1143,53 @@ function levelMovesHTML(expanded) {
 }
 
 const favBtnInner = on => (on ? `${IC.starF}${t('favAddedBtn')}` : `${IC.star}${t('favAddBtn')}`);
+// ───────── Dónde capturarlo (PokeAPI, gen 1–8) ─────────
+let ENCD = null; const encCache = new Map();
+async function loadEnc(id) {
+  const k = BYID.get(id).k;
+  try {
+    ENCD ??= getJSON('data/enc-dict.json');
+    if (!encCache.has(k)) encCache.set(k, getJSON(`data/enc/${k}.json`).catch(() => ({})));
+    const [dict, bundle] = await Promise.all([ENCD, encCache.get(k)]);
+    if (page?.d.id !== id) return;
+    page.enc = bundle[id] || []; page.encDict = dict;
+  } catch { ENCD = null; if (page?.d.id === id) { page.enc = null; page.encDict = null; } }
+  const el = $('#enc'); if (el && page?.d.id === id) el.innerHTML = encHTML();
+}
+const L2 = a => a[lang() === 'en' ? 1 : 0];
+function encHTML() {
+  if (!page || page.enc === undefined) return '';
+  const D = page.encDict, rows = page.enc;
+  if (!D) return '';
+  const head = `<h2>${t('encTitle')}</h2>`;
+  const note = `<p class="hint enc-note">${t('encNote')}</p>`;
+  if (!rows.length) return `${head}<p class="hint">${t('encNone')}</p>${note}`;
+  const groups = new Map();
+  for (const r of rows) { const g = D.ver[r[0][0]]; (groups.get(g) || groups.set(g, []).get(g)).push(r); }
+  const order = [...groups.keys()].sort((a, b) => D.grp[b].g - D.grp[a].g || D.grp[a].o - D.grp[b].o);
+  const html = order.map((g, gi) => {
+    const G = D.grp[g], list = groups.get(g), allV = G.v.map(x => x[0]);
+    const byReg = new Map();
+    for (const r of list) { const rg = D.loc[r[1]][2]; (byReg.get(rg) || byReg.set(rg, []).get(rg)).push(r); }
+    const regs = [...byReg.entries()].map(([rg, rs]) => {
+      const lines = rs.map(r => {
+        const [vs, loc, area, m, lo, hi, p, cs] = r;
+        const ln = L2(D.loc[loc]); let an = area ? L2(D.area[area]) : '';
+        if (an && an.toLowerCase().startsWith(ln.toLowerCase())) an = an.slice(ln.length).replace(/^[\s(–-]+|[)\s]+$/g, '');
+        const place = `<b>${esc(ln)}</b>${an ? ` <span class="ea">${esc(an)}</span>` : ''}`;
+        const only = vs.length < allV.length ? `<span class="chip small ghost">${t('encOnly', { v: G.v.filter(x => vs.includes(x[0])).map(x => (lang() === 'en' ? x[2] : x[1])).join(' / ') })}</span>` : '';
+        const conds = cs.map(c => `<span class="chip small ghost">${esc(L2(D.cond[c]))}</span>`).join('');
+        const meta = [L2(D.meth[m]), lo === hi ? t('encLv', { n: lo }) : t('encLv', { n: `${lo}–${hi}` }), p < 100 ? `${p}%` : ''].filter(Boolean).join(' · ');
+        return `<li><div class="el">${place}<span class="em">${esc(meta)}</span></div>${only || conds ? `<div class="et">${only}${conds}</div>` : ''}</li>`;
+      }).join('');
+      const rn = rg && D.reg[rg] ? `<h4>${esc(L2(D.reg[rg]))}</h4>` : '';
+      return `${rn}<ul class="enclist">${lines}</ul>`;
+    }).join('');
+    return `<details class="encg" ${gi === 0 ? 'open' : ''}><summary><span>${esc(L2(G.n))}</span><small>${list.length}</small></summary>${regs}</details>`;
+  }).join('');
+  return `${head}${html}${note}`;
+}
+
 const SPARK = '<svg viewBox="0 0 24 24"><path d="M10 4l1.7 4.6L16.3 10l-4.6 1.7L10 16.3 8.3 11.7 3.7 10l4.6-1.4L10 4zM18 13l.9 2.1L21 16l-2.1.9L18 19l-.9-2.1L15 16l2.1-.9L18 13z"/></svg>';
 const artImg = d => {
   const sh = page?.shiny;
@@ -1179,6 +1229,7 @@ function pokemonHTML() {
   ${countNodes(d.evo) > 1 ? `<section class="sec"><h2>${t('evolution')}</h2><div class="evo">${evoHTML(d.evo, d.id)}</div></section>` : ''}
 
   <section class="sec"><h2>${t('levelMoves')} <small>${d.g ? `${t('gen', { g: d.lg })} · ` : ''}${d.lv.length}</small></h2><div id="lvl">${d.lv.length ? levelMovesHTML(page.expanded) : `<p class="hint">${t('noLevelMoves')}</p>`}</div></section>
+  <section class="sec" id="enc">${encHTML()}</section>
   ${footerHTML()}`;
 }
 
@@ -1202,6 +1253,7 @@ async function renderPokemon(id) {
   document.documentElement.style.setProperty('--accent', TYPE_COLOR[d.t[0]]);
   animate($('#stats'));
   applyRestore();
+  loadEnc(d.id);
 }
 
 // ───────────────────────── Comparador ─────────────────────────
@@ -1691,8 +1743,9 @@ document.addEventListener('click', e => {
     case 'team-menu': bt.menu = bt.menu === v ? null : v; paintBattle(); if (bt.menu) $('.tmenu')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); break;
     case 'team-pick': { const k = v.lastIndexOf(':'), side = el.dataset.side; bt[side] = { owner: v.slice(0, k), slot: Number(v.slice(k + 1)) }; { const mt = bt[side].owner === 'meta' ? metaTeam(bt[side].slot) : null; if (mt) bt.mode = mt.fmt; } bt.menu = null; bt.res = null; bt.cmpMsg = ''; paintBattle(); break; }
     case 'settings': { const p = el.parentElement.querySelector('.spanel'), open = p.hidden; closeSettings(); p.hidden = !open; el.setAttribute('aria-expanded', String(open)); break; }
-    case 'set-theme': setTheme(v); break;
-    case 'set-lang': switchLang(v); break;
+    case 'sdd': sdd = sdd === v ? null : v; refreshModal(); break;
+    case 'set-theme': sdd = null; setTheme(v); break;
+    case 'set-lang': sdd = null; if (v === lang()) refreshModal(); else switchLang(v); break;
     case 'filters-toggle': state.filtersOpen = !state.filtersOpen; syncFilters(); break;
     case 'close': closeSheet(); break;
     case 'back': backFlag = true; if (navIdx > 0) history.back(); else if (location.hash === '#/' || !location.hash) route(); else location.hash = '#/'; break;

@@ -949,3 +949,28 @@ table.mx { display: table; margin: 0 auto; }
 .phero .art.swap-in { animation: shinyIn .45s var(--ease); }
 @keyframes shinyIn { from { opacity: 0; transform: scale(.9) rotate(-3deg); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .phero .art.swap-in { animation: none; } }
+.encg { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); margin-bottom: 8px; overflow: hidden; }
+.encg summary { list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 14px 16px; font-weight: 700; cursor: pointer; }
+.encg summary::-webkit-details-marker { display: none; }
+.encg summary small { color: var(--muted); font-weight: 600; }
+.encg summary::after { content: ''; width: 8px; height: 8px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); rotate: 45deg; margin: -4px 4px 0 4px; transition: rotate .2s var(--ease); flex: none; }
+.encg[open] summary::after { rotate: -135deg; margin-top: 4px; }
+.encg summary span { flex: 1; }
+.encg h4 { margin: 4px 16px 0; font-size: .8rem; font-weight: 700; color: var(--muted); }
+.enclist { list-style: none; margin: 0; padding: 4px 16px 12px; display: grid; }
+.enclist li { padding: 9px 0; border-top: 1px solid var(--line); display: grid; gap: 6px; }
+.enclist li:first-child { border-top: 0; }
+.enclist .el { display: grid; gap: 1px; }
+.enclist .ea { color: var(--muted); font-size: .86rem; }
+.enclist .em { color: var(--muted); font-size: .86rem; }
+.enclist .et { display: flex; flex-wrap: wrap; gap: 6px; }
+.enc-note { margin-top: 12px; }
+/* Ajustes: idioma y tema como píldoras desplegables */
+.spills { display: flex; flex-wrap: wrap; gap: 8px; }
+.spill { background: var(--soft); }
+.spill .ddv { display: inline-flex; align-items: center; gap: 6px; opacity: 1; font-weight: 600; }
+.spill .ddv .flag { width: 18px; height: 14px; border-radius: 2px; object-fit: cover; box-shadow: 0 0 0 1px color-mix(in srgb, var(--ink) 18%, transparent); }
+.sdl { display: grid; gap: 2px; margin-top: 8px; padding: 6px; border-radius: var(--r-lg); background: var(--soft); animation: sdlIn .18s var(--ease); }
+.sdl .sopt[aria-checked="true"] { background: color-mix(in srgb, var(--ink) 8%, transparent); }
+@keyframes sdlIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .sdl { animation: none; } }

@@ -13,6 +13,9 @@ const POKEAPI = 'https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v
 const CSVS = [
   'pokemon', 'pokemon_species_names', 'moves', 'move_names', 'move_flavor_text',
   'abilities', 'ability_names', 'ability_flavor_text', 'items', 'item_names', 'item_flavor_text',
+  // dónde capturarlos
+  'encounters', 'encounter_slots', 'encounter_methods', 'encounter_method_prose', 'encounter_conditions', 'encounter_condition_values', 'encounter_condition_value_prose',
+  'encounter_condition_value_map', 'location_areas', 'location_area_prose', 'locations', 'location_names', 'regions', 'region_names', 'versions', 'version_names', 'version_groups',
 ];
 
 async function download(url, file) {
