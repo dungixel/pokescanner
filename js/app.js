@@ -2,11 +2,13 @@ import {
   TYPES, TYPE_ES, TYPE_EN, TYPE_COLOR, STATS, typeName, statName, catName, tierInfo, TIER_ORDER, formatName,
   esc, fold, dexNum, fmtNum, store, matchups, bst, statColor, tierLabel, tierColor, tierNum, tierNumHTML, TIER_MAX, formatRank,
   pname, pname2, dn, dn2, dd, how,
-  pokeImg, itemImg, typeIcon, typePill, typeDot, catIcon,
+  pokeImg, itemImg, typeIcon, typePill, typeDot, catIcon, SPR,
 } from './util.js';
 import { t, lang, setLang } from './i18n.js';
 import { analyzeTeam, scoreInfo } from './team.js';
 import * as auth from './auth.js';
+import { DOCK, IC } from './icons.js';
+import { buildUnit, compareTeams, eff } from './battle.js';
 
 const $app = document.getElementById('app');
 const sheet = document.getElementById('sheet');
@@ -21,10 +23,9 @@ const cache = new Map();
 // (legacyFavs) se suben a la cuenta la primera vez que se inicia sesión.
 const favs = new Set();
 const legacyFavs = (() => { try { const v = JSON.parse(store.get('pk.favs') || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } })();
-const cacheFavs = () => { const u = auth.userInfo(); if (u) store.set(`pk.favs.${u.id}`, JSON.stringify([...favs])); };
 
 const state = {
-  view: 'home', q: '', sort: 'num', dir: 1, types: [], tiers: [], gens: [], favs: false, gen9: false, dd: null,
+  view: 'home', mode: 'home', q: '', sort: 'num', dir: 1, types: [], tiers: [], gens: [], favs: false, gen9: false, dd: null,
   shown: 40, scroll: 0, randomMode: 'daily', randoms: null, filtersOpen: false,
 };
 let page = null; // estado de la ficha abierta
@@ -59,15 +60,18 @@ const I = {
 const FLAG = { es: 'icons/flags/es.svg', en: 'icons/flags/gb.svg' };
 const LANGS = { es: 'Español', en: 'English' };
 const smodal = document.getElementById('smodal');
-let modalKind = null; // 'settings' | 'login'
+let modalKind = null; // 'settings' | 'login' | 'teampick' | 'picker'
 let pending = null;   // lo que la persona quería hacer cuando se le pidió iniciar sesión
 const themePref = () => { const v = store.get('pk.theme'); return v === 'light' || v === 'dark' ? v : 'system'; };
 const THEME_ICON = { system: 'desktop', light: 'sun', dark: 'moon' };
 function accountHTML() {
   const u = auth.userInfo();
   if (!u) return `<div class="sgroup"><button class="gbtn" data-act="sign-in">${I.google}${t('loginGoogle')}</button><p class="shint">${t('loginHint')}</p></div>`;
-  return `<div class="sgroup"><div class="acc">${u.avatar ? `<img class="avatar" src="${esc(u.avatar)}" alt="" referrerpolicy="no-referrer" width="42" height="42">` : `<span class="avatar">${esc((u.name || '?')[0].toUpperCase())}</span>`}
-      <div class="who"><b>${esc(u.name)}</b><small>${esc(u.email)}</small></div></div>
+  return `<div class="sgroup"><div class="acc"><button class="avatarbtn" data-act="avatar-pick" aria-label="${t('avatarChange')}">${avatarImg(me?.avatar)}<span class="edit">${IC.pencil}</span></button>
+      <div class="who"><b>${esc(me?.username || u.name)}</b><small>${esc(u.email)}</small></div></div>
+    <div class="unrow"><input id="un" class="unin" value="${esc(me?.username || '')}" maxlength="16" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="${t('username')}">
+      <button class="chip accent" data-act="un-save" disabled>${t('saveBtn')}</button></div>
+    <small id="un-msg" class="unmsg">${t('unHint')}</small>
     <button class="sopt" data-act="sign-out">${I.logout}${t('signOut')}</button></div>`;
 }
 function settingsHTML() {
@@ -84,13 +88,13 @@ function settingsHTML() {
 function loginHTML() {
   return `<div class="scard login" role="dialog" aria-modal="true" aria-label="${t('loginTitle')}">
     <div class="shead"><button class="iconbtn" data-act="settings-close" aria-label="${t('close')}">${I.x}</button></div>
-    <div class="lbody"><span class="lbadge">${I.tstar}</span><h2>${t('loginTitle')}</h2><p>${t('loginText')}</p>
+    <div class="lbody"><span class="lbadge">${IC.user}</span><h2>${t('loginTitle')}</h2><p>${t('loginText')}</p>
       ${legacyFavs.length ? `<p class="shint">${t('loginLegacy', { n: legacyFavs.length })}</p>` : ''}
       <button class="gbtn" data-act="sign-in">${I.google}${t('loginGoogle')}</button>
       <button class="ghostbtn" data-act="settings-close">${t('notNow')}</button></div>
   </div>`;
 }
-const modalHTML = () => (modalKind === 'login' ? loginHTML() : settingsHTML());
+const modalHTML = () => (modalKind === 'login' ? loginHTML() : modalKind === 'teampick' ? teamPickHTML() : modalKind === 'picker' ? pickerHTML() : settingsHTML());
 const refreshModal = () => { if (!smodal.hidden) smodal.innerHTML = modalHTML(); };
 function showModal(kind) {
   modalKind = kind;
@@ -110,20 +114,43 @@ function closeSettings() {
 /** true si hay sesión; si no, enseña el aviso para iniciarla y recuerda qué se quería hacer */
 const requireLogin = action => { if (auth.currentUser()) return true; openLogin(action); return false; };
 
-// ───────────────────────── Cuenta ─────────────────────────
+// ───────────────────────── Cuenta y equipos ─────────────────────────
 const PENDING_KEY = 'pk.pending';
+const SLOTS = 9, MAXTEAM = 6;
+let teams = Array.from({ length: SLOTS }, () => ({ name: '', members: [] }));
+let me = null; // { username, avatar } del perfil público
+const teamName = i => teams[i].name || t('teamN', { n: i + 1 });
+const rebuildFavs = () => { favs.clear(); teams.forEach(tm => tm.members.forEach(m => favs.add(m.id))); };
+const cacheTeams = () => { const u = auth.userInfo(); if (u) store.set(`pk.teams.${u.id}`, JSON.stringify(teams)); };
+const resetTeams = () => { teams = Array.from({ length: SLOTS }, () => ({ name: '', members: [] })); rebuildFavs(); };
+const avatarImg = (n, cls = '') => `<img class="av ${cls}" src="${SPR}/pokemon/${Number(n) || 25}.png" alt="" width="64" height="64" loading="lazy" decoding="async">`;
+const miniPoke = id => (BYID.get(id) ? pokeImg(BYID.get(id), 'small', 'mini') : '');
+
 function paintFavBtn() {
   const b = $('.favbtn'); if (!b || !page?.d) return;
   const on = favs.has(page.d.id);
   b.setAttribute('aria-pressed', on); b.innerHTML = favBtnInner(on);
 }
-/** Añade o quita un favorito en la cuenta; se ve al instante y se deshace si el servidor falla */
-async function toggleFav(id) {
-  const had = favs.has(id);
-  if (had) favs.delete(id); else favs.add(id);
-  cacheFavs(); paintFavBtn();
-  try { if (had) await auth.removeFavorite(id); else await auth.addFavorites([id]); }
-  catch { if (had) favs.add(id); else favs.delete(id); cacheFavs(); paintFavBtn(); toast(t('favFail')); }
+const saveTimers = {};
+/** Los cambios de un equipo se guardan en la cuenta un instante después de tocar (así se agrupan varios) */
+function saveSlot(i) {
+  cacheTeams();
+  clearTimeout(saveTimers[i]);
+  saveTimers[i] = setTimeout(() => auth.saveTeam(i, teams[i].name, teams[i].members).catch(() => toast(t('favFail'))), 350);
+}
+function afterTeamsChange() {
+  rebuildFavs(); paintFavBtn(); refreshModal();
+  if (state.view === 'teams') paintTeams();
+  document.querySelectorAll('.favn').forEach(n => { n.textContent = favs.size ? `(${favs.size})` : ''; });
+}
+/** Mete o saca un Pokémon de un equipo. Devuelve true si cambió algo */
+function toggleInTeam(slot, id) {
+  const tm = teams[slot];
+  const k = tm.members.findIndex(m => m.id === id);
+  if (k >= 0) tm.members.splice(k, 1);
+  else { if (tm.members.length >= MAXTEAM) { toast(t('teamFull')); return false; } tm.members.push({ id }); }
+  saveSlot(slot); afterTeamsChange();
+  return true;
 }
 async function startLogin() {
   try {
@@ -140,55 +167,111 @@ const takePending = () => {
 /** Se llama cuando cambia la sesión (inicio, vuelta de Google o cierre) */
 async function onAuth(event, s) {
   if (!s) { // sesión cerrada
-    favs.clear(); pending = null;
+    pending = null; me = null; resetTeams();
+    auth.untrackPresence().catch(() => {}); auth.unwatchFriends().catch(() => {});
     refreshModal(); paintFavBtn();
-    if (state.view === 'home') renderResults();
+    if (state.view === 'home') renderResults(); else if (state.view === 'teams') paintTeams(); else if (state.view === 'battle') renderBattle();
     return;
   }
   const u = auth.userInfo();
-  try { JSON.parse(store.get(`pk.favs.${u.id}`) || '[]').forEach(id => favs.add(id)); } catch { /* caché ilegible */ }
+  try { // se pinta ya lo último que se guardó, mientras llega lo de la nube
+    const cached = JSON.parse(store.get(`pk.teams.${u.id}`) || 'null');
+    if (Array.isArray(cached) && cached.length === SLOTS) { teams = cached; rebuildFavs(); }
+  } catch { /* caché ilegible */ }
   const wanted = takePending();
   try {
-    const server = await auth.loadFavorites();
-    const extra = [...legacyFavs, ...(wanted?.type === 'fav' ? [wanted.id] : [])].filter(id => BYID.has(id) && !server.includes(id));
-    if (extra.length) await auth.addFavorites([...new Set(extra)]);
-    favs.clear(); [...server, ...extra].forEach(id => favs.add(id));
+    const rows = await auth.loadTeams();
+    resetTeams();
+    rows.forEach(r => { if (r.slot >= 0 && r.slot < SLOTS) teams[r.slot] = { name: r.name || '', members: (r.members || []).filter(m => BYID.has(m.id)) }; });
+    // los favoritos que había guardados en este dispositivo antes de las cuentas pasan al primer equipo
+    if (legacyFavs.length && teams.every(tm => !tm.members.length)) {
+      teams[0].members = legacyFavs.filter(id => BYID.has(id)).slice(0, MAXTEAM).map(id => ({ id }));
+      if (teams[0].members.length) saveSlot(0);
+    }
     if (legacyFavs.length) { store.set('pk.favs', '[]'); legacyFavs.length = 0; }
-    cacheFavs();
+    rebuildFavs(); cacheTeams();
   } catch { toast(t('syncFail')); }
   try {
-    const prof = await auth.loadProfile();
-    if (!prof) { // cuenta recién creada: tema "Sistema" por defecto
-      setTheme('system', { save: false });
-      await auth.saveProfile({ theme: 'system', lang: lang() });
-    } else {
+    let prof = await auth.loadProfile();
+    if (!prof?.username || !prof?.avatar) { await auth.ensureUsername(); prof = await auth.loadProfile(); }
+    if (prof) {
+      me = { username: prof.username, avatar: prof.avatar };
       if (['system', 'light', 'dark'].includes(prof.theme)) setTheme(prof.theme, { save: false });
       if ((prof.lang === 'es' || prof.lang === 'en') && prof.lang !== lang()) switchLang(prof.lang, { save: false });
+      else if (!prof.lang) syncProfile(); // cuenta nueva: se guarda el idioma actual
     }
   } catch { /* se queda con lo local */ }
+  auth.trackPresence().catch(() => {});
   if (!smodal.hidden) closeSettings();
-  if (wanted?.type === 'favs') goSearch({ favs: true });
-  else if (state.view === 'home') renderResults();
+  if (state.view === 'home') renderResults(); else if (state.view === 'teams') paintTeams(); else if (state.view === 'battle') renderBattle();
   paintFavBtn();
   refreshModal();
+  if (wanted?.type === 'favs') location.hash = '#/teams';
+  else if (wanted?.type === 'fav' && BYID.has(wanted.id)) openTeamPick(wanted.id);
 }
+// la presencia solo cuenta mientras la pestaña está a la vista
+document.addEventListener('visibilitychange', () => {
+  if (!auth.currentUser()) return;
+  if (document.hidden) auth.untrackPresence().catch(() => {}); else auth.trackPresence().catch(() => {});
+});
+
+// ───────────────────────── Ventanas: elegir equipo y buscador de Pokémon ─────────────────────────
+let pickId = null;     // Pokémon que se está guardando
+let pickCtx = null;    // { mode: 'team', slot } | { mode: 'avatar' }
+const openTeamPick = id => { pickId = id; showModal('teampick'); };
+function teamPickHTML() {
+  const p = BYID.get(pickId);
+  return `<div class="scard" role="dialog" aria-modal="true" aria-label="${t('pickTeamTitle')}">
+    <div class="shead"><button class="iconbtn" data-act="settings-close" aria-label="${t('close')}">${IC.x}</button><h2>${t('pickTeamTitle')}</h2></div>
+    <p class="shint">${t('pickTeamText', { name: esc(pname(p)) })}</p>
+    <div class="slotlist">${teams.map((tm, i) => {
+      const has = tm.members.some(m => m.id === pickId), full = tm.members.length >= MAXTEAM && !has;
+      return `<button class="slotopt ${has ? 'on' : ''}" data-act="team-toggle" data-v="${i}" ${full ? 'disabled' : ''}>
+        <span class="sn">${i + 1}</span>
+        <span class="sname"><b>${esc(teamName(i))}</b><span class="minis">${tm.members.map(m => miniPoke(m.id)).join('') || `<small>${t('teamEmpty')}</small>`}</span></span>
+        <span class="scount">${tm.members.length}/${MAXTEAM}</span>
+        <span class="sck">${has ? IC.check : full ? '' : IC.plus}</span></button>`;
+    }).join('')}</div></div>`;
+}
+const pkMatches = q => {
+  const f = fold(q.trim());
+  const base = INDEX.filter(p => !p.g || pickCtx?.mode !== 'avatar');
+  if (!f) return (pickCtx?.mode === 'avatar' ? base.filter(p => p.num <= 1025 && !p.fm) : [...base].sort((a, b) => strength(a) - strength(b) || a.num - b.num)).slice(0, 40);
+  return base.filter(p => fold(p.es).includes(f) || fold(p.en).includes(f) || fold(p.id).includes(f)).slice(0, 40);
+};
+function pickerListHTML(q = '') {
+  const inTeam = pickCtx?.mode === 'team' ? new Set(teams[pickCtx.slot].members.map(m => m.id)) : new Set();
+  const list = pkMatches(q).filter(p => !inTeam.has(p.id));
+  if (!list.length) return `<p class="shint">${t('pickerNone')}</p>`;
+  return list.map(p => `<button class="pkopt" data-act="pk-pick" data-v="${p.id}">${pokeImg(p, 'small')}<span><b>${esc(pname(p))}</b><small>${dexNum(p.num)}</small></span></button>`).join('');
+}
+function pickerHTML() {
+  const avatar = pickCtx?.mode === 'avatar';
+  return `<div class="scard picker" role="dialog" aria-modal="true" aria-label="${t(avatar ? 'avatarPick' : 'addPoke')}">
+    <div class="shead"><button class="iconbtn" data-act="settings-close" aria-label="${t('close')}">${IC.x}</button><h2>${t(avatar ? 'avatarPick' : 'addPoke')}</h2></div>
+    <input id="pk-q" class="pkq" type="search" placeholder="${t('pickerSearch')}" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <div class="pklist">${pickerListHTML()}</div></div>`;
+}
+const openPicker = ctx => { pickCtx = ctx; showModal('picker'); };
 smodal.addEventListener('click', e => { if (e.target === smodal) closeSettings(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSettings(); });
 
 /** Dock inferior, como en una app móvil */
 const dockEl = document.getElementById('dock');
 function renderDock() {
-  const it = (act, icon, label) => `<button class="dk" data-act="${act}" aria-label="${label}">${icon}</button>`;
-  dockEl.innerHTML = it('dock-home', I.home, t('dockHome')) + it('dock-search', I.tsearch, t('dockSearch')) + it('dock-favs', I.tstar, t('dockFavs')) + it('dock-settings', I.settings, t('settings'));
+  const it = (act, label) => `<button class="dk" data-act="${act}" aria-label="${label}"><span class="ic">${DOCK[act].o}${DOCK[act].f}</span></button>`;
+  dockEl.innerHTML = it('dock-home', t('dockHome')) + it('dock-battle', t('dockBattle')) + it('dock-search', t('dockSearch')) + it('dock-favs', t('dockFavs')) + it('dock-settings', t('settings'));
   updateDock();
 }
 function updateDock() {
-  const on = { 'dock-home': state.view === 'home' && !state.favs, 'dock-favs': state.view === 'home' && state.favs, 'dock-settings': !smodal.hidden };
+  const home = state.view === 'home';
+  const on = { 'dock-home': home && state.mode !== 'search', 'dock-search': home && state.mode === 'search', 'dock-battle': state.view === 'battle', 'dock-favs': state.view === 'teams', 'dock-settings': !smodal.hidden };
   dockEl.querySelectorAll('.dk').forEach(b => b.classList.toggle('on', !!on[b.dataset.act]));
 }
 /** Vuelve al buscador con los filtros que se indiquen (el resto se limpia) */
 function goSearch(opts = {}, focus = false) {
   Object.assign(state, { q: '', sort: 'num', dir: 1, types: [], tiers: [], gens: [], favs: false, gen9: false, dd: null, scroll: 0, shown: 40 }, opts);
+  state.mode = focus || Object.keys(opts).length ? 'search' : 'home';
   state.focusSearch = focus;
   if (location.hash === '#/' || location.hash === '') renderHome(); else location.hash = '#/';
 }
@@ -509,7 +592,7 @@ function natureSheet(id) {
 // ───────────────────────── Router ─────────────────────────
 // Historial: se recuerdan las últimas 10 páginas (búsqueda, filtros y scroll), así "atrás" te devuelve justo a donde estabas
 const snaps = new Map(), SNAP_MAX = 10;
-const KEEP = ['q', 'sort', 'dir', 'types', 'tiers', 'gens', 'favs', 'gen9', 'shown', 'filtersOpen'];
+const KEEP = ['mode', 'q', 'sort', 'dir', 'types', 'tiers', 'gens', 'favs', 'gen9', 'shown', 'filtersOpen'];
 let curPid = null, pidSeq = 0, navIdx = 0;
 const copyKeys = (from, to) => KEEP.forEach(k => { to[k] = Array.isArray(from[k]) ? [...from[k]] : from[k]; });
 function remember(pid) {
@@ -519,6 +602,7 @@ function remember(pid) {
   while (snaps.size > SNAP_MAX) snaps.delete(snaps.keys().next().value);
 }
 function applyRestore() { if (state.restoreY != null) { window.scrollTo(0, state.restoreY); state.restoreY = null; } }
+let backFlag = false;
 function route() {
   closeSheet();
   closeSettings();
@@ -527,12 +611,15 @@ function route() {
   if (pid == null) { pid = ++pidSeq; idx = curPid == null ? 0 : navIdx + 1; history.replaceState({ pid, idx }, ''); } // página nueva
   pidSeq = Math.max(pidSeq, pid);
   const back = snaps.get(pid);
+  const wentBack = backFlag || (curPid != null && (idx || 0) < navIdx); backFlag = false;
   navIdx = idx || 0; curPid = pid; state.restoreY = null;
   if (back) { copyKeys(back, state); state.scroll = back.y; state.restoreY = back.y; } // se vuelve a una página ya vista: se recupera tal cual
   const m = location.hash.match(/^#\/pokemon\/([a-z0-9]+)/);
   const d = location.hash.match(/^#\/(move|ability|item|tier)\/([A-Za-z0-9]+)/);
-  if (m) renderPokemon(m[1]); else if (d) renderDetailPage(d[1], d[2]); else renderHome();
+  if (state.view === 'battle' && location.hash !== '#/battle') auth.unwatchFriends().catch(() => {});
+  if (m) renderPokemon(m[1]); else if (d) renderDetailPage(d[1], d[2]); else if (location.hash === '#/teams') renderTeams(); else if (location.hash === '#/battle') renderBattle(); else renderHome();
   updateDock();
+  if (wentBack) { $app.classList.remove('goback'); void $app.offsetWidth; $app.classList.add('goback'); setTimeout(() => $app.classList.remove('goback'), 260); }
 }
 
 // ───────────────────────── Inicio ─────────────────────────
@@ -683,8 +770,7 @@ const chipsHTML = chips => (chips.length ? `<div class="fchips">${chips.map(c =>
   : `<a class="chip small" href="#/pokemon/${c.poke.id}">${pokeImg(c.poke, 'small', 'thumb')}${esc(pname(c.poke))}</a>`)).join('')}</div>` : '');
 const findHTML = (f, kind) => `<li class="find ${kind}"><span class="mark" aria-hidden="true">${kind === 'bad' ? '!' : '✓'}</span>
   <div><b>${t(`an_${f.key}_t`, f.vars)}</b><p>${t(`an_${f.key}_d`, f.vars)}</p>${chipsHTML(f.chips)}</div></li>`;
-function teamHTML() {
-  const team = [...favs].map(id => BYID.get(id)).filter(Boolean);
+function teamHTML(team) {
   if (team.length < 3) return `<section class="team need"><h4>${t('an_title')}</h4><p>${t('an_need')}</p></section>`;
   const a = analyzeTeam(team);
   const info = scoreInfo(a.score);
@@ -701,14 +787,19 @@ function teamHTML() {
 
 function tierBadge(r, extra = '', g = 0) { return `<span class="tier" style="--tier:${tierColor(r)}" ${extra}${g ? ` title="${t('tierInGen', { g })}"` : ''}>${tierNumHTML(r)}${esc(tierLabel(r))}${g ? `<small>G${g}</small>` : ''}</span>`; }
 
-function rowHTML(p) {
-  const showStat = state.sort !== 'num';
+function rowCore(p) {
+  const showStat = state.sort !== 'num' && state.view === 'home';
   return `<a class="row" href="#/pokemon/${p.id}" style="--c:${TYPE_COLOR[p.t[0]]}">
     ${pokeImg(p, 'small')}
     <span class="meta"><b>${esc(pname(p))}</b><span class="sub"><small>${dexNum(p.num)}${p.fm && p.es !== p.en && lang() === 'es' ? ` · ${esc(p.en)}` : ''}</small><span class="types">${p.t.map(typeDot).join('')}</span></span></span>
     <span class="side">
       ${showStat ? `<span class="statval">${sortVal(p, state.sort)}<small>${statName(state.sort)}</small></span>` : tierBadge(p.r, '', p.g)}
     </span></a>`;
+}
+function rowHTML(p) {
+  const row = rowCore(p);
+  // con algún favorito, todas las filas dejan un hueco a la derecha: la estrella amarilla marca los que están en un equipo
+  return favs.size ? `<div class="rw hasfav">${row}${favs.has(p.id) ? `<span class="favdot" title="${t('favAddedBtn')}">${IC.starF}</span>` : '<span></span>'}</div>` : row;
 }
 function cardHTML(p) {
   return `<a class="card" href="#/pokemon/${p.id}" style="--c:${TYPE_COLOR[p.t[0]]}">
@@ -759,7 +850,7 @@ function renderResults(reset = true) {
     return;
   }
   // en la vista de favoritos (sin otros filtros) se analiza el equipo
-  const analysis = state.favs && !fold(state.q) && !state.types.length && !state.tiers.length && !state.gens.length && !state.gen9 ? teamHTML() : '';
+  const analysis = '';
   box.innerHTML = head + `<div class="list">${list.slice(0, state.shown).map(rowHTML).join('')}</div><div class="sentinel"></div>` + analysis;
   watchSentinel();
 }
@@ -898,7 +989,7 @@ function levelMovesHTML(expanded) {
   return `<ul class="lvl">${rows}</ul>${!expanded && lv.length > LIMIT ? `<button class="chip more" data-act="more">${t('showAllMoves', { n: lv.length })}</button>` : ''}`;
 }
 
-const favBtnInner = on => (on ? `<span class="tick">${I.check}</span>${t('favAddedBtn')}` : `${I.tstar}${t('favAddBtn')}`);
+const favBtnInner = on => (on ? `${IC.starF}${t('favAddedBtn')}` : `${IC.star}${t('favAddBtn')}`);
 function pokemonHTML() {
   const { d } = page;
   const isFav = favs.has(d.id);
@@ -1004,9 +1095,216 @@ function renderSuggest() {
 }
 sheet.addEventListener('input', e => { if (e.target.id === 'cmp-q') renderSuggest(); });
 
+// ───────────────────────── Favoritos: 9 equipos ─────────────────────────
+const teamsSel = { open: 0 };
+const loginCta = (title, action) => `<div class="empty"><b>${t(title)}</b>${t('loginText')}<div class="ctarow"><button class="chip accent" data-act="login-open" data-v="${action}">${IC.user}${t('loginGoogle')}</button></div></div>`;
+function memberRow(p) {
+  return `<div class="mrow">${rowCore(p)}<button class="iconbtn" data-act="team-remove" data-v="${p.id}" aria-label="${t('removePoke')}">${IC.trash}</button></div>`;
+}
+function slotHTML(i) {
+  const tm = teams[i], open = teamsSel.open === i;
+  const members = tm.members.map(m => BYID.get(m.id)).filter(Boolean);
+  const body = !open ? '' : `<div class="slotbody">
+    <label class="tname"><span>${t('teamName')}</span><input class="unin" id="tn" data-slot="${i}" value="${esc(tm.name)}" placeholder="${t('teamN', { n: i + 1 })}" maxlength="24" autocomplete="off" autocapitalize="sentences"></label>
+    ${members.length ? `<div class="list">${members.map(memberRow).join('')}</div>` : `<p class="shint">${t('teamEmptyHint')}</p>`}
+    ${members.length < MAXTEAM ? `<button class="chip" data-act="slot-add">${IC.plus}${t('addPoke')}</button>` : ''}
+    ${members.length ? teamHTML(members) : ''}</div>`;
+  return `<section class="slot ${open ? 'open' : ''}">
+    <button class="slothead" data-act="slot-open" data-v="${i}" aria-expanded="${open}">
+      <span class="sn">${i + 1}</span>
+      <span class="sname"><b>${esc(teamName(i))}</b><span class="minis">${members.map(p => pokeImg(p, 'small', 'mini')).join('') || `<small>${t('teamEmpty')}</small>`}</span></span>
+      <span class="scount">${members.length}/${MAXTEAM}</span><span class="chev">${I.down}</span></button>${body}</section>`;
+}
+function teamsHTML() {
+  if (!auth.currentUser()) return `<header class="hero"><h1>${t('teamsTitle')}</h1><p>${t('teamsLead')}</p></header>${loginCta('loginTitle', 'favs')}`;
+  return `<header class="hero"><h1>${t('teamsTitle')}</h1><p>${t('teamsLead')}</p></header><div class="slots">${teams.map((_, i) => slotHTML(i)).join('')}</div>`;
+}
+function paintTeams() {
+  const root = $('#teams-root'); if (!root) return;
+  const y = window.scrollY;
+  root.innerHTML = teamsHTML();
+  window.scrollTo(0, y);
+}
+function renderTeams() {
+  state.view = 'teams';
+  document.title = `${t('teamsTitle')} · PokeScanner`;
+  document.documentElement.style.removeProperty('--accent');
+  $app.innerHTML = '<div id="teams-root"></div>';
+  paintTeams();
+  window.scrollTo(0, 0);
+  updateDock();
+}
+
+// ───────────────────────── Batalla ─────────────────────────
+const bt = { friends: [], online: new Map(), others: new Map(), a: { owner: 'me', slot: 0 }, b: { owner: 'me', slot: 1 }, res: null, busy: false, msg: '', live: false };
+const friendById = id => bt.friends.find(f => f.user_id === id);
+const frAvatar = f => avatarImg(f.avatar);
+const teamOf = sel => (sel.owner === 'me' ? teams[sel.slot] : bt.others.get(sel.owner)?.[sel.slot] || null);
+const ownerName = sel => (sel.owner === 'me' ? t('yourTeam') : t('teamOf', { name: friendById(sel.owner)?.username || '?' }));
+const sideName = sel => { const tm = teamOf(sel); return `${ownerName(sel)} · ${esc(tm?.name || t('teamN', { n: sel.slot + 1 }))}`; };
+
+async function refreshFriends() {
+  try { bt.friends = await auth.friendsList(); } catch { bt.friends = []; toast(t('syncFail')); }
+  try {
+    const rows = await auth.loadAllTeams();
+    bt.others = new Map();
+    rows.filter(r => r.user_id !== auth.currentUser().id).forEach(r => {
+      if (!bt.others.has(r.user_id)) bt.others.set(r.user_id, Array.from({ length: SLOTS }, () => ({ name: '', members: [] })));
+      bt.others.get(r.user_id)[r.slot] = { name: r.name || '', members: (r.members || []).filter(m => BYID.has(m.id)) };
+    });
+  } catch { /* sin equipos de amigos */ }
+  const ids = new Set(bt.friends.filter(f => f.direction === 'friend').map(f => f.user_id));
+  if (bt.b.owner !== 'me' && !ids.has(bt.b.owner)) bt.b = { owner: 'me', slot: bt.b.slot };
+}
+async function watchBattle() {
+  const ids = bt.friends.filter(f => f.direction === 'friend').map(f => f.user_id);
+  await auth.watchFriends(ids, {
+    onOnline: (id, on) => { bt.online.set(id, on); if (state.view === 'battle') paintBattle(); },
+    onTeam: row => {
+      if (row.user_id === auth.currentUser()?.id) return;
+      if (!friendById(row.user_id)) return;
+      if (!bt.others.has(row.user_id)) bt.others.set(row.user_id, Array.from({ length: SLOTS }, () => ({ name: '', members: [] })));
+      bt.others.get(row.user_id)[row.slot] = { name: row.name || '', members: (row.members || []).filter(m => BYID.has(m.id)) };
+      if (state.view !== 'battle') return;
+      if (bt.res && bt.b.owner === row.user_id && bt.b.slot === row.slot) { toast(t('liveUpdated', { name: friendById(row.user_id).username })); runCompare(); } else paintBattle();
+    },
+    onFriends: async () => { await refreshFriends(); if (state.view === 'battle') { paintBattle(); watchBattle(); } },
+  });
+}
+async function renderBattle() {
+  state.view = 'battle';
+  document.title = `${t('battleTitle')} · PokeScanner`;
+  document.documentElement.style.removeProperty('--accent');
+  $app.innerHTML = '<div id="battle-root"></div>';
+  window.scrollTo(0, 0);
+  updateDock();
+  if (!auth.currentUser()) { paintBattle(); return; }
+  paintBattle();
+  await refreshFriends();
+  if (state.view !== 'battle') return;
+  paintBattle();
+  watchBattle().catch(() => {});
+}
+const optLabel = (i, tm) => `${i + 1}. ${tm.name || t('teamN', { n: i + 1 })} (${tm.members.length}/${MAXTEAM})`;
+function teamSelect(id, side) {
+  const sel = bt[side];
+  const val = `${sel.owner}:${sel.slot}`;
+  const mine = `<optgroup label="${t('mineGroup')}">${teams.map((tm, i) => `<option value="me:${i}" ${val === `me:${i}` ? 'selected' : ''}>${esc(optLabel(i, tm))}</option>`).join('')}</optgroup>`;
+  const theirs = bt.friends.filter(f => f.direction === 'friend').map(f => {
+    const list = (bt.others.get(f.user_id) || []).map((tm, i) => [tm, i]).filter(([tm]) => tm.members.length);
+    return list.length ? `<optgroup label="${esc(t('friendGroup', { name: f.username }))}">${list.map(([tm, i]) => `<option value="${f.user_id}:${i}" ${val === `${f.user_id}:${i}` ? 'selected' : ''}>${esc(optLabel(i, tm))}</option>`).join('')}</optgroup>` : '';
+  }).join('');
+  return `<select id="${id}" class="tsel" data-side="${side}" aria-label="${t(side === 'a' ? 'yourTeam' : 'rivalTeam')}">${mine}${theirs}</select>`;
+}
+const sidePreview = (sel, cls) => {
+  const tm = teamOf(sel);
+  const ps = (tm?.members || []).map(m => BYID.get(m.id)).filter(Boolean);
+  return `<div class="side ${cls}"><small>${ownerName(sel)}</small><b>${esc(tm?.name || t('teamN', { n: sel.slot + 1 }))}</b><span class="minis">${ps.map(p => pokeImg(p, 'small', 'mini')).join('') || `<small>${t('teamEmpty')}</small>`}</span></div>`;
+};
+function friendRow(f) {
+  const on = !!bt.online.get(f.user_id);
+  if (f.direction === 'in') return `<div class="frow"><span class="fav">${frAvatar(f)}</span><span class="fname"><b>${esc(f.username)}</b><small>${t('friendWants')}</small></span>
+    <button class="iconbtn ok" data-act="friend-accept" data-v="${f.user_id}" aria-label="${t('accept')}">${IC.check}</button><button class="iconbtn" data-act="friend-decline" data-v="${f.user_id}" aria-label="${t('decline')}">${IC.x}</button></div>`;
+  if (f.direction === 'out') return `<div class="frow"><span class="fav">${frAvatar(f)}</span><span class="fname"><b>${esc(f.username)}</b><small>${t('friendPending')}</small></span>
+    <button class="iconbtn" data-act="friend-decline" data-v="${f.user_id}" aria-label="${t('decline')}">${IC.x}</button></div>`;
+  return `<div class="frow"><span class="fav">${frAvatar(f)}<i class="dot ${on ? 'on' : ''}" title="${t(on ? 'friendOnline' : 'friendOffline')}"></i></span>
+    <span class="fname"><b>${esc(f.username)}</b><small class="${on ? 'live' : ''}">${t(on ? 'friendOnline' : 'friendOffline')}</small></span>
+    <button class="iconbtn" data-act="friend-remove" data-v="${f.user_id}" aria-label="${t('friendRemove')}">${IC.trash}</button></div>`;
+}
+function battleHTML() {
+  const head = `<header class="hero"><h1>${t('battleTitle')}</h1><p>${t('battleLead')}</p></header>`;
+  if (!auth.currentUser()) return head + loginCta('loginTitle', 'battle');
+  const inc = bt.friends.filter(f => f.direction === 'in'), fr = bt.friends.filter(f => f.direction === 'friend'), out = bt.friends.filter(f => f.direction === 'out');
+  const friendsSec = `<section class="sec"><div class="block-title"><h2>${t('friends')}</h2></div>
+    <div class="frform"><input id="fr-name" class="unin" placeholder="${t('friendAddPh')}" maxlength="16" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="chip accent" data-act="friend-add">${IC.userPlus}${t('friendAdd')}</button></div>
+    ${bt.msg ? `<small class="unmsg">${esc(bt.msg)}</small>` : ''}
+    <div class="frlist">${[...inc, ...fr, ...out].map(friendRow).join('') || `<p class="shint">${t('friendNone')}</p>`}</div></section>`;
+  const compare = `<section class="sec"><div class="block-title"><h2>${t('compareTitle')}</h2>${bt.res && bt.b.owner !== 'me' ? `<span class="livebadge"><i></i>${t('live')}</span>` : ''}</div>
+    <div class="vsgrid"><div class="vscol">${teamSelect('sel-a', 'a')}${sidePreview(bt.a, 'a')}</div><span class="vs">${t('vs')}</span><div class="vscol">${teamSelect('sel-b', 'b')}${sidePreview(bt.b, 'b')}</div></div>
+    <button class="gbtn comparebtn" data-act="compare" ${bt.busy ? 'disabled' : ''}>${IC.battle}${t(bt.busy ? 'comparing' : 'compareBtn')}</button>
+    ${bt.cmpMsg ? `<small class="unmsg">${esc(bt.cmpMsg)}</small>` : ''}</section>`;
+  return head + friendsSec + compare + (bt.res ? resultHTML() : '');
+}
+function paintBattle() {
+  const root = $('#battle-root'); if (!root) return;
+  const y = window.scrollY, typed = $('#fr-name')?.value || '', focus = document.activeElement?.id === 'fr-name';
+  root.innerHTML = battleHTML();
+  const inp = $('#fr-name'); if (inp && typed) { inp.value = typed; if (focus) inp.focus(); }
+  window.scrollTo(0, y);
+}
+async function runCompare() {
+  const A = teamOf(bt.a), B = teamOf(bt.b);
+  bt.cmpMsg = '';
+  if (!A?.members.length || !B?.members.length) { bt.cmpMsg = t('compareEmpty'); paintBattle(); return; }
+  bt.busy = true; paintBattle();
+  try {
+    const dict = await getDict();
+    const load = ms => Promise.all(ms.map(async m => buildUnit(await getPokemon(m.id), m, dict)));
+    const [ua, ub] = await Promise.all([load(A.members), load(B.members)]);
+    bt.res = { r: compareTeams(ua, ub), ua, ub, aName: sideName(bt.a), bName: sideName(bt.b), aMine: bt.a.owner === 'me', bMine: bt.b.owner === 'me' };
+  } catch { bt.cmpMsg = t('loadFail'); }
+  bt.busy = false;
+  if (state.view === 'battle') paintBattle();
+}
+
+// ───── resultado ─────
+const fmtVars = v => Object.fromEntries(Object.entries(v || {}).map(([k, x]) => [k, k === 'type' ? typeName(x) : k === 'name' ? esc(pname(x)) : k === 'list' ? x.map(p => esc(pname(p))).join(', ') : x]));
+const resistSuggestions = type => INDEX.filter(p => !p.g && strength(p) <= 6 && eff(type, p.t) < 1).sort((a, b) => strength(a) - strength(b) || bst(b.s) - bst(a.s)).slice(0, 4);
+function tipHTML(tp) {
+  const sug = tp.resist ? resistSuggestions(tp.resist) : (tp.ids || []).map(id => BYID.get(id)).filter(Boolean).slice(0, 4);
+  return `<li>${t(`tp_${tp.key}`, fmtVars(tp.vars))}${sug.length ? `<div class="sugs"><small>${t('tpSuggest')}</small>${sug.map(chipPoke).join('')}</div>` : ''}</li>`;
+}
+const cellColor = s => (s > 0 ? `color-mix(in srgb, #2FAE5F ${Math.round(18 + Math.abs(s) * 72)}%, var(--surface))` : s < 0 ? `color-mix(in srgb, #E5484D ${Math.round(18 + Math.abs(s) * 72)}%, var(--surface))` : 'var(--soft)');
+function resultHTML() {
+  const { r, ua, ub, aName, bName } = bt.res;
+  const pa = Math.round(r.pA * 100), pb = 100 - pa;
+  const winName = r.win === 'A' ? aName : bName;
+  const rs = r.reasons.length ? `<ol class="reasons">${r.reasons.map(x => `<li>${t(`br_${x.key}${x.key === 'hazards' && !x.vars.noRemoval ? '_b' : ''}`, fmtVars(x.vars))}</li>`).join('')}</ol>` : `<p class="shint">${t('noReasons')}</p>`;
+  const tipBlock = (name, tips, mine) => `<div class="tipbox"><h3>${t('tipsTitle', { name })}</h3>${tips.length ? `<ul class="tips">${tips.map(tipHTML).join('')}</ul>` : `<p class="shint">${t('tipsNone')}</p>`}</div>`;
+  const loserTips = r.win === 'A' ? tipBlock(bName, r.tipsB) : tipBlock(aName, r.tipsA);
+  const winnerTips = r.close ? (r.win === 'A' ? tipBlock(aName, r.tipsA) : tipBlock(bName, r.tipsB)) : '';
+  const matrix = `<div class="mxwrap"><table class="mx"><thead><tr><th></th>${ub.map(u => `<th>${pokeImg(u.p, 'small', 'mini')}</th>`).join('')}</tr></thead><tbody>${ua.map((a, i) => `<tr><th>${pokeImg(a.p, 'small', 'mini')}</th>${ub.map((b, j) => {
+    const s = r.matrix[i][j].s;
+    return `<td style="background:${cellColor(s)}" title="${esc(pname(a.p))} ${s > 0 ? '>' : s < 0 ? '<' : '='} ${esc(pname(b.p))}">${s > 0.001 ? '✓' : s < -0.001 ? '✕' : '–'}</td>`;
+  }).join('')}</tr>`).join('')}</tbody></table></div>`;
+  const maxSpe = Math.max(...r.speeds.map(x => x.u.spe));
+  const speed = r.speeds.map(x => `<div class="spd ${x.side}"><span class="sp">${pokeImg(x.u.p, 'small', 'mini')}</span><span class="n">${esc(pname(x.u.p))}</span><div class="bar"><i style="--w:${(x.u.spe / maxSpe * 100).toFixed(1)}%"></i></div><b>${x.u.spe}</b></div>`).join('');
+  const star = (rows, label) => {
+    const sorted = [...rows].sort((p, q) => q.score - p.score);
+    const best = sorted[0], worst = sorted[sorted.length - 1];
+    return `<div class="stars"><b>${label}</b><div class="starrow"><span class="stag good">${t('mvp')}</span>${chipPoke(best.u.p)}</div>${rows.length > 1 ? `<div class="starrow"><span class="stag bad">${t('weakestLink')}</span>${chipPoke(worst.u.p)}</div>` : ''}</div>`;
+  };
+  const f = r.factors;
+  const FACT = [['duels', f.duels], ['speed', f.speed], ['hazards', f.hazards], ['support', f.support]];
+  const fmax = Math.max(0.6, ...FACT.map(([, v]) => Math.abs(v)));
+  const factors = FACT.map(([k, v]) => `<div class="fact"><span>${t(`f_${k}`)}</span><div class="fbar"><i class="${v >= 0 ? 'a' : 'b'}" style="width:${(Math.abs(v) / fmax * 50).toFixed(1)}%;${v >= 0 ? 'right:50%' : 'left:50%'}"></i></div></div>`).join('');
+  return `<section class="sec result">
+    <div class="block-title"><h2>${t('resultTitle')}</h2></div>
+    <div class="resbox"><div class="vsnames"><span class="na">${aName}</span><span class="nb">${bName}</span></div>
+      <div class="vsbar" role="img" aria-label="${pa}% / ${pb}%"><i class="va" style="width:${pa}%"><b>${pa}%</b></i><i class="vb"><b>${pb}%</b></i></div>
+      <h3 class="winline">${r.close ? t('resEven') : t('resWin', { name: winName })}</h3>
+      <p class="shint">${t('resChance', { p: r.pct, name: winName })}</p></div>
+    <div class="block-title"><h2>${t('whyTitle')}</h2></div>${rs}
+    <div class="block-title"><h2>${t('improveTitle')}</h2></div>${loserTips}${winnerTips}
+    <div class="block-title"><h2>${t('extraMatrix')}</h2></div><p class="shint">${t('extraMatrixHint')}</p>${matrix}
+    <div class="block-title"><h2>${t('extraStars')}</h2></div><div class="starsgrid">${star(r.rowA, aName)}${star(r.rowB, bName)}</div>
+    <div class="block-title"><h2>${t('extraSpeed')}</h2></div><div class="spdlist">${speed}</div>
+    <div class="block-title"><h2>${t('extraFactors')}</h2></div><div class="factors">${factors}</div><p class="shint facthint"><span>← ${aName}</span><span>${bName} →</span></p>
+    <p class="note">${t('resNote')}</p></section>`;
+}
+
 // ───────────────────────── Eventos ─────────────────────────
 document.addEventListener('input', e => {
-  if (e.target.id !== 'q') return;
+  const id = e.target.id;
+  if (id === 'pk-q') { const l = $('.pklist'); if (l) l.innerHTML = pickerListHTML(e.target.value); return; }
+  if (id === 'un') { onUsernameInput(e.target); return; }
+  if (id === 'tn') {
+    const i = Number(e.target.dataset.slot);
+    teams[i].name = e.target.value.slice(0, 24); saveSlot(i);
+    const b = document.querySelector('.slot.open .slothead b'); if (b) b.textContent = teamName(i);
+    return;
+  }
+  if (id !== 'q') return;
   state.q = e.target.value;
   renderResults();
   // al escribir, el buscador sube a lo alto de la pantalla para ver cuantos más resultados mejor
@@ -1014,6 +1312,50 @@ document.addEventListener('input', e => {
   if (state.q && top > 2) window.scrollBy({ top, behavior: 'instant' });
 });
 
+/** Nombre de usuario: comprueba en el servidor si está libre y no es ofensivo */
+let unTimer = null;
+function onUsernameInput(el) {
+  const v = el.value.trim(), msg = $('#un-msg'), btn = $('[data-act="un-save"]');
+  if (!msg || !btn) return;
+  btn.disabled = true; clearTimeout(unTimer);
+  const set = (txt, cls = '') => { msg.textContent = txt; msg.className = `unmsg ${cls}`; };
+  if (v === me?.username) return set(t('unHint'));
+  if (!/^[A-Za-z0-9_]{3,16}$/.test(v)) return set(t('un_invalid'), 'bad');
+  set('…');
+  unTimer = setTimeout(async () => {
+    const st = await auth.checkUsername(v);
+    if ($('#un')?.value.trim() !== v) return;
+    set(t(`un_${st}`), st === 'ok' ? 'ok' : 'bad');
+    btn.disabled = st !== 'ok';
+  }, 300);
+}
+async function saveUsername() {
+  const v = $('#un')?.value.trim(); if (!v) return;
+  const st = await auth.saveIdentity({ username: v });
+  if (st === 'ok') { me.username = v; refreshModal(); toast(t('un_saved')); } else { const m = $('#un-msg'); if (m) { m.textContent = t(`un_${st}`); m.className = 'unmsg bad'; } }
+}
+async function setAvatar(num) {
+  const st = await auth.saveIdentity({ avatar: num });
+  if (st === 'ok') me.avatar = num; else toast(t('un_error'));
+  showModal('settings');
+}
+async function addFriend() {
+  const inp = $('#fr-name'), name = inp?.value.trim(); if (!name) return;
+  let code;
+  try { code = await auth.sendFriendRequest(name); } catch { code = 'error'; }
+  bt.msg = code === 'sent' ? t('fr_sent', { name }) : t(`fr_${code}`);
+  if (code === 'sent' || code === 'accepted') { if (inp) inp.value = ''; await refreshFriends(); watchBattle(); }
+  paintBattle();
+}
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'fr-name') { e.preventDefault(); addFriend(); } });
+document.addEventListener('change', e => {
+  const el = e.target;
+  if (el.classList?.contains('tsel')) {
+    const k = el.value.lastIndexOf(':');
+    bt[el.dataset.side] = { owner: el.value.slice(0, k), slot: Number(el.value.slice(k + 1)) };
+    bt.res = null; bt.cmpMsg = ''; paintBattle();
+  }
+});
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-act]');
   if (!el) return;
@@ -1024,7 +1366,7 @@ document.addEventListener('click', e => {
     case 'set-lang': switchLang(v); break;
     case 'filters-toggle': state.filtersOpen = !state.filtersOpen; syncFilters(); break;
     case 'close': closeSheet(); break;
-    case 'back': if (navIdx > 0) history.back(); else location.hash = '#/'; break;
+    case 'back': backFlag = true; if (navIdx > 0) history.back(); else if (location.hash === '#/' || !location.hash) route(); else location.hash = '#/'; break;
     case 'pf-toggle': pf.open = !pf.open; repaintKeep(); break;
     case 'pf-clear': pf.types = []; pf.tiers = []; pageExpand = new Set(); repaintKeep(); break;
     case 'pf-type': pf.types = pf.types.includes(v) ? pf.types.filter(x => x !== v) : [...pf.types, v]; pageExpand = new Set(); repaintKeep(); break;
@@ -1052,14 +1394,39 @@ document.addEventListener('click', e => {
     case 'tier-go': goSearch({ tiers: [v] }); break;
 
     // ficha
-    case 'fav': if (requireLogin({ type: 'fav', id: page.d.id })) toggleFav(page.d.id); break;
+    case 'fav': if (requireLogin({ type: 'fav', id: page.d.id })) openTeamPick(page.d.id); break;
+    case 'login-open': openLogin({ type: v }); break;
+    case 'team-toggle': {
+      const i = Number(v), had = teams[i].members.some(m => m.id === pickId), p = BYID.get(pickId);
+      if (toggleInTeam(i, pickId)) { closeSettings(); toast(t(had ? 'removedFrom' : 'addedTo', { name: pname(p), team: teamName(i) })); }
+      break;
+    }
+    case 'slot-open': teamsSel.open = teamsSel.open === Number(v) ? -1 : Number(v); paintTeams(); break;
+    case 'slot-add': if (teamsSel.open >= 0) openPicker({ mode: 'team', slot: teamsSel.open }); break;
+    case 'team-remove': if (teamsSel.open >= 0) toggleInTeam(teamsSel.open, v); break;
+    case 'pk-pick':
+      if (pickCtx?.mode === 'avatar') setAvatar(BYID.get(v).num);
+      else if (pickCtx?.mode === 'team') {
+        toggleInTeam(pickCtx.slot, v);
+        if (teams[pickCtx.slot].members.length >= MAXTEAM) closeSettings();
+        else { const l = $('.pklist'); if (l) l.innerHTML = pickerListHTML($('#pk-q')?.value || ''); }
+      }
+      break;
+    case 'avatar-pick': openPicker({ mode: 'avatar' }); break;
+    case 'un-save': saveUsername(); break;
+    case 'friend-add': addFriend(); break;
+    case 'friend-accept': auth.respondFriend(v, true).then(() => refreshFriends()).then(() => { paintBattle(); watchBattle(); }).catch(() => toast(t('syncFail'))); break;
+    case 'friend-decline': auth.respondFriend(v, false).then(() => auth.removeFriend(v)).catch(() => {}).then(() => refreshFriends()).then(() => { paintBattle(); watchBattle(); }); break;
+    case 'friend-remove': auth.removeFriend(v).then(() => refreshFriends()).then(() => { if (bt.b.owner === v) bt.b = { owner: 'me', slot: 1 }; bt.res = null; paintBattle(); watchBattle(); }).catch(() => toast(t('syncFail'))); break;
+    case 'compare': runCompare(); break;
     case 'sign-in': startLogin(); break;
     case 'sign-out': auth.signOut().catch(() => {}); closeSettings(); break;
     case 'type-go': goSearch({ types: [v] }); break;
     case 'size-go': goSearch({ sort: v, dir: -1 }); break;
     case 'dock-home': goSearch(); window.scrollTo(0, 0); break;
     case 'dock-search': goSearch({ q: state.view === 'home' ? state.q : '' }, true); break;
-    case 'dock-favs': if (requireLogin({ type: 'favs' })) { goSearch({ favs: true }); window.scrollTo(0, 0); } break;
+    case 'dock-favs': if (requireLogin({ type: 'favs' })) location.hash = '#/teams'; break;
+    case 'dock-battle': location.hash = '#/battle'; break;
     case 'dock-settings': if (smodal.hidden) openSettings(); else closeSettings(); break;
     case 'settings-close': closeSettings(); break;
     case 'compare': openCompare(); break;
@@ -1080,6 +1447,29 @@ document.addEventListener('click', e => {
     case 'remove': cmp.others = cmp.others.filter(p => p.id !== v); renderCompare(); break;
   }
 });
+
+/** Al pasar el ratón por un botón o tarjeta: zoom suave y una inclinación 3D hacia el lado que tocas (solo con ratón) */
+if (matchMedia('(hover: hover) and (pointer: fine)').matches && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  const TILT = 'button:not(:disabled), a.row, a.card, a.chip, a.evo-card, .frow, .slotopt';
+  let cur = null;
+  const reset = () => { if (!cur) return; cur.classList.remove('tilt-on'); ['--rx', '--ry', '--s'].forEach(k => cur.style.removeProperty(k)); cur = null; };
+  document.addEventListener('pointermove', e => {
+    if (e.pointerType !== 'mouse') return;
+    const el = e.target.closest?.(TILT);
+    if (el !== cur) { reset(); if (!el) return; cur = el; el.classList.add('tilt-on'); }
+    const r = cur.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width - 0.5, y = (e.clientY - r.top) / r.height - 0.5;
+    const big = Math.max(r.width, r.height) > 260; // las piezas grandes se inclinan menos
+    const max = big ? 2.2 : 6;
+    cur.style.setProperty('--ry', `${(x * max * 2).toFixed(2)}deg`);
+    cur.style.setProperty('--rx', `${(-y * max * 2).toFixed(2)}deg`);
+    cur.style.setProperty('--s', big ? 1.012 : 1.045);
+  }, { passive: true });
+  document.addEventListener('pointerleave', reset);
+  document.addEventListener('pointerdown', () => cur?.style.setProperty('--s', 0.98));
+  document.addEventListener('pointerup', () => cur?.style.setProperty('--s', 1.04));
+  window.addEventListener('blur', reset);
+}
 
 /** En la app instalada de iOS la web puede quedar bajo la barra de estado sin que env() lo indique: se calcula a mano */
 function fixStatusBar() {
