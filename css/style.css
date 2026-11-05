@@ -136,7 +136,7 @@ button.tier { cursor: pointer; }
 
 /* el buscador se queda pegado arriba al hacer scroll */
 .searchbar {
-  position: sticky; top: var(--st); z-index: 20; margin: 0 -16px; padding: 8px 16px 6px;
+  position: sticky; top: calc(var(--st) + var(--nav, 0px)); z-index: 20; margin: 0 -16px; padding: 8px 16px 6px;
   background: color-mix(in srgb, var(--bg) 94%, transparent); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
 }
 .search { position: relative; }
@@ -711,3 +711,26 @@ img.mini { width: 28px; height: 28px; object-fit: contain; flex: none; }
 /* puntuación del equipo en el círculo de cada hueco */
 .sn.sc { background: color-mix(in srgb, var(--sc) 20%, var(--surface)); color: color-mix(in srgb, var(--sc) 62%, var(--ink)); font-size: .95rem; letter-spacing: -.02em; }
 .sn.sc.none { background: var(--soft); color: var(--muted); }
+
+/* menú móvil: solo icono; el texto solo se enseña en la barra de ordenador */
+.dk .lb { display: none; }
+
+/* ───────────── Ordenador: el menú es una barra fija arriba, como una web ───────────── */
+@media (hover: hover) and (pointer: fine) and (min-width: 820px) {
+  :root { --nav: 64px; }
+  #dock {
+    top: 0; bottom: auto; left: 0; right: 0; translate: none; width: 100%; height: var(--nav); padding: 0 24px; border-radius: 0; border-width: 0 0 1px;
+    display: flex; justify-content: center; align-items: center; gap: 6px; box-shadow: none;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+  }
+  .dk { display: inline-flex; align-items: center; gap: 9px; height: 42px; padding: 0 16px; border-radius: var(--r-pill); font-weight: 700; font-size: .95rem; }
+  .dk .ic { width: 24px; height: 24px; flex: none; }
+  .dk .lb { display: inline; }
+  .dk::after { display: none; }
+  .dk.on .ic { transform: none; }
+  .dk.on { background: var(--soft); }
+  .dk:not(.on):hover { color: var(--ink); }
+  #app { padding-top: calc(var(--nav) + 20px); padding-bottom: 48px; }
+  .backfab { top: calc(var(--nav) + 12px); }
+  #toast, .toast { bottom: 32px; }
+}

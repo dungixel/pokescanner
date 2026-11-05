@@ -260,7 +260,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSetting
 /** Dock inferior, como en una app móvil */
 const dockEl = document.getElementById('dock');
 function renderDock() {
-  const it = (act, label) => `<button class="dk" data-act="${act}" aria-label="${label}"><span class="ic">${DOCK[act].o}${DOCK[act].f}</span></button>`;
+  const it = (act, label) => `<button class="dk" data-act="${act}" aria-label="${label}"><span class="ic">${DOCK[act].o}${DOCK[act].f}</span><span class="lb">${label}</span></button>`;
   dockEl.innerHTML = it('dock-home', t('dockHome')) + it('dock-battle', t('dockBattle')) + it('dock-search', t('dockSearch')) + it('dock-favs', t('dockFavs')) + it('dock-settings', t('settings'));
   updateDock();
 }

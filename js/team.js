@@ -1,5 +1,5 @@
 // Análisis de equipo: usa solo los tipos y las estadísticas base de los Pokémon (no movimientos, habilidades ni objetos).
-import { TYPES, matchups, typeName, pname, bst } from './util.js';
+import { TYPES, matchups, typeName, pname, bst, tierNum } from './util.js';
 
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 
@@ -9,6 +9,10 @@ const SE_VS = Object.fromEntries(TYPES.map(d => [d, new Set(matchups([d])[2] || 
 const FAST = 100;   // Velocidad base para considerar rápido
 const SLOW = 60;    // Velocidad base para considerar lento
 const BULKY = 90;   // Defensa / Defensa Especial base para considerar buena
+
+// nivel competitivo de cada Pokémon según su tier (1 = Ubers/OU, 0 = ZU); LC y sin evolucionar casi nada
+const TIER_POWER = [0.05, 1, 1, 1, 0.92, 0.8, 0.66, 0.52, 0.42, 0.32, 0.22, 0.14, 0.07, 0];
+export const pokePower = p => TIER_POWER[tierNum(p.r)] ?? 0.05;
 
 export const scoreInfo = s => (s >= 85 ? { k: 'excellent', c: '#3FB6C9' } : s >= 70 ? { k: 'great', c: '#6CC070' } : s >= 55 ? { k: 'ok', c: '#E6C84F' }
   : s >= 40 ? { k: 'weak', c: '#F0974B' } : { k: 'poor', c: '#E5645A' });
@@ -101,14 +105,21 @@ export function analyzeTeam(team) {
   const avgBst = Math.round(team.reduce((a, p) => a + bst(p.s), 0) / n);
   if (avgBst >= 540) good.push({ key: 'power', sev: 1, vars: { avg: avgBst }, chips: [] });
 
-  const score = Math.round(defPts + covPts + atkPts + spePts + bulkPts);
+  // ───── nivel competitivo: la tier de cada Pokémon. Multiplica la puntuación de estructura ─────
+  const power = team.reduce((a, p) => a + pokePower(p), 0) / n;
+  const weakTier = team.filter(p => pokePower(p) <= 0.14);
+  if (n >= 3 && weakTier.length >= 2) bad.push({ key: 'lowtier', sev: weakTier.length >= n / 2 ? 5 : 3, vars: { k: weakTier.length, n }, chips: poke(weakTier) });
+  const topTier = team.filter(p => pokePower(p) >= 0.92);
+  if (n >= 3 && topTier.length / n >= 0.66) good.push({ key: 'toptier', sev: 3, vars: { k: topTier.length, n }, chips: poke(topTier) });
+  const structure = defPts + covPts + atkPts + spePts + bulkPts;
+  const score = Math.round(structure * (0.4 + 0.6 * power));
   bad.sort((a, b) => b.sev - a.sev);
   good.sort((a, b) => b.sev - a.sev);
   return {
     score, names: names(team),
     parts: [
       { k: 'def', v: defPts, max: 40 }, { k: 'cov', v: covPts, max: 20 }, { k: 'atk', v: atkPts, max: 10 },
-      { k: 'spe', v: spePts, max: 10 }, { k: 'bulk', v: bulkPts, max: 20 },
+      { k: 'spe', v: spePts, max: 10 }, { k: 'bulk', v: bulkPts, max: 20 }, { k: 'pow', v: power * 100, max: 100 },
     ],
     bad: bad.slice(0, 6), good: good.slice(0, 5),
   };
