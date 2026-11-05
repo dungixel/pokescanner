@@ -419,7 +419,7 @@ for (const s of allSpecies) {
         a: arr(set.ability).map(addAbility),
         i: arr(set.item).map(addItem),
         na: arr(set.nature).map(addNature),
-        ev: set.evs || {},
+        ev: (Array.isArray(set.evs) ? set.evs[0] : set.evs) || {},
         te: arr(set.teratypes).map(t => t.toLowerCase()),
       });
     }
