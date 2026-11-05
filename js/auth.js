@@ -4,7 +4,7 @@ const SB_URL = 'https://fjwawxepxdvpsktboqps.supabase.co';
 const SB_KEY = 'sb_publishable_jI7504CZUIU5yqozKv8qGQ_8oPNVHII'; // clave pública: la seguridad la dan las políticas RLS de la base de datos
 const TOKEN_KEY = 'sb-fjwawxepxdvpsktboqps-auth-token';
 
-let sb = null, session = null, onChange = () => {};
+let sb = null, session = null, onChange = () => {}, adminFlag = false;
 export const currentUser = () => session?.user ?? null;
 export const userInfo = () => {
   const u = currentUser();
@@ -21,6 +21,7 @@ function client() {
     sb.auth.onAuthStateChange((event, s) => {
       const was = session?.user?.id;
       session = s;
+      if (!s) adminFlag = false;
       // INITIAL_SESSION / SIGNED_IN se repiten (p. ej. al volver a la pestaña): solo avisamos si cambió el usuario
       if (event === 'SIGNED_OUT' || (s?.user?.id !== was)) setTimeout(() => onChange(event, s), 0);
     });
@@ -199,7 +200,7 @@ export async function unwatchFriends() {
 }
 
 // ───────── Comunidad ─────────
-const comErr = error => { const m = String(error?.message || ''); return Object.assign(new Error(/rate_limit/.test(m) ? 'rate_limit' : /text_banned/.test(m) ? 'text_banned' : m || 'fail'), { code: error?.code }); };
+const comErr = error => { const m = String(error?.message || ''); return Object.assign(new Error(/rate_limit/.test(m) ? 'rate_limit' : /text_banned/.test(m) ? 'text_banned' : /\bbanned\b/.test(m) ? 'banned' : m || 'fail'), { code: error?.code }); };
 export async function communityFeed(sort = 'new', offset = 0, limit = 20, post = null) {
   const c = await client(); await c.auth.getSession();
   const { data, error } = await c.rpc('community_feed', { p_sort: sort, p_offset: offset, p_limit: limit, p_post: post == null ? null : Number(post) });
@@ -229,4 +230,36 @@ export async function setLike(postId, on) {
   const c = await client();
   const { error } = on ? await c.from('post_likes').insert({ post_id: Number(postId) }) : await c.from('post_likes').delete().eq('post_id', Number(postId)).eq('user_id', currentUser().id);
   if (error && error.code !== '23505') throw comErr(error);
+}
+
+// ───────── Perfiles y administración ─────────
+export const isAdmin = () => adminFlag;
+export async function checkAdmin() {
+  if (!currentUser()) { adminFlag = false; return false; }
+  const c = await client();
+  const { data, error } = await c.rpc('is_admin');
+  adminFlag = !error && data === true;
+  return adminFlag;
+}
+export async function communityProfile(id) {
+  const c = await client(); await c.auth.getSession();
+  const { data, error } = await c.rpc('community_profile', { p_user: id });
+  if (error) throw comErr(error);
+  return (data || [])[0] || null;
+}
+export async function communityUserPosts(id, offset = 0, limit = 20) {
+  const c = await client(); await c.auth.getSession();
+  const { data, error } = await c.rpc('community_feed_user', { p_user: id, p_offset: offset, p_limit: limit });
+  if (error) throw comErr(error);
+  return data || [];
+}
+export async function adminBan(id, reason = '') { const c = await client(); const { error } = await c.rpc('admin_ban', { p_user: id, p_reason: reason }); if (error) throw comErr(error); }
+export async function adminUnban(id) { const c = await client(); const { error } = await c.rpc('admin_unban', { p_user: id }); if (error) throw comErr(error); }
+export async function adminBans() { const c = await client(); const { data, error } = await c.rpc('admin_bans'); if (error) throw comErr(error); return data || []; }
+export async function adminSetUsername(id, name) { const c = await client(); const { error } = await c.rpc('admin_set_username', { p_user: id, p_name: name }); if (error) throw error; }
+/** Quita todas las publicaciones y comentarios de una cuenta (solo lo permite la base de datos a administradores) */
+export async function adminPurge(id) {
+  const c = await client();
+  const a = await c.from('posts').delete().eq('user_id', id); if (a.error) throw comErr(a.error);
+  const b = await c.from('post_comments').delete().eq('user_id', id); if (b.error) throw comErr(b.error);
 }

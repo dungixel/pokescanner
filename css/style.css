@@ -1093,3 +1093,35 @@ input.edr:focus-visible::-webkit-slider-thumb { outline: 3px solid color-mix(in 
 .cpost .cacts { grid-column: 1 / -1; grid-row: 2; }
 .sn.sc.big { width: 46px; height: 46px; font-size: 1.15rem; }
 .cacts .sn.sc.big { width: 36px; height: 36px; font-size: 1rem; margin-right: 6px; }
+
+/* perfiles y administración */
+.cpost { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "head score" "main score" "acts acts"; }
+.cpost .chead { grid-area: head; margin-bottom: 6px; }
+.cpost .cmain { grid-area: main; grid-column: auto; grid-row: auto; }
+.cpost .cscore { grid-area: score; grid-column: auto; grid-row: auto; align-self: center; }
+.cpost .cacts { grid-area: acts; grid-column: auto; grid-row: auto; }
+.userlink { display: inline-flex; align-items: center; gap: 8px; padding: 0; background: none; border: 0; color: inherit; font: inherit; cursor: pointer; min-width: 0; }
+.userlink b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.comtools-r { display: flex; gap: 8px; flex-wrap: wrap; }
+.ccm .chead .iconbtn.sm { margin-left: auto; }
+.uhero { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 14px 0 6px; }
+.uhero h1 { font-size: 1.6rem; margin: 4px 0 0; overflow-wrap: anywhere; }
+.av.lg { width: 96px; height: 96px; border-radius: 50%; background: var(--soft); object-fit: contain; }
+.uacts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 8px; }
+.uacts .chip svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.chip.static { pointer-events: none; background: var(--soft); border-color: transparent; color: var(--muted); }
+.chip.danger { background: #e5484d; border-color: #e5484d; color: #fff; }
+.admbox { margin: 18px 0; padding: 14px 16px; border: 1px dashed var(--line); border-radius: 16px; display: grid; gap: 10px; }
+.admbox h2 { font-size: 1rem; }
+.admbox .uacts { justify-content: flex-start; margin: 0; }
+.admbox .frform { display: flex; gap: 8px; }
+.admbox .frform .unin { flex: 1; min-width: 0; }
+.uteams { display: flex; flex-direction: column; gap: 8px; }
+.uteam { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+.uteam .utinfo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.uteam .utinfo b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.uteam .minis { flex-wrap: nowrap; }
+.uteam .sn.sc.big { width: 40px; height: 40px; font-size: 1.05rem; flex: none; }
+.banlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.banlist li { display: flex; align-items: center; gap: 10px; }
+.banlist li a { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }

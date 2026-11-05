@@ -63,7 +63,7 @@ const I = {
 const FLAG = { es: 'icons/flags/es.svg', en: 'icons/flags/gb.svg' };
 const LANGS = { es: 'Español', en: 'English' };
 const smodal = document.getElementById('smodal');
-let modalKind = null; // 'settings' | 'login' | 'teampick' | 'picker' | 'saveteam' | 'publish'
+let modalKind = null; // 'settings' | 'login' | 'teampick' | 'picker' | 'saveteam' | 'publish' | 'bans'
 let pending = null;   // lo que la persona quería hacer cuando se le pidió iniciar sesión
 const themePref = () => { const v = store.get('pk.theme'); return v === 'light' || v === 'dark' ? v : 'system'; };
 const THEME_ICON = { system: 'desktop', light: 'sun', dark: 'moon' };
@@ -107,7 +107,7 @@ function loginHTML() {
       <button class="ghostbtn" data-act="settings-close">${t('notNow')}</button></div>
   </div>`;
 }
-const modalHTML = () => (modalKind === 'login' ? loginHTML() : modalKind === 'publish' ? publishModalHTML() : modalKind === 'saveteam' ? saveTeamHTML() : modalKind === 'teampick' ? teamPickHTML() : modalKind === 'picker' ? pickerHTML() : settingsHTML());
+const modalHTML = () => (modalKind === 'login' ? loginHTML() : modalKind === 'bans' ? bansModalHTML() : modalKind === 'publish' ? publishModalHTML() : modalKind === 'saveteam' ? saveTeamHTML() : modalKind === 'teampick' ? teamPickHTML() : modalKind === 'picker' ? pickerHTML() : settingsHTML());
 const refreshModal = () => { if (!smodal.hidden) smodal.innerHTML = modalHTML(); };
 function showModal(kind) {
   modalKind = kind;
@@ -188,7 +188,7 @@ const takePending = () => {
 /** Se llama cuando cambia la sesión (inicio, vuelta de Google o cierre) */
 async function onAuth(event, s) {
   if (!s) { // sesión cerrada
-    pending = null; me = null; resetTeams();
+    pending = null; me = null; resetTeams(); if (state.view === 'community') paintCom(); else if (state.view === 'post') paintPost(); else if (state.view === 'user') paintUser();
     auth.untrackPresence().catch(() => {}); auth.unwatchFriends().catch(() => {});
     refreshModal(); paintFavBtn();
     if (state.view === 'home') renderResults(); else if (state.view === 'teams') paintTeams(); else if (state.view === 'battle') renderBattle();
@@ -227,7 +227,8 @@ async function onAuth(event, s) {
   if (state.view === 'home') renderResults(); else if (state.view === 'teams') paintTeams(); else if (state.view === 'battle') renderBattle();
   paintFavBtn();
   refreshModal();
-  if (state.view === 'community') loadFeed(true); else if (state.view === 'post') renderPost(curPostId);
+  await auth.checkAdmin().catch(() => {});
+  if (state.view === 'community') loadFeed(true); else if (state.view === 'post') renderPost(curPostId); else if (state.view === 'user') renderUser(usr.id);
   if (wanted?.type === 'favs') location.hash = '#/teams';
   else if (wanted?.type === 'community') location.hash = wanted.hash || '#/community';
   else if (wanted?.type === 'fav' && BYID.has(wanted.id)) openTeamPick(wanted.id);
@@ -318,7 +319,7 @@ function renderDock() {
 }
 function updateDock() {
   const home = state.view === 'home';
-  const on = { 'dock-home': home, 'dock-community': state.view === 'community' || state.view === 'post', 'dock-battle': state.view === 'battle', 'dock-favs': state.view === 'teams', 'dock-settings': !smodal.hidden };
+  const on = { 'dock-home': home, 'dock-community': state.view === 'community' || state.view === 'post' || state.view === 'user', 'dock-battle': state.view === 'battle', 'dock-favs': state.view === 'teams', 'dock-settings': !smodal.hidden };
   dockEl.querySelectorAll('.dk').forEach(b => b.classList.toggle('on', !!on[b.dataset.act]));
 }
 /** Vuelve al buscador con los filtros que se indiquen (el resto se limpia) */
@@ -701,10 +702,11 @@ function route() {
   if (back) { copyKeys(back, state); state.scroll = back.y; state.restoreY = back.y; } // se vuelve a una página ya vista: se recupera tal cual
   const m = location.hash.match(/^#\/pokemon\/([a-z0-9]+)/);
   const d = location.hash.match(/^#\/(move|ability|item|tier)\/([A-Za-z0-9]+)/);
+  const um = location.hash.match(/^#\/user\/([0-9a-f-]{36})/);
   const cm = location.hash.match(/^#\/community\/(\d+)/);
   const sh = location.hash.match(/^#\/t\/([a-z0-9,]*)(?:\?n=(.*))?$/);
   if (state.view === 'battle' && location.hash !== '#/battle') auth.unwatchFriends().catch(() => {});
-  if (sh) renderShared(sh[1], sh[2]); else if (m) renderPokemon(m[1]); else if (d) renderDetailPage(d[1], d[2]); else if (cm) renderPost(cm[1]); else if (location.hash === '#/community') renderCommunity(); else if (location.hash === '#/types') renderTypes(); else if (location.hash === '#/teams') renderTeams(); else if (location.hash === '#/battle') renderBattle(); else renderHome();
+  if (sh) renderShared(sh[1], sh[2]); else if (m) renderPokemon(m[1]); else if (d) renderDetailPage(d[1], d[2]); else if (um) renderUser(um[1]); else if (cm) renderPost(cm[1]); else if (location.hash === '#/community') renderCommunity(); else if (location.hash === '#/types') renderTypes(); else if (location.hash === '#/teams') renderTeams(); else if (location.hash === '#/battle') renderBattle(); else renderHome();
   updateDock();
   if (wentBack) { $app.classList.remove('goback'); void $app.offsetWidth; $app.classList.add('goback'); setTimeout(() => $app.classList.remove('goback'), 260); }
 }
@@ -1426,20 +1428,21 @@ const heart = on => `<svg viewBox="0 0 24 24" class="hrt ${on ? 'on' : ''}" aria
 const bubble = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20l1.3 -3.9a9 8 0 1 1 3.4 2.9l-4.7 1"/></svg>';
 const postMinis = ms => `<span class="minis">${ms.map(m => { const p = BYID.get(m.id); return p ? pokeImg(p, 'small', 'mini', undefined, !!m.b?.sh) : ''; }).join('')}</span>`;
 const scoreBadge = ms => { const ps = (ms || []).map(m => BYID.get(m.id)).filter(Boolean); return ps.length >= 3 ? (sc => `<span class="sn sc big" style="--sc:${scoreInfo(sc).c}" title="${t('an_title')}">${sc}</span>`)(analyzeTeam(ps).score) : `<span class="sn sc big none" title="${t('an_title')}">-</span>`; };
+const userLink = (uid, name, avatar) => `<button class="userlink" data-act="user-open" data-v="${uid}">${avatarImg(avatar, 'sm')}<b>${esc(name || '?')}</b></button>`;
+const delBtns = x => ((x.mine || auth.isAdmin()) ? (String(com.confirm) === String(x.id)
+  ? `<button class="cact danger" data-act="com-del-yes" data-v="${x.id}">${t('comDeleteSure')}</button><button class="cact" data-act="com-del-no">${t('comCancel')}</button>`
+  : `<button class="cact" data-act="com-del" data-v="${x.id}" aria-label="${t('comDelete')}">${IC.trash}</button>`) : '');
 function postCardHTML(x) {
-  const del = x.mine ? (String(com.confirm) === String(x.id)
-    ? `<button class="cact danger" data-act="com-del-yes" data-v="${x.id}">${t('comDeleteSure')}</button><button class="cact" data-act="com-del-no">${t('comCancel')}</button>`
-    : `<button class="cact" data-act="com-del" data-v="${x.id}" aria-label="${t('comDelete')}">${IC.trash}</button>`) : '';
   return `<article class="cpost">
+    <div class="chead">${userLink(x.user_id, x.username, x.avatar)}<small>${ago(x.created_at)}</small></div>
     <button class="cmain" data-act="com-open" data-v="${x.id}">
-      <span class="chead">${avatarImg(x.avatar, 'sm')}<b>${esc(x.username || '?')}</b><small>${ago(x.created_at)}</small></span>
       <span class="cname">${esc(x.name)}</span>
       ${x.description ? `<span class="cdesc">${esc(x.description)}</span>` : ''}
       ${postMinis(x.members || [])}
     </button>
     <div class="cscore">${scoreBadge(x.members)}</div>
     <div class="cacts"><button class="cact like ${x.liked ? 'on' : ''}" data-act="com-like" data-v="${x.id}" aria-pressed="${!!x.liked}" aria-label="${t('comLike')}">${heart(x.liked)}<span>${x.likes}</span></button>
-      <button class="cact" data-act="com-open" data-v="${x.id}" aria-label="${t('comComments')}">${bubble}<span>${x.comments}</span></button><span class="grow"></span>${del}</div>
+      <button class="cact" data-act="com-open" data-v="${x.id}" aria-label="${t('comComments')}">${bubble}<span>${x.comments}</span></button><span class="grow"></span>${delBtns(x)}</div>
   </article>`;
 }
 function communityHTML() {
@@ -1447,7 +1450,7 @@ function communityHTML() {
   const list = com.items.length ? com.items.map(postCardHTML).join('')
     : com.loading ? '' : com.err ? `<div class="empty"><b>${t('comLoadFail')}</b></div>` : `<div class="empty"><b>${t('comEmpty')}</b>${t('comEmptyHint')}</div>`;
   return `<header class="hero"><h1>${t('comTitle')}</h1><p>${t('comLead')}</p></header>
-    <div class="comtools"><div class="comsort">${sortBtn('new', 'comNew')}${sortBtn('top', 'comTop')}</div><button class="chip accent" data-act="com-publish">${IC.plus}${t('comPublish')}</button></div>
+    <div class="comtools"><div class="comsort">${sortBtn('new', 'comNew')}${sortBtn('top', 'comTop')}</div><span class="comtools-r">${auth.isAdmin() ? `<button class="chip" data-act="adm-bans">${t('admBans')}</button>` : ''}<button class="chip accent" data-act="com-publish">${IC.plus}${t('comPublish')}</button></span></div>
     <div class="cfeed">${list}</div>
     ${com.more ? `<div class="ctarow"><button class="chip" data-act="com-more" ${com.loading ? 'disabled' : ''}>${t('comMore')}</button></div>` : ''}`;
 }
@@ -1484,17 +1487,18 @@ function renderCommunity() {
 }
 async function likePost(id) {
   if (!requireLogin({ type: 'community', hash: location.hash })) return;
-  const same = y => y && String(y.id) === String(id), x = com.items.find(same) || (same(com.post) ? com.post : null); if (!x) return;
-  const on = !x.liked, sync = () => { for (const y of [com.items.find(same), same(com.post) ? com.post : null]) if (y) { y.liked = on; y.likes = Math.max(0, y.likes + (on ? 1 : -1)); } };
-  sync(); state.view === 'post' ? paintPost() : paintCom();
-  try { await auth.setLike(id, on); } catch { on ? (x.liked = true) : (x.liked = false); const bk = !on; for (const y of [com.items.find(same), same(com.post) ? com.post : null]) if (y) { y.liked = bk; y.likes = Math.max(0, y.likes + (bk ? 1 : -1)); } state.view === 'post' ? paintPost() : paintCom(); toast(t('syncFail')); }
+  const same = y => y && String(y.id) === String(id), all = [...com.items, ...usr.posts, com.post].filter(same), x = all[0]; if (!x) return;
+  const on = !x.liked, sync = () => { for (const y of all) { y.liked = on; y.likes = Math.max(0, y.likes + (on ? 1 : -1)); } };
+  sync(); repaintCom();
+  try { await auth.setLike(id, on); } catch (err) { on ? (x.liked = true) : (x.liked = false); const bk = !on; for (const y of all) { y.liked = bk; y.likes = Math.max(0, y.likes + (bk ? 1 : -1)); } repaintCom(); toast(t(/banned/.test(String(err?.message)) ? 'comBanned' : 'syncFail')); }
 }
+const repaintCom = () => (state.view === 'post' ? paintPost() : state.view === 'user' ? paintUser() : paintCom());
 async function removePost(id) {
   try {
     await auth.deletePost(id);
-    com.items = com.items.filter(i => String(i.id) !== String(id)); com.confirm = null;
+    com.items = com.items.filter(i => String(i.id) !== String(id)); usr.posts = usr.posts.filter(i => String(i.id) !== String(id)); com.confirm = null;
     toast(t('comDeleted'));
-    if (state.view === 'post') location.hash = '#/community'; else paintCom();
+    if (state.view === 'post') location.hash = '#/community'; else repaintCom();
   } catch { toast(t('syncFail')); }
 }
 // publicar
@@ -1534,7 +1538,7 @@ async function doPublish() {
     pubCtx = null; closeSettings(); toast(t('comPublished'));
     if (state.view === 'community') { com.sort = 'new'; loadFeed(true); } else location.hash = '#/community';
   } catch (err) {
-    msg.textContent = err.message === 'text_banned' ? t('comPubBanned') : t('comPubFail');
+    msg.textContent = err.message === 'text_banned' ? t('comPubBanned') : err.message === 'banned' ? t('comBanned') : t('comPubFail');
     btn.disabled = false;
   }
 }
@@ -1572,19 +1576,17 @@ function buildCardHTML({ m, d, cur }) {
     </div></div>`;
 }
 function commentHTML(c) {
-  const can = c.mine || com.post?.mine;
-  return `<li class="ccm"><span class="ccav">${avatarImg(c.avatar, 'sm')}</span><div><div class="chead"><b>${esc(c.username || '?')}</b><small>${ago(c.created_at)}</small>${can ? `<button class="iconbtn sm" data-act="com-cdel" data-v="${c.id}" aria-label="${t('comDelete')}">${IC.trash}</button>` : ''}</div><p>${esc(c.body)}</p></div></li>`;
+  const can = c.mine || com.post?.mine || auth.isAdmin();
+  return `<li class="ccm"><div><div class="chead">${userLink(c.user_id, c.username, c.avatar)}<small>${ago(c.created_at)}</small>${can ? `<button class="iconbtn sm" data-act="com-cdel" data-v="${c.id}" aria-label="${t('comDelete')}">${IC.trash}</button>` : ''}</div><p>${esc(c.body)}</p></div></li>`;
 }
 function postHTML() {
   const x = com.post;
   if (!x) return `<div class="empty"><b>${t(com.err ? 'comLoadFail' : 'comGone')}</b><div class="ctarow"><a class="chip" href="#/community">${t('comBack')}</a></div></div>`;
-  const del = x.mine ? (String(com.confirm) === String(x.id)
-    ? `<button class="cact danger" data-act="com-del-yes" data-v="${x.id}">${t('comDeleteSure')}</button><button class="cact" data-act="com-del-no">${t('comCancel')}</button>`
-    : `<button class="cact" data-act="com-del" data-v="${x.id}" aria-label="${t('comDelete')}">${IC.trash}</button>`) : '';
+  const del = delBtns(x);
   const form = auth.currentUser()
     ? `<div class="cform"><textarea id="cm-body" rows="2" maxlength="300" placeholder="${t('comCommentPh')}"></textarea><button class="chip accent" data-act="com-send">${t('comSend')}</button></div><p class="shint err" id="cm-msg" role="alert">${esc(com.msg)}</p>`
     : `<div class="ctarow"><button class="chip accent" data-act="com-login">${IC.user}${t('comLoginAct')}</button></div>`;
-  return `<header class="chero"><div class="chead">${avatarImg(x.avatar, 'sm')}<b>${esc(x.username || '?')}</b><small>${ago(x.created_at)}</small></div>
+  return `<header class="chero"><div class="chead">${userLink(x.user_id, x.username, x.avatar)}<small>${ago(x.created_at)}</small></div>
       <h1>${esc(x.name)}</h1>${x.description ? `<p class="cdesc full">${esc(x.description)}</p>` : ''}</header>
     <div class="cacts"><button class="cact like ${x.liked ? 'on' : ''}" data-act="com-like" data-v="${x.id}" aria-pressed="${!!x.liked}" aria-label="${t('comLike')}">${heart(x.liked)}<span>${x.likes}</span></button><span class="grow"></span>${scoreBadge(x.members)}${del}</div>
     <div class="sharedacts"><button class="chip accent" data-act="com-save">${IC.star}${t('comSave')}</button><button class="chip" data-act="com-compare">${IC.battle}${t('comCompare')}</button></div>
@@ -1608,9 +1610,113 @@ async function sendComment() {
     await auth.addComment(com.post.id, body);
     box.value = '';
     com.comments = await auth.communityComments(com.post.id); com.post.comments = com.comments.length; com.msg = '';
-  } catch (err) { com.msg = t(err.message === 'rate_limit' ? 'comCommentLimit' : err.message === 'text_banned' ? 'comCommentBanned' : 'comCommentFail'); }
+  } catch (err) { com.msg = t(err.message === 'rate_limit' ? 'comCommentLimit' : err.message === 'text_banned' ? 'comCommentBanned' : err.message === 'banned' ? 'comBanned' : 'comCommentFail'); }
   paintPost();
 }
+
+
+// ───────────────────────── Perfiles de usuario y administración ─────────────────────────
+const usr = { id: null, prof: null, posts: [], more: false, teams: null, err: false, confirm: null, msg: '', bans: null };
+const postsLabel = n => (Number(n) === 1 ? t('uPostsOne') : t('uPostsN', { n }));
+async function renderUser(id) {
+  state.view = 'user'; usr.id = id; usr.prof = null; usr.posts = []; usr.more = false; usr.teams = null; usr.err = false; usr.confirm = null; usr.msg = '';
+  document.title = `PokeScanner`;
+  document.documentElement.style.removeProperty('--accent');
+  $app.innerHTML = topbarHTML() + '<div id="user-root"></div>';
+  window.scrollTo(0, 0); updateDock();
+  if (!auth.currentUser()) { paintUser(); return; }
+  try {
+    const prof = await auth.communityProfile(id);
+    if (usr.id !== id || state.view !== 'user') return;
+    usr.prof = prof;
+    if (prof) {
+      document.title = `${prof.username} · PokeScanner`;
+      const friend = prof.relation === 'friend' || prof.relation === 'self';
+      const [posts, teams] = await Promise.all([auth.communityUserPosts(id, 0, PAGE), friend ? auth.loadTeamsOf(id).catch(() => null) : null]);
+      if (usr.id !== id || state.view !== 'user') return;
+      usr.posts = posts; usr.more = posts.length === PAGE; usr.teams = teams;
+    }
+  } catch { usr.err = true; }
+  if (usr.id === id && state.view === 'user') paintUser();
+}
+function userTeamsHTML() {
+  const p = usr.prof;
+  if (!(p.relation === 'friend' || p.relation === 'self')) return `<p class="shint">${t('uTeamsLocked')}</p>`;
+  const rows = (usr.teams || []).map(r => ({ ...r, members: (r.members || []).filter(m => BYID.has(m.id)) })).filter(r => r.members.length).sort((a, b) => a.slot - b.slot);
+  if (!rows.length) return `<p class="shint">${t('uNoTeams')}</p>`;
+  return `<div class="uteams">${rows.map(r => `<div class="uteam"><div class="utinfo"><b>${esc(r.name || t('uTeamN', { n: r.slot + 1 }))}</b>${postMinis(r.members)}</div>${scoreBadge(r.members)}
+    <button class="iconbtn" data-act="u-team-save" data-v="${r.slot}" aria-label="${t('comSave')}">${IC.star}</button><button class="iconbtn" data-act="u-team-cmp" data-v="${r.slot}" aria-label="${t('comCompare')}">${IC.battle}</button></div>`).join('')}</div>`;
+}
+function userActionsHTML() {
+  const p = usr.prof, rel = p.relation;
+  if (rel === 'self') return `<span class="chip static">${t('uSelf')}</span>`;
+  if (rel === 'friend') return `<span class="chip static">${IC.check}${t('uFriends')}</span>` + (usr.confirm === 'rm'
+    ? `<button class="chip danger" data-act="u-remove">${t('uRemoveSure')}</button><button class="chip" data-act="u-cancel">${t('comCancel')}</button>`
+    : `<button class="chip" data-act="u-remove">${t('uRemove')}</button>`);
+  if (rel === 'out') return `<span class="chip static">${t('friendPending')}</span><button class="chip" data-act="u-remove">${t('uCancelReq')}</button>`;
+  if (rel === 'in') return `<span class="chip static">${t('friendWants')}</span><button class="chip accent" data-act="u-accept">${IC.check}${t('accept')}</button><button class="chip" data-act="u-decline">${t('decline')}</button>`;
+  return `<button class="chip accent" data-act="u-add">${IC.userPlus}${t('uFriendAdd')}</button>`;
+}
+function adminBoxHTML() {
+  const p = usr.prof; if (!auth.isAdmin() || p.relation === 'self') return '';
+  const two = (k, label, sure, act) => (usr.confirm === k ? `<button class="chip danger" data-act="${act}">${t(sure)}</button><button class="chip" data-act="u-cancel">${t('comCancel')}</button>` : `<button class="chip" data-act="u-ask" data-v="${k}">${t(label)}</button>`);
+  return `<section class="admbox"><h2>${t('admTitle')}</h2>
+    <label class="tname"><span>${t('admRename')}</span><span class="frform"><input id="adm-name" class="unin" value="${esc(p.username || '')}" maxlength="16" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="chip" data-act="u-rename">${t('admSave')}</button></span></label>
+    <div class="uacts">${p.banned ? `<button class="chip" data-act="u-unban">${t('admUnban')}</button>` : two('ban', 'admBan', 'admBanSure', 'u-ban')}${two('purge', 'admPurge', 'admPurgeSure', 'u-purge')}</div>
+    <p class="shint err" id="adm-msg" role="alert">${esc(usr.msg)}</p></section>`;
+}
+function userHTML() {
+  if (!auth.currentUser()) return `<div class="empty"><b>${t('uLoginNeed')}</b><div class="ctarow"><button class="chip accent" data-act="com-login">${IC.user}${t('comLoginAct')}</button></div></div>`;
+  const p = usr.prof;
+  if (!p) return `<div class="empty"><b>${t(usr.err ? 'comLoadFail' : 'uNotFound')}</b></div>`;
+  return `<header class="uhero">${avatarImg(p.avatar, 'lg')}<h1>${esc(p.username || '?')}${p.banned ? ` <small class="modtag">(${t('admBanned')})</small>` : ''}</h1><p class="dim">${postsLabel(p.posts)}</p>
+      <div class="uacts">${userActionsHTML()}</div></header>
+    ${adminBoxHTML()}
+    <section class="sec"><h2>${t('uTeams')}</h2>${userTeamsHTML()}</section>
+    <section class="sec"><h2>${t('uPosts')} <small>${p.posts}</small></h2>
+      ${usr.posts.length ? `<div class="cfeed">${usr.posts.map(postCardHTML).join('')}</div>` : `<p class="shint">${t('uNoPosts')}</p>`}
+      ${usr.more ? `<div class="ctarow"><button class="chip" data-act="u-more">${t('uMore')}</button></div>` : ''}</section>`;
+}
+function paintUser() {
+  const root = $('#user-root'); if (!root) return;
+  const y = window.scrollY, nm = $('#adm-name')?.value;
+  root.innerHTML = userHTML();
+  const inp = $('#adm-name'); if (inp && nm != null && usr.msg) inp.value = nm;
+  window.scrollTo(0, y);
+}
+const reloadProfile = async () => { try { usr.prof = await auth.communityProfile(usr.id); } catch { /* se queda como está */ } };
+async function userAction(act, v) {
+  const p = usr.prof; if (!p) return;
+  const done = async (relation, msg) => {
+    if (relation) p.relation = relation;
+    if (relation === 'friend') usr.teams = await auth.loadTeamsOf(usr.id).catch(() => null);
+    if (relation === 'none') usr.teams = null;
+    usr.confirm = null; if (msg) toast(msg); paintUser();
+  };
+  try {
+    if (act === 'u-add') { const code = await auth.sendFriendRequest(p.username); await done(code === 'sent' || code === 'pending' ? 'out' : code === 'accepted' || code === 'already' ? 'friend' : null, code === 'sent' ? t('fr_sent', { name: p.username }) : t(`fr_${code}`)); }
+    else if (act === 'u-accept') { await auth.respondFriend(usr.id, true); await done('friend'); }
+    else if (act === 'u-decline') { await auth.respondFriend(usr.id, false); await auth.removeFriend(usr.id).catch(() => {}); await done('none'); }
+    else if (act === 'u-remove') { if (p.relation === 'friend' && usr.confirm !== 'rm') { usr.confirm = 'rm'; paintUser(); return; } await auth.removeFriend(usr.id); await done('none'); }
+    else if (act === 'u-ban') { await auth.adminBan(usr.id); p.banned = true; await done(null, t('admDone')); }
+    else if (act === 'u-unban') { await auth.adminUnban(usr.id); p.banned = false; await done(null, t('admDone')); }
+    else if (act === 'u-purge') { await auth.adminPurge(usr.id); usr.posts = []; usr.more = false; p.posts = 0; com.items = com.items.filter(x => x.user_id !== usr.id); await done(null, t('admDone')); }
+    else if (act === 'u-rename') {
+      const name = $('#adm-name')?.value.trim() || '';
+      try { await auth.adminSetUsername(usr.id, name); p.username = name; usr.msg = ''; await done(null, t('un_saved')); }
+      catch (err) { const m = /username_(taken|banned|invalid)/.exec(String(err?.message || '')); usr.msg = t(m ? `un_${m[1]}` : 'un_error'); paintUser(); }
+    }
+  } catch { toast(t('syncFail')); paintUser(); }
+}
+// lista de baneados (solo administradores)
+async function openBans() {
+  usr.bans = null; showModal('bans');
+  try { usr.bans = await auth.adminBans(); } catch { usr.bans = []; }
+  if (modalKind === 'bans') refreshModal();
+}
+const bansModalHTML = () => `<div class="scard" role="dialog" aria-modal="true" aria-label="${t('admBans')}">
+  <div class="shead"><button class="iconbtn" data-act="settings-close" aria-label="${t('close')}">${IC.x}</button><h2>${t('admBans')}</h2></div>
+  ${usr.bans == null ? '<p class="shint">…</p>' : usr.bans.length ? `<ul class="banlist">${usr.bans.map(b => `<li>${avatarImg(b.avatar, 'sm')}<a href="#/user/${b.user_id}" data-act="settings-close"><b>${esc(b.username || '?')}</b></a><button class="chip" data-act="adm-unban" data-v="${b.user_id}">${t('admUnban')}</button></li>`).join('')}</ul>` : `<p class="shint">${t('admNoBans')}</p>`}</div>`;
 
 // ───────────────────────── Favoritos: 9 equipos ─────────────────────────
 const teamsSel = { open: 0 };
@@ -2169,8 +2275,8 @@ document.addEventListener('click', e => {
     case 'com-more': loadFeed(false); break;
     case 'com-open': location.hash = `#/community/${v}`; break;
     case 'com-like': likePost(v); break;
-    case 'com-del': com.confirm = v; state.view === 'post' ? paintPost() : paintCom(); break;
-    case 'com-del-no': com.confirm = null; state.view === 'post' ? paintPost() : paintCom(); break;
+    case 'com-del': com.confirm = v; repaintCom(); break;
+    case 'com-del-no': com.confirm = null; repaintCom(); break;
     case 'com-del-yes': removePost(v); break;
     case 'com-publish': openPublish(); break;
     case 'pub-pick': { const i = Number(v); if (!pubCtx) break; pubCtx.slot = i; if (!pubCtx.nameTouched) pubCtx.name = teams[i].name.slice(0, 30); $('#pub-body', smodal).innerHTML = publishHTML(); break; }
@@ -2180,6 +2286,15 @@ document.addEventListener('click', e => {
     case 'com-cdel': auth.deleteComment(v).then(() => auth.communityComments(com.post.id)).then(c => { com.comments = c; com.post.comments = c.length; paintPost(); }).catch(() => toast(t('syncFail'))); break;
     case 'com-save': if (com.post) openSaveTeam({ name: com.post.name, ids: com.post.members.map(m => m.id), members: com.post.members }); break;
     case 'com-compare': if (com.post) { bt.link = { name: com.post.name, custom: true, members: com.post.members.filter(m => BYID.has(m.id)) }; bt.b = { owner: 'link', slot: 0 }; bt.res = null; bt.cmpMsg = ''; location.hash = '#/battle'; } break;
+    case 'user-open': location.hash = `#/user/${v}`; break;
+    case 'u-add': case 'u-accept': case 'u-decline': case 'u-remove': case 'u-ban': case 'u-unban': case 'u-purge': case 'u-rename': userAction(el.dataset.act, v); break;
+    case 'u-ask': usr.confirm = v; paintUser(); break;
+    case 'u-cancel': usr.confirm = null; paintUser(); break;
+    case 'u-more': auth.communityUserPosts(usr.id, usr.posts.length, PAGE).then(r => { usr.posts = usr.posts.concat(r); usr.more = r.length === PAGE; paintUser(); }).catch(() => toast(t('syncFail'))); break;
+    case 'u-team-save': { const r = (usr.teams || []).find(x => x.slot === Number(v)); const ms = (r?.members || []).filter(m => BYID.has(m.id)); if (ms.length) openSaveTeam({ name: r.name || usr.prof?.username, ids: ms.map(m => m.id), members: ms }); break; }
+    case 'u-team-cmp': { const r = (usr.teams || []).find(x => x.slot === Number(v)); const ms = (r?.members || []).filter(m => BYID.has(m.id)); if (ms.length) { bt.link = { name: r.name || usr.prof?.username, custom: true, members: ms }; bt.b = { owner: 'link', slot: 0 }; bt.res = null; bt.cmpMsg = ''; location.hash = '#/battle'; } break; }
+    case 'adm-bans': openBans(); break;
+    case 'adm-unban': auth.adminUnban(v).then(() => auth.adminBans()).then(b => { usr.bans = b; refreshModal(); if (state.view === 'user' && usr.prof && usr.id === v) { usr.prof.banned = false; paintUser(); } }).catch(() => toast(t('syncFail'))); break;
     case 'dock-community': location.hash = '#/community'; break;
     case 'dock-battle': location.hash = '#/battle'; break;
     case 'dock-settings': if (smodal.hidden) openSettings(); else closeSettings(); break;
