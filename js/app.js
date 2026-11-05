@@ -697,7 +697,7 @@ function route() {
   const d = location.hash.match(/^#\/(move|ability|item|tier)\/([A-Za-z0-9]+)/);
   const sh = location.hash.match(/^#\/t\/([a-z0-9,]*)(?:\?n=(.*))?$/);
   if (state.view === 'battle' && location.hash !== '#/battle') auth.unwatchFriends().catch(() => {});
-  if (sh) renderShared(sh[1], sh[2]); else if (m) renderPokemon(m[1]); else if (d) renderDetailPage(d[1], d[2]); else if (location.hash === '#/teams') renderTeams(); else if (location.hash === '#/battle') renderBattle(); else renderHome();
+  if (sh) renderShared(sh[1], sh[2]); else if (m) renderPokemon(m[1]); else if (d) renderDetailPage(d[1], d[2]); else if (location.hash === '#/types') renderTypes(); else if (location.hash === '#/teams') renderTeams(); else if (location.hash === '#/battle') renderBattle(); else renderHome();
   updateDock();
   if (wentBack) { $app.classList.remove('goback'); void $app.offsetWidth; $app.classList.add('goback'); setTimeout(() => $app.classList.remove('goback'), 260); }
 }
@@ -714,6 +714,7 @@ function homeHTML() {
   return `
   <header class="hero">
     <h1>PokeScanner</h1>
+    ${updHTML()}
   </header>
   <div class="searchbar"><div class="search ${state.q ? 'filled' : ''}">
     ${I.search}
@@ -932,6 +933,46 @@ function pickRandoms(daily) {
   return a.slice(0, 6).map(p => p.id);
 }
 
+const SHIC = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>';
+const TCIC = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M3.5 9.5h17M3.5 15h17M9.5 3.5v17M15 3.5v17"/></svg>';
+
+// ───────── fecha de los datos ─────────
+let META = null;
+function updHTML() {
+  if (!META?.generado) return '';
+  const days = Math.max(0, Math.floor((Date.now() - new Date(META.generado).getTime()) / 864e5));
+  const when = days === 0 ? t('updToday') : days === 1 ? t('updYesterday') : days < 14 ? t('updDays', { n: days }) : days < 60 ? t('updWeeks', { n: Math.floor(days / 7) }) : t('updMonths', { n: Math.floor(days / 30) });
+  return `<p class="upd" title="${esc(META.fuente || '')}">${t('updLabel', { when })}</p>`;
+}
+
+// ───────── Tabla de tipos ─────────
+const effOne = (atk, def) => { const m = matchups([def]); for (const k of Object.keys(m)) if (m[k].includes(atk)) return Number(k); return 1; };
+let TCHART = null;
+const tchart = () => (TCHART ??= TYPES.map(a => TYPES.map(d => effOne(a, d))));
+const tcPill = ty => `<button class="tpill" data-act="tc-sel" data-v="${ty}" style="--tc:${TYPE_COLOR[ty]}">${typeIcon(ty)}<span>${typeName(ty)}</span></button>`;
+function typesHTML() {
+  const sel = state.tcSel, si = sel ? TYPES.indexOf(sel) : -1, ch = tchart();
+  const head = TYPES.map((ty, i) => `<button class="tc-h ${i === si ? 'sel' : ''}" data-act="tc-sel" data-v="${ty}" aria-label="${typeName(ty)}" style="--tc:${TYPE_COLOR[ty]}">${typeIcon(ty)}</button>`).join('');
+  const rows = TYPES.map((a, r) => `<button class="tc-h ${r === si ? 'sel' : ''}" data-act="tc-sel" data-v="${a}" aria-label="${typeName(a)}" style="--tc:${TYPE_COLOR[a]}">${typeIcon(a)}</button>`
+    + TYPES.map((d, c) => { const e = ch[r][c]; return `<span class="tc-c ${e === 2 ? 'x2' : e === 0.5 ? 'xh' : e === 0 ? 'x0' : ''} ${r === si || c === si ? 'on' : ''}">${e === 2 ? '2' : e === 0.5 ? '½' : e === 0 ? '0' : ''}</span>`; }).join('')).join('');
+  let detail = '';
+  if (sel) {
+    const atk = k => TYPES.filter((_, c) => ch[si][c] === k), def = k => TYPES.filter((_, r) => ch[r][si] === k);
+    const blk = (label, list) => `<div class="mx-row"><b>${label}</b><div class="chips">${list.length ? list.map(tcPill).join('') : `<span class="hint">${t('tcNone')}</span>`}</div></div>`;
+    detail = `<div class="tc-detail"><h3>${tcPill(sel)}</h3><div class="mx">${blk(t('tcAtk'), atk(2))}${blk(t('tcAtkNo'), atk(0.5))}${blk(t('tcImm'), atk(0))}${blk(t('tcDefW'), def(2))}${blk(t('tcDefR'), def(0.5))}${blk(t('tcDefI'), def(0))}</div></div>`;
+  }
+  return `<div class="tc-wrap"><div class="tc"><span class="tc-corner"></span>${head}${rows}</div></div><p class="hint tc-legend">${t('tcLegend')}</p>${detail}`;
+}
+function paintTypes() { const r = $('#types-root'); if (r) { const y = scrollY; r.innerHTML = typesHTML(); scrollTo(0, y); } }
+function renderTypes() {
+  state.view = 'types';
+  document.title = `${t('typeChart')} · PokeScanner`;
+  document.documentElement.style.removeProperty('--accent');
+  $app.innerHTML = `${topbarHTML()}<header class="hero"><h1>${t('typeChart')}</h1><p>${t('tcLead')}</p></header><div id="types-root">${typesHTML()}</div>`;
+  window.scrollTo(0, 0);
+  updateDock();
+}
+
 function renderResults(reset = true) {
   const box = $('#results');
   if (!box) return;
@@ -943,7 +984,8 @@ function renderResults(reset = true) {
     state.randoms ??= pickRandoms(true);
     box.innerHTML = `
       <div class="block-title"><h2>${t('daily')}</h2>
-        <button class="chip small" data-act="shuffle">${'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>'}${t('random')}</button></div>
+        <div class="btnrow"><button class="chip small" data-act="go-types">${TCIC}${t('typeChart')}</button>
+        <button class="chip small" data-act="shuffle">${SHIC}${t('random')}</button></div></div>
       <div class="cards">${state.randoms.map(id => cardHTML(BYID.get(id))).join('')}</div>`;
     return;
   }
@@ -1674,6 +1716,8 @@ document.addEventListener('click', e => {
     case 'reset':
       Object.assign(state, { q: '', sort: 'num', dir: 1, types: [], tiers: [], gens: [], favs: false, gen9: false, dd: null });
       $('#q').value = ''; renderResults(); break;
+    case 'go-types': location.hash = '#/types'; break;
+    case 'tc-sel': state.tcSel = state.tcSel === v ? null : v; paintTypes(); break;
     case 'shuffle': { const pool = INDEX.filter(p => !p.g); location.hash = '#/pokemon/' + pool[Math.floor(Math.random() * pool.length)].id; break; }
     case 'tier-go': goSearch({ tiers: [v] }); break;
 
@@ -1776,6 +1820,7 @@ async function boot() {
   }
   BYID = new Map(INDEX.map(p => [p.id, p]));
   renderDock();
+  fetch('data/meta.json', { cache: 'no-cache' }).then(r => (r.ok ? r.json() : null)).then(m => { META = m; const h1 = state.view === 'home' && document.querySelector('.hero h1'); if (m && h1 && !h1.parentElement.querySelector('.upd')) h1.insertAdjacentHTML('afterend', updHTML()); }).catch(() => {});
   window.addEventListener('hashchange', route);
   route();
   auth.initAuth(onAuth).catch(() => {});
