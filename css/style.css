@@ -1035,8 +1035,9 @@ table.mx { display: table; margin: 0 auto; }
 .cact { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 10px; border-radius: 20px; color: var(--muted); background: none; border: 0; font: inherit; font-size: .88rem; cursor: pointer; }
 .cact svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .cact:active { background: var(--line); }
-.cact.like.on { color: #e5484d; }
-.cact.like .hrt.on { fill: currentColor; }
+.cact.like .hrt { color: #e5484d; }
+.cact.like .hrt.on { fill: #e5484d; }
+.cact.like.on { color: var(--ink); }
 .cact.danger { color: #e5484d; font-weight: 600; }
 .chero h1 { font-size: 1.5rem; margin: 8px 0 0; overflow-wrap: anywhere; }
 .cbuilds { display: flex; flex-direction: column; gap: 8px; margin: 12px 0 18px; }

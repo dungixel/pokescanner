@@ -701,7 +701,7 @@ function route() {
   if (back) { copyKeys(back, state); state.scroll = back.y; state.restoreY = back.y; } // se vuelve a una página ya vista: se recupera tal cual
   const m = location.hash.match(/^#\/pokemon\/([a-z0-9]+)/);
   const d = location.hash.match(/^#\/(move|ability|item|tier)\/([A-Za-z0-9]+)/);
-  const cm = location.hash.match(/^#\/community\/([0-9a-f-]{36})/);
+  const cm = location.hash.match(/^#\/community\/(\d+)/);
   const sh = location.hash.match(/^#\/t\/([a-z0-9,]*)(?:\?n=(.*))?$/);
   if (state.view === 'battle' && location.hash !== '#/battle') auth.unwatchFriends().catch(() => {});
   if (sh) renderShared(sh[1], sh[2]); else if (m) renderPokemon(m[1]); else if (d) renderDetailPage(d[1], d[2]); else if (cm) renderPost(cm[1]); else if (location.hash === '#/community') renderCommunity(); else if (location.hash === '#/types') renderTypes(); else if (location.hash === '#/teams') renderTeams(); else if (location.hash === '#/battle') renderBattle(); else renderHome();
@@ -1416,7 +1416,7 @@ const heart = on => `<svg viewBox="0 0 24 24" class="hrt ${on ? 'on' : ''}" aria
 const bubble = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20l1.3 -3.9a9 8 0 1 1 3.4 2.9l-4.7 1"/></svg>';
 const postMinis = ms => `<span class="minis">${ms.map(m => { const p = BYID.get(m.id); return p ? pokeImg(p, 'small', 'mini', undefined, !!m.b?.sh) : ''; }).join('')}</span>`;
 function postCardHTML(x) {
-  const del = x.mine ? (com.confirm === x.id
+  const del = x.mine ? (String(com.confirm) === String(x.id)
     ? `<button class="cact danger" data-act="com-del-yes" data-v="${x.id}">${t('comDeleteSure')}</button><button class="cact" data-act="com-del-no">${t('comCancel')}</button>`
     : `<button class="cact" data-act="com-del" data-v="${x.id}" aria-label="${t('comDelete')}">${IC.trash}</button>`) : '';
   return `<article class="cpost">
@@ -1452,7 +1452,7 @@ async function loadFeed(reset) {
   paintCom();
   try {
     const rows = await auth.communityFeed(com.sort, com.items.length, PAGE);
-    com.items = com.items.concat(rows.filter(r => !com.items.some(x => x.id === r.id)));
+    com.items = com.items.concat(rows.filter(r => !com.items.some(x => String(x.id) === String(r.id))));
     com.more = rows.length === PAGE;
   } catch { com.err = true; if (com.items.length) toast(t('comLoadFail')); }
   com.loading = false;
@@ -1470,15 +1470,15 @@ function renderCommunity() {
 }
 async function likePost(id) {
   if (!requireLogin({ type: 'community', hash: location.hash })) return;
-  const x = com.items.find(i => i.id === id) || (com.post?.id === id ? com.post : null); if (!x) return;
-  const on = !x.liked, sync = () => { for (const y of [com.items.find(i => i.id === id), com.post?.id === id ? com.post : null]) if (y) { y.liked = on; y.likes = Math.max(0, y.likes + (on ? 1 : -1)); } };
+  const same = y => y && String(y.id) === String(id), x = com.items.find(same) || (same(com.post) ? com.post : null); if (!x) return;
+  const on = !x.liked, sync = () => { for (const y of [com.items.find(same), same(com.post) ? com.post : null]) if (y) { y.liked = on; y.likes = Math.max(0, y.likes + (on ? 1 : -1)); } };
   sync(); state.view === 'post' ? paintPost() : paintCom();
-  try { await auth.setLike(id, on); } catch { on ? (x.liked = true) : (x.liked = false); const bk = !on; for (const y of [com.items.find(i => i.id === id), com.post?.id === id ? com.post : null]) if (y) { y.liked = bk; y.likes = Math.max(0, y.likes + (bk ? 1 : -1)); } state.view === 'post' ? paintPost() : paintCom(); toast(t('syncFail')); }
+  try { await auth.setLike(id, on); } catch { on ? (x.liked = true) : (x.liked = false); const bk = !on; for (const y of [com.items.find(same), same(com.post) ? com.post : null]) if (y) { y.liked = bk; y.likes = Math.max(0, y.likes + (bk ? 1 : -1)); } state.view === 'post' ? paintPost() : paintCom(); toast(t('syncFail')); }
 }
 async function removePost(id) {
   try {
     await auth.deletePost(id);
-    com.items = com.items.filter(i => i.id !== id); com.confirm = null;
+    com.items = com.items.filter(i => String(i.id) !== String(id)); com.confirm = null;
     toast(t('comDeleted'));
     if (state.view === 'post') location.hash = '#/community'; else paintCom();
   } catch { toast(t('syncFail')); }
@@ -1535,7 +1535,7 @@ async function renderPost(id) {
   window.scrollTo(0, 0); updateDock();
   try {
     const [rows, cms] = await Promise.all([auth.communityFeed('new', 0, 1, id), auth.communityComments(id)]);
-    if (curPostId !== id || state.view !== 'post') return;
+    if (String(curPostId) !== String(id) || state.view !== 'post') return;
     com.post = rows[0] || null; com.comments = cms;
     if (com.post) {
       document.title = `${com.post.name} · PokeScanner`;
@@ -1544,7 +1544,7 @@ async function renderPost(id) {
       com.full = await Promise.all((com.post.members || []).filter(m => BYID.has(m.id)).map(async m => { const d = await getPokemon(m.id); return { m, d, cur: currentBuild(baseBuild(d, m, dict, E), m.b) }; }));
     }
   } catch { com.post = null; com.err = true; }
-  if (curPostId === id && state.view === 'post') paintPost();
+  if (String(curPostId) === String(id) && state.view === 'post') paintPost();
 }
 function buildCardHTML({ m, d, cur }) {
   const it = DICT.items[cur.i], ab = d.ab.find(a => a.id === cur.a), nat = DICT.natures[cur.n];
@@ -1564,7 +1564,7 @@ function commentHTML(c) {
 function postHTML() {
   const x = com.post;
   if (!x) return `<div class="empty"><b>${t(com.err ? 'comLoadFail' : 'comGone')}</b><div class="ctarow"><a class="chip" href="#/community">${t('comBack')}</a></div></div>`;
-  const del = x.mine ? (com.confirm === x.id
+  const del = x.mine ? (String(com.confirm) === String(x.id)
     ? `<button class="cact danger" data-act="com-del-yes" data-v="${x.id}">${t('comDeleteSure')}</button><button class="cact" data-act="com-del-no">${t('comCancel')}</button>`
     : `<button class="cact" data-act="com-del" data-v="${x.id}" aria-label="${t('comDelete')}">${IC.trash}</button>`) : '';
   const form = auth.currentUser()
@@ -1575,6 +1575,7 @@ function postHTML() {
     <div class="cacts"><button class="cact like ${x.liked ? 'on' : ''}" data-act="com-like" data-v="${x.id}" aria-pressed="${!!x.liked}" aria-label="${t('comLike')}">${heart(x.liked)}<span>${x.likes}</span></button><span class="grow"></span>${del}</div>
     <div class="sharedacts"><button class="chip accent" data-act="com-save">${IC.star}${t('comSave')}</button><button class="chip" data-act="com-compare">${IC.battle}${t('comCompare')}</button></div>
     <div class="cbuilds">${(com.full || []).map(buildCardHTML).join('')}</div>
+    ${(ps => (ps.length >= 3 ? teamHTML(ps, true) : ''))((x.members || []).map(m => BYID.get(m.id)).filter(Boolean))}
     <section class="sec"><h2>${t('comComments')} <small>${com.comments.length}</small></h2>
       ${form}
       <ul class="ccms">${com.comments.length ? com.comments.map(commentHTML).join('') : `<li class="dim">${t('comNoComments')}</li>`}</ul></section>`;
