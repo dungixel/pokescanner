@@ -1327,3 +1327,5 @@ dialog.cfm::backdrop { background: rgba(10, 12, 20, .5); }
 #battle-root .modehint { margin-top: 16px; line-height: 1.45; }
 #battle-root .comparebtn { margin-top: 26px; }
 #battle-root .unmsg { display: block; margin-top: 12px; }
+
+.compare-btn + .compare-btn { margin-top: 8px; }
