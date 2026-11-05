@@ -423,7 +423,7 @@ function fitRow({ p, why }) {
       <span class="why">${why.map(esc).join(' · ')}</span></span>
     <span class="side">${tierBadge(p.r, '', p.g)}</span></a>`;
 }
-const chipPoke = p => `<a class="chip" href="#/pokemon/${p.id}">${pokeImg(p, 'small', 'thumb')}${esc(pname(p))}</a>`;
+const chipPoke = p => `<a class="chip pkpill" href="#/pokemon/${p.id}" style="--c:${TYPE_COLOR[p.t[0]]}">${pokeImg(p, 'small', 'thumb')}${esc(pname(p))}</a>`;
 const byStrength = (a, b) => strength(a) - strength(b) || a.num - b.num;
 /** Lista que muestra los primeros y deja ver el resto con un botón */
 function listSection(key, title, hint, items, render, wrap) {
@@ -1276,7 +1276,7 @@ function resultHTML() {
   const tipBlock = (name, tips, mine) => `<div class="tipbox"><h3>${t('tipsTitle', { name })}</h3>${tips.length ? `<ul class="tips">${tips.map(tipHTML).join('')}</ul>` : `<p class="shint">${t('tipsNone')}</p>`}</div>`;
   const loserTips = r.win === 'A' ? tipBlock(bName, r.tipsB) : tipBlock(aName, r.tipsA);
   const winnerTips = r.close ? (r.win === 'A' ? tipBlock(aName, r.tipsA) : tipBlock(bName, r.tipsB)) : '';
-  const matrix = `<div class="mxwrap"><table class="mx"><thead><tr><th></th>${ub.map(u => `<th>${pokeImg(u.p, 'small', 'mini')}</th>`).join('')}</tr></thead><tbody>${ua.map((a, i) => `<tr><th>${pokeImg(a.p, 'small', 'mini')}</th>${ub.map((b, j) => {
+  const matrix = `<div class="mxwrap"><table class="mx"><thead><tr><th></th>${ub.map(u => `<th><a href="#/pokemon/${u.p.id}" aria-label="${esc(pname(u.p))}">${pokeImg(u.p, 'small', 'mini')}</a></th>`).join('')}</tr></thead><tbody>${ua.map((a, i) => `<tr><th><a href="#/pokemon/${a.p.id}" aria-label="${esc(pname(a.p))}">${pokeImg(a.p, 'small', 'mini')}</a></th>${ub.map((b, j) => {
     const s = r.matrix[i][j].s;
     return `<td style="background:${cellColor(s)}" title="${esc(pname(a.p))} ${s > 0 ? '>' : s < 0 ? '<' : '='} ${esc(pname(b.p))}">${s > 0.001 ? '✓' : s < -0.001 ? '✕' : '–'}</td>`;
   }).join('')}</tr>`).join('')}</tbody></table></div>`;

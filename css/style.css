@@ -755,3 +755,11 @@ img.mini { width: 28px; height: 28px; object-fit: contain; flex: none; }
 .topt .sn { width: 32px; height: 32px; font-size: .9rem; }
 .tn2 { display: grid; gap: 2px; min-width: 0; } .tn2 b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tck { color: var(--muted); font-weight: 700; } .tck svg { width: 20px; height: 20px; fill: none; stroke: var(--sc); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Pokémon en "pill" con un tono claro de su tipo: se ve el sprite y se lee el nombre */
+.chip.pkpill { background: color-mix(in srgb, var(--c) 17%, var(--surface)); color: var(--ink); }
+.mx th a { display: grid; place-items: center; height: 100%; border-radius: 10px; }
+/* aire entre el gráfico de ventajas/desventajas y las notas */
+.result .factors { margin-top: 16px; gap: 14px; }
+.result .facthint { margin-top: 12px; margin-bottom: 18px; }
+.result .note { margin-top: 12px; line-height: 1.5; }
