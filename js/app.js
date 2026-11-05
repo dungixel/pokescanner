@@ -111,7 +111,7 @@ function loginHTML() {
       <button class="ghostbtn" data-act="settings-close">${t('notNow')}</button></div>
   </div>`;
 }
-const modalHTML = () => (modalKind === 'login' ? loginHTML() : modalKind === 'bans' ? bansModalHTML() : modalKind === 'sd' ? sdModalHTML() : modalKind === 'notifs' ? notifsHTML() : modalKind === 'publish' ? publishModalHTML() : modalKind === 'saveteam' ? saveTeamHTML() : modalKind === 'teampick' ? teamPickHTML() : modalKind === 'picker' ? pickerHTML() : settingsHTML());
+const modalHTML = () => (modalKind === 'login' ? loginHTML() : modalKind === 'bans' ? bansModalHTML() : modalKind === 'sd' ? sdModalHTML() : modalKind === 'likers' ? likersHTML() : modalKind === 'notifs' ? notifsHTML() : modalKind === 'publish' ? publishModalHTML() : modalKind === 'saveteam' ? saveTeamHTML() : modalKind === 'teampick' ? teamPickHTML() : modalKind === 'picker' ? pickerHTML() : settingsHTML());
 const refreshModal = () => { if (!smodal.hidden) smodal.innerHTML = modalHTML(); };
 /** Confirmación genérica antes de eliminar algo (diálogo propio: queda por encima de cualquier otra ventana) */
 function askConfirm(text, okLabel, fn) {
@@ -2188,6 +2188,32 @@ async function openBans() {
   try { usr.bans = await auth.adminBans(); } catch { usr.bans = []; }
   if (modalKind === 'bans') refreshModal();
 }
+// ───────────────────────── Quién ha dado like (mantener pulsado el corazón) ─────────────────────────
+const lk = { items: null, n: 0 };
+const likersHTML = () => `<div class="scard" role="dialog" aria-modal="true" aria-label="${t('likersTitle')}">
+  <div class="shead"><button class="iconbtn" data-act="settings-close" aria-label="${t('close')}">${IC.x}</button><h2>${t('likersTitle')}</h2></div>
+  ${lk.items == null ? '<p class="shint">…</p>' : lk.items.length ? `<ul class="nlist">${lk.items.map(u => `<li><button class="nitem" data-act="lk-go" data-v="${u.user_id}">${avatarImg(u.avatar, 'sm')}<span class="ntx"><span><b>${esc(u.username || '?')}</b></span></span></button></li>`).join('')}</ul>` : `<p class="shint">${t('likersNone')}</p>`}</div>`;
+async function openLikers(kind, id) {
+  lk.items = null; showModal('likers');
+  try { lk.items = await auth.likers(kind, id); } catch { lk.items = []; }
+  if (modalKind === 'likers' && !smodal.hidden) refreshModal();
+}
+// pulsación larga sobre un corazón → lista de quién ha dado like
+{
+  let timer = 0, sx = 0, sy = 0, fired = 0;
+  const sel = '[data-act="com-like"], [data-act="cm-like"]';
+  const stop = () => { clearTimeout(timer); timer = 0; };
+  document.addEventListener('pointerdown', e => {
+    const el = e.target.closest?.(sel); if (!el) return;
+    sx = e.clientX; sy = e.clientY; stop();
+    timer = setTimeout(() => { timer = 0; fired = Date.now(); if (navigator.vibrate) navigator.vibrate(12); openLikers(el.dataset.act === 'cm-like' ? 'c' : 'p', el.dataset.v); }, 480);
+  });
+  document.addEventListener('pointermove', e => { if (timer && Math.hypot(e.clientX - sx, e.clientY - sy) > 10) stop(); });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(n => document.addEventListener(n, stop));
+  document.addEventListener('contextmenu', e => { if (e.target.closest?.(sel)) e.preventDefault(); });
+  // el click que llega al soltar tras una pulsación larga no debe dar/quitar el like
+  document.addEventListener('click', e => { if (fired && Date.now() - fired < 900 && e.target.closest?.(sel)) { e.stopPropagation(); e.preventDefault(); fired = 0; } }, true);
+}
 const bansModalHTML = () => `<div class="scard" role="dialog" aria-modal="true" aria-label="${t('admBans')}">
   <div class="shead"><button class="iconbtn" data-act="settings-close" aria-label="${t('close')}">${IC.x}</button><h2>${t('admBans')}</h2></div>
   ${usr.bans == null ? '<p class="shint">…</p>' : usr.bans.length ? `<ul class="banlist">${usr.bans.map(b => `<li>${avatarImg(b.avatar, 'sm')}<a href="#/user/${b.user_id}" data-act="settings-close"><b>${esc(b.username || '?')}</b></a><button class="chip" data-act="adm-unban" data-v="${b.user_id}">${t('admUnban')}</button></li>`).join('')}</ul>` : `<p class="shint">${t('admNoBans')}</p>`}</div>`;
@@ -2813,6 +2839,7 @@ document.addEventListener('click', e => {
     case 'com-cdel': askConfirm(t('cfmComment'), t('comDelete'), () => auth.deleteComment(v).then(() => auth.communityComments(com.post.id)).then(c => { com.comments = c; com.post.comments = c.length; paintPost(); }).catch(() => toast(t('syncFail')))); break;
     case 'com-save': if (com.post) openSaveTeam({ name: com.post.name, ids: com.post.members.map(m => m.id), members: com.post.members }); break;
     case 'com-compare': if (com.post) { bt.link = { name: com.post.name, custom: true, members: com.post.members.filter(m => BYID.has(m.id)) }; bt.b = { owner: 'link', slot: 0 }; bt.res = null; bt.cmpMsg = ''; location.hash = '#/battle'; } break;
+    case 'lk-go': closeSettings(); location.hash = `#/user/${v}`; break;
     case 'user-open': location.hash = `#/user/${v}`; break;
     case 'u-add': case 'u-accept': case 'u-decline': case 'u-remove': case 'u-ban': case 'u-unban': case 'u-purge': case 'u-rename': {
       const a = el.dataset.act;
