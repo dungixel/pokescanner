@@ -1207,3 +1207,11 @@ button.slot.slothead { cursor: pointer; }
 .cko { font-size: .85rem; font-weight: 700; }
 
 .sdtext { width: 100%; min-height: 220px; resize: vertical; padding: 12px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--soft); color: var(--ink); font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+/* ───────────── Uso sin conexión ───────────── */
+.offg { display: grid; gap: 10px; padding: 14px 0 4px; }
+.offtx { display: grid; gap: 2px; }
+.offtx small, .offhint { color: var(--muted); font-size: .8rem; line-height: 1.35; }
+.offbar { height: 8px; border-radius: 4px; background: var(--soft); overflow: hidden; }
+.offbar i { display: block; height: 100%; background: var(--ink); transition: width .2s; }
+.offbtns { display: flex; gap: 8px; flex-wrap: wrap; }

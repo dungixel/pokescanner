@@ -2,7 +2,7 @@ import {
   TYPES, TYPE_ES, TYPE_EN, TYPE_COLOR, STATS, typeName, statName, catName, tierInfo, TIER_ORDER, formatName,
   esc, fold, dexNum, fmtNum, store, matchups, bst, statColor, tierLabel, tierColor, tierNum, tierNumHTML, TIER_MAX, formatRank,
   pname, pname2, dn, dn2, dd, how,
-  pokeImg, itemImg, typeIcon, typePill, typeDot, catIcon, SPR, img, spriteChain,
+  pokeImg, itemImg, typeIcon, typePill, typeDot, catIcon, SPR, img, spriteChain, smallSprite,
 } from './util.js';
 import { t, lang, setLang } from './i18n.js';
 import { analyzeTeam, scoreInfo } from './team.js';
@@ -94,6 +94,7 @@ function settingsHTML() {
       <button class="ddbtn spill" data-act="sdd" data-v="theme" aria-expanded="${sdd === 'theme'}" aria-haspopup="listbox"><span class="ddl">${t('theme')}</span><span class="ddv">${t(pref === 'system' ? 'themeSystem' : pref)}</span><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button></div>
       ${sdd === 'lang' ? `<div class="sdl" role="listbox">${['es', 'en'].map(l => `<button class="sopt" role="radio" data-act="set-lang" data-v="${l}" aria-checked="${lang() === l}"><img class="flag" src="${FLAG[l]}" alt="" width="24" height="18">${LANGS[l]}<span class="ck">${I.check}</span></button>`).join('')}</div>` : ''}
       ${sdd === 'theme' ? `<div class="sdl" role="listbox">${['system', 'light', 'dark'].map(m => `<button class="sopt" role="radio" data-act="set-theme" data-v="${m}" aria-checked="${pref === m}">${I[THEME_ICON[m]]}${t(m === 'system' ? 'themeSystem' : m)}<span class="ck">${I.check}</span></button>`).join('')}</div>` : ''}</div>
+    ${offlineHTML()}
     ${auth.userInfo() ? feedbackHTML() : ''}
     ${auth.userInfo() ? `<div class="sgroup"><button class="sopt" data-act="sign-out">${I.logout}${t('signOut')}</button></div>` : ''}
   </div>`;
@@ -1514,6 +1515,53 @@ function onEditorInput(e) {
 }
 
 
+// ───────────────────────── Uso sin conexión ─────────────────────────
+const OFF_KEY = 'pk.offline';
+const off = { busy: false, done: 0, total: 0, at: Number(store.get(OFF_KEY) || 0) || 0, prompt: null, msg: '' };
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); off.prompt = e; refreshModal(); });
+window.addEventListener('appinstalled', () => { off.prompt = null; refreshModal(); });
+const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function offlineHTML() {
+  if (!('caches' in window)) return '';
+  const date = off.at ? new Date(off.at).toLocaleDateString(lang(), { day: 'numeric', month: 'short' }) : '';
+  const status = off.busy ? t('offBusy', { p: off.total ? Math.round(off.done / off.total * 100) : 0 }) : off.msg || (off.at ? t('offDone', { d: date }) : t('offNone'));
+  return `<div class="sgroup offg"><div class="offtx"><b>${t('offTitle')}</b><small>${status}</small></div>
+    ${off.busy ? `<div class="offbar"><i style="width:${off.total ? Math.round(off.done / off.total * 100) : 0}%"></i></div>` : ''}
+    <div class="offbtns"><button class="chip" data-act="off-download" ${off.busy ? 'disabled' : ''}>${off.at ? t('offUpdate') : t('offDownload')}</button>${off.at && !off.busy ? `<button class="chip" data-act="off-clear">${t('offClear')}</button>` : ''}${off.prompt ? `<button class="chip" data-act="off-install">${t('offInstall')}</button>` : ''}</div>
+    ${isIOS() && !isStandalone() ? `<small class="offhint">${t('offIos')}</small>` : ''}</div>`;
+}
+async function offlineDownload() {
+  if (off.busy) return;
+  off.busy = true; off.done = 0; off.msg = ''; refreshModal();
+  try {
+    const ks = [...new Set(INDEX.map(p => p.k))];
+    const data = ['index', 'meta', 'dict', 'learners', 'abilities', 'items', 'editor', 'enc-dict'].map(n => `data/${n}.json`)
+      .concat(ks.map(k => `data/pokemon/${k}.json`), ks.map(k => `data/enc/${k}.json`));
+    const imgs = INDEX.map(p => smallSprite(p));
+    off.total = data.length + imgs.length;
+    const [dc, ic] = await Promise.all([caches.open('pk-data-v1'), caches.open('pk-img-v1')]);
+    let n = 0, fails = 0, tick = 0;
+    const jobs = [...data.map(u => [dc, u, false]), ...imgs.map(u => [ic, u, true])];
+    await Promise.all(Array.from({ length: 6 }, async () => {
+      while (n < jobs.length) {
+        const [c, u, cors] = jobs[n++];
+        try { const r = await fetch(u, cors ? { mode: 'cors' } : { cache: 'reload' }); if (r.ok) await c.put(u, r); else fails++; } catch { fails++; }
+        off.done++;
+        if (++tick % 25 === 0) refreshModal();
+      }
+    }));
+    if (fails > off.total * 0.2) throw new Error('too many failures');
+    off.at = Date.now(); store.set(OFF_KEY, String(off.at));
+  } catch (e) { console.error(e); off.msg = t('offFail'); }
+  off.busy = false; refreshModal();
+}
+async function offlineClear() {
+  try { for (const k of await caches.keys()) if (/^pk-(data|img)-/.test(k)) await caches.delete(k); } catch { /* sin acceso */ }
+  off.at = 0; try { localStorage.removeItem(OFF_KEY); } catch { /* sin almacenamiento */ }
+  off.msg = ''; refreshModal();
+}
+
 // ───────────────────────── Showdown: exportar / importar equipos ─────────────────────────
 const SD_LBL = ['HP', 'Atk', 'Def', 'SpA', 'SpD', 'Spe'];
 const sd = { mode: 'export', slot: 0, text: '', msg: '', busy: false };
@@ -2496,6 +2544,9 @@ document.addEventListener('click', e => {
     case 'sd-open': { const [m, n] = v.split(':'); openShowdown(m, Number(n)); break; }
     case 'sd-copy': copyText($('#sd-text')?.value || sd.text); break;
     case 'sd-run': runShowdownImport(); break;
+    case 'off-download': offlineDownload(); break;
+    case 'off-clear': offlineClear(); break;
+    case 'off-install': { const pr = off.prompt; off.prompt = null; pr?.prompt?.(); refreshModal(); break; }
     case 'go-calc': location.hash = '#/calc'; break;
     case 'calc-pick': calcOpenPick(v); break;
     case 'calc-edit': calcEdit(v); break;
@@ -2650,5 +2701,6 @@ async function boot() {
   window.addEventListener('hashchange', route);
   route();
   auth.initAuth(onAuth).catch(() => {});
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 boot();
