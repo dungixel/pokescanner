@@ -1260,9 +1260,11 @@ async function runCompare() {
 
 // ───── resultado ─────
 const fmtVars = v => Object.fromEntries(Object.entries(v || {}).map(([k, x]) => [k, k === 'type' ? typeName(x) : k === 'name' ? esc(pname(x)) : k === 'list' ? x.map(p => esc(pname(p))).join(', ') : x]));
-const resistSuggestions = type => INDEX.filter(p => !p.g && strength(p) <= 6 && eff(type, p.t) < 1).sort((a, b) => strength(a) - strength(b) || bst(b.s) - bst(a.s)).slice(0, 4);
+// solo se recomiendan Pokémon legales en los formatos normales: nada de Ubers ni de Pokémon que solo se usan en juego libre (AG)
+const legalPick = p => !p.g && tierNum(p.r) >= 3;
+const resistSuggestions = type => INDEX.filter(p => legalPick(p) && strength(p) <= 6 && eff(type, p.t) < 1).sort((a, b) => strength(a) - strength(b) || bst(b.s) - bst(a.s)).slice(0, 4);
 function tipHTML(tp) {
-  const sug = tp.resist ? resistSuggestions(tp.resist) : (tp.ids || []).map(id => BYID.get(id)).filter(Boolean).slice(0, 4);
+  const sug = tp.resist ? resistSuggestions(tp.resist) : (tp.ids || []).map(id => BYID.get(id)).filter(p => p && legalPick(p)).slice(0, 4);
   return `<li>${t(`tp_${tp.key}`, fmtVars(tp.vars))}${sug.length ? `<div class="sugs"><small>${t('tpSuggest')}</small>${sug.map(chipPoke).join('')}</div>` : ''}</li>`;
 }
 const cellColor = s => (s > 0 ? `color-mix(in srgb, #2FAE5F ${Math.round(18 + Math.abs(s) * 72)}%, var(--surface))` : s < 0 ? `color-mix(in srgb, #E5484D ${Math.round(18 + Math.abs(s) * 72)}%, var(--surface))` : 'var(--soft)');
