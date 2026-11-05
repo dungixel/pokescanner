@@ -14,7 +14,7 @@ const STR = {
   es: {
     footer: 'Datos de {ps} y los sets de {sm}; nombres y descripciones en español de {api}. Proyecto de fans sin relación con Nintendo, Game Freak ni The Pokémon Company.',
     searchPh: 'Pokémon o movimientos', searchLabel: 'Buscar Pokémon', clearSearch: 'Borrar búsqueda',
-    filters: 'Filtros', sortBy: 'Ordenar por', type: 'Tipo', tier: 'Rango (tier)', tierHint: '1 = el más fuerte', show: 'Mostrar',
+    filters: 'Filtros', sortBy: 'Ordenar por', type: 'Tipo', tier: 'Rango', tierHint: '1 = el más fuerte', show: 'Mostrar',
     favorites: 'Favoritos', baseOnly: 'Solo formas base', gen9Only: 'Solo Gen 9', num: 'Nº',
     daily: 'Pokémon del día', random: 'Pokémon al azar', shuffle: 'Otros al azar',
     result1: '{n} resultado', resultN: '{n} resultados', clearFilters: 'Limpiar filtros',

@@ -434,23 +434,52 @@ function listSection(key, title, hint, items, render, wrap) {
     ${!all && items.length > shown.length ? `<button class="chip accent more" data-act="more-list" data-v="${key}">${t('showAllN', { n: items.length })}</button>` : ''}</section>`;
 }
 let pageExpand = new Set(), pageData = null;
-const pfNew = () => ({ types: [], tiers: [], gens: [], gen9: false, sort: '', dir: -1, open: false });
+const pfNew = () => ({ types: [], tiers: [], gens: [], gen9: false, sort: '', dir: -1, open: false, dd: null });
 let pf = pfNew(); // filtros de las listas de Pokémon de estas páginas
 const pfSorted = () => !!pf.sort;
 const pfActive = () => pf.types.length + pf.tiers.length + pf.gens.length + (pf.gen9 ? 1 : 0) + (pfSorted() ? 1 : 0);
 const pfPass = p => (!pf.types.length || pf.types.every(ty => p.t.includes(ty))) && (!pf.tiers.length || pf.tiers.includes(p.r)) && (!pf.gens.length || pf.gens.includes(genOf(p.num))) && (!pf.gen9 || !p.g);
+const SI = d => `<svg class="sico" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
+const SORT_ICON = {
+  num: SI('<path d="M9 4L7 20M17 4l-2 16M4 9h16M3 15h16"/>'),
+  hp: SI('<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>'),
+  atk: SI('<path d="M14 4l6-1-1 6L9 19l-4-4zM5 15l-2 2 4 4 2-2M10 14l-2 2"/>'),
+  def: SI('<path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/>'),
+  spa: SI('<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9zM18 16l.8 2.2L21 19l-2.2.8L18 22l-.8-2.2L15 19l2.2-.8z"/>'),
+  spd: SI('<path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6zM12 8v8M8.5 12h7"/>'),
+  spe: SI('<path d="M13 3L5 13h6l-1 8 8-10h-6z"/>'),
+  bst: SI('<path d="M18 5H7l6 7-6 7h11"/>'),
+  h: SI('<path d="M4 17V7h16v10zM8 7v4M12 7v6M16 7v4"/>'),
+  w: SI('<path d="M6 8h12l2 12H4zM9 8a3 3 0 0 1 6 0M10 13l2 2 2-2"/>'),
+};
+/** Filtros desplegables: la misma pieza en el inicio y en las páginas de movimiento, habilidad, objeto y rango.
+ *  c = { sort: bool, tiers: bool, acts: { toggle, sort, type, tier, gen, gen9 }, on(kind, v), val(key), open(key), dir(k) } */
+function filterRowsHTML(c) {
+  const opt = (act, v, inner, kind) => `<button class="ddopt" role="option" data-act="${act}" data-v="${v}" aria-pressed="${c.on(kind, v)}">${inner}<span class="ck">${I.check}</span></button>`;
+  const dd = (key, label, hint, options) => `<div class="dd ${c.open(key) ? 'open' : ''}" data-dd="${key}"><button class="ddbtn" data-act="${c.acts.toggle}" data-v="${key}" aria-expanded="${c.open(key)}"><span class="ddl">${label}</span><span class="ddv" data-dv="${key}">${c.val(key)}</span><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+    <div class="ddlist" role="listbox" ${c.open(key) ? '' : 'hidden'}>${hint ? `<p class="ddhint">${hint}</p>` : ''}${options}</div></div>`;
+  const rows = [];
+  if (c.sort) rows.push(dd('sort', t('sortBy'), '', SORTS.map(k => opt(c.acts.sort, k, `${SORT_ICON[k]}${sortLabel(k)}<span class="dir">${c.dir(k)}</span>`, 'sort')).join('')));
+  rows.push(dd('type', t('type'), '', TYPES.map(ty => opt(c.acts.type, ty, `${typeIcon(ty)}${typeName(ty)}`, 'type')).join('')));
+  if (c.tiers) rows.push(dd('tier', t('tier'), t('tierHint'), TIER_ORDER.map(r => opt(c.acts.tier, r, `${tierNumHTML(r)}${tierLabel(r)}`, 'tier')).join('')));
+  rows.push(dd('gen', t('generation'), '', [1, 2, 3, 4, 5, 6, 7, 8, 9].map(g => opt(c.acts.gen, g, genLabel(g), 'gen')).join('')));
+  rows.push(`<button class="ddbtn togrow" data-act="${c.acts.gen9.act}" ${c.acts.gen9.v ? `data-v="${c.acts.gen9.v}"` : ''} aria-pressed="${c.on('gen9')}"><span class="ddl">${t('gen9Only')}</span><span class="sw" aria-hidden="true"><i></i></span></button>`);
+  return `<div class="fgroup">${rows.join('')}</div>`;
+}
+const selText = (list, none, name) => (!list.length ? none : list.length <= 2 ? list.map(name).join(', ') : t('nSelected', { n: list.length }));
 function pfBar(withTiers = true, withSort = false) {
   const n = pfActive();
-  const chip = (act, v, on, inner) => `<button class="chip small" data-act="${act}" data-v="${v}" aria-pressed="${on}">${inner}</button>`;
+  const panel = filterRowsHTML({
+    sort: withSort, tiers: withTiers, acts: { toggle: 'pf-dd', sort: 'pf-sort', type: 'pf-type', tier: 'pf-tier', gen: 'pf-gen', gen9: { act: 'pf-gen9' } },
+    on: (k, v) => (k === 'sort' ? pf.sort === v : k === 'type' ? pf.types.includes(v) : k === 'tier' ? pf.tiers.includes(v) : k === 'gen' ? pf.gens.includes(Number(v)) : pf.gen9),
+    open: key => pf.dd === key,
+    dir: k => (pf.sort === k ? (pf.dir === -1 ? '↓' : '↑') : ''),
+    val: key => (key === 'sort' ? (pf.sort ? sortLabel(pf.sort) + (pf.dir === -1 ? ' ↓' : ' ↑') : sortLabel('num')) : key === 'type' ? selText(pf.types, t('allM'), typeName) : key === 'tier' ? selText(pf.tiers, t('allM'), tierLabel) : selText(pf.gens, t('allF'), g => t('genShort', { g }))),
+  });
   return `<div class="pfbar"><div class="pfrow">
       <button class="chip" data-act="pf-toggle" aria-expanded="${pf.open}">${I.adjust}${t('filters')}${n ? ` <span class="badge on">${n}</span>` : ''}</button>
       ${n ? `<button class="chip small ghost" data-act="pf-clear">${t('clearFilters')}</button>` : ''}</div>
-    ${pf.open ? `<div class="pfpanel">
-      <div class="frow"><span>${t('type')}</span><div class="scroller">${TYPES.map(ty => chip('pf-type', ty, pf.types.includes(ty), `${typeIcon(ty)}${typeName(ty)}`)).join('')}</div></div>
-      ${withTiers ? `<div class="frow"><span>${t('tier')} <small>${t('tierHint')}</small></span><div class="scroller">${TIER_ORDER.map(r => chip('pf-tier', esc(r), pf.tiers.includes(r), `${tierNumHTML(r)}${tierLabel(r)}`)).join('')}</div></div>` : ''}
-      <div class="frow"><span>${t('generation')}</span><div class="scroller">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(g => chip('pf-gen', g, pf.gens.includes(g), genLabel(g))).join('')}${chip('pf-gen9', '1', pf.gen9, t('gen9Only'))}</div></div>
-      ${withSort ? `<div class="frow"><span>${t('sortBy')}</span><div class="scroller">${SORTS.map(k => chip('pf-sort', k, pf.sort === k, `${sortLabel(k)}${pf.sort === k ? (pf.dir === -1 ? ' ↓' : ' ↑') : ''}`)).join('')}</div></div>` : ''}
-    </div>` : ''}</div>`;
+    ${pf.open ? `<div class="filters pfp">${panel}</div>` : ''}</div>`;
 }
 const pfEmpty = () => `<section class="sec"><div class="empty"><b>${t('emptyTitle')}</b>${t('emptyHint')}</div></section>`;
 const SRC = { move: 'moves', ability: 'abilities', item: 'items', tier: null };
@@ -633,10 +662,6 @@ const SORTS = ['num', 'hp', 'atk', 'def', 'spa', 'spd', 'spe', 'bst', 'h', 'w'];
 const sortLabel = k => (k === 'num' ? t('num') : statName(k));
 
 function homeHTML() {
-  const chip = (attrs, inner, extra = '') => `<button class="chip ${extra}" ${attrs} aria-pressed="false">${inner}</button>`;
-  const opt = (act, v, inner) => `<button class="ddopt" role="option" data-act="${act}" data-v="${v}" aria-pressed="false">${inner}<span class="ck">${I.check}</span></button>`;
-  const dd = (key, label, hint, options) => `<div class="dd" data-dd="${key}"><button class="ddbtn" data-act="dd-toggle" data-v="${key}" aria-expanded="false"><span class="ddl">${label}</span><span class="ddv" data-dv="${key}"></span><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
-    <div class="ddlist" role="listbox" hidden>${hint ? `<p class="ddhint">${hint}</p>` : ''}${options}</div></div>`;
   return `
   <header class="hero">
     <h1>PokeScanner</h1>
@@ -660,11 +685,10 @@ function homeHTML() {
   </div>
   <div class="fpanel" id="fpanel"><div class="fpanel-in">
   <section class="filters" id="filters" aria-label="${t('filters')}">
-    ${dd('sort', t('sortBy'), '', SORTS.map(k => opt('sort', k, sortLabel(k) + '<span class="dir"></span>')).join(''))}
-    ${dd('type', t('type'), '', TYPES.map(ty => opt('type', ty, `${typeIcon(ty)}${typeName(ty)}`)).join(''))}
-    ${dd('tier', t('tier'), t('tierHint'), TIER_ORDER.map(r => opt('tier-f', r, `${tierNumHTML(r)}${tierLabel(r)}`)).join(''))}
-    ${dd('gen', t('generation'), '', [1, 2, 3, 4, 5, 6, 7, 8, 9].map(g => opt('gen', g, genLabel(g))).join(''))}
-    <div class="frow"><div class="scroller">${chip('data-act="flag" data-v="gen9"', t('gen9Only'))}</div></div>
+    ${filterRowsHTML({
+      sort: true, tiers: true, acts: { toggle: 'dd-toggle', sort: 'sort', type: 'type', tier: 'tier-f', gen: 'gen', gen9: { act: 'flag', v: 'gen9' } },
+      on: () => false, open: () => false, val: () => '', dir: () => '',
+    })}
     <button class="chip ghost clearbtn" data-act="reset" hidden>${t('clearFilters')}</button>
   </section>
   </div></div>
@@ -1515,11 +1539,12 @@ document.addEventListener('click', e => {
     case 'close': closeSheet(); break;
     case 'back': backFlag = true; if (navIdx > 0) history.back(); else if (location.hash === '#/' || !location.hash) route(); else location.hash = '#/'; break;
     case 'pf-toggle': pf.open = !pf.open; repaintKeep(); break;
-    case 'pf-clear': { const o = pf.open; pf = pfNew(); pf.open = o; } pageExpand = new Set(); repaintKeep(); break;
+    case 'pf-clear': { const o = pf.open; pf = pfNew(); pf.open = o; pageExpand = new Set(); repaintKeep(); break; }
     case 'pf-type': pf.types = pf.types.includes(v) ? pf.types.filter(x => x !== v) : [...pf.types, v]; pageExpand = new Set(); repaintKeep(); break;
     case 'pf-gen': { const g = Number(v); pf.gens = pf.gens.includes(g) ? pf.gens.filter(x => x !== g) : [...pf.gens, g]; pageExpand = new Set(); repaintKeep(); break; }
+    case 'pf-dd': pf.dd = pf.dd === v ? null : v; repaintKeep(); break;
     case 'pf-gen9': pf.gen9 = !pf.gen9; pageExpand = new Set(); repaintKeep(); break;
-    case 'pf-sort': if (pf.sort === v) pf.dir = -pf.dir; else { pf.sort = v; pf.dir = v === 'num' ? 1 : -1; } pageExpand = new Set(); repaintKeep(); break;
+    case 'pf-sort': if (pf.sort === v) pf.dir = -pf.dir; else { pf.sort = v; pf.dir = v === 'num' ? 1 : -1; } pf.dd = null; pageExpand = new Set(); repaintKeep(); break;
     case 'pf-tier': pf.tiers = pf.tiers.includes(v) ? pf.tiers.filter(x => x !== v) : [...pf.tiers, v]; pageExpand = new Set(); repaintKeep(); break;
     case 'more-list': { const y = window.scrollY; pageExpand.add(v); paintDetailPage(); window.scrollTo(0, y); break; }
 

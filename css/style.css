@@ -547,17 +547,28 @@ button.tpill:active { transform: scale(.96); }
 
 /* ───────────── Filtros del buscador: desplegables ───────────── */
 .filters { display: grid; gap: 10px; }
-.dd { border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line); overflow: hidden; }
+.filters.pfp { margin-top: 12px; }
+.fgroup { display: grid; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line); overflow: hidden; }
+.fgroup > * + * { border-top: 1px solid var(--line); }
+.dd { background: none; }
 .ddbtn { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 52px; padding: 0 16px; text-align: left; }
 .ddl { font-weight: 700; }
 .ddv { margin-left: auto; color: var(--muted); font-size: .92rem; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .ddbtn .chev { width: 18px; height: 18px; flex: none; fill: none; stroke: var(--muted); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; transition: transform .2s; }
 .ddbtn[aria-expanded="true"] .chev { transform: rotate(180deg); }
-.ddlist { display: grid; max-height: 300px; overflow-y: auto; padding: 4px 6px 8px; border-top: 1px solid var(--line); overscroll-behavior: contain; }
+.ddlist { display: grid; padding: 0 8px 10px; overscroll-behavior: contain; }
 .ddlist[hidden] { display: none; }
 .ddhint { padding: 8px 10px 4px; color: var(--muted); font-size: .8rem; }
 .ddopt { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 0 10px; border-radius: var(--r-md); text-align: left; font-weight: 700; }
 .ddopt .ticon { width: 24px; height: 24px; border-radius: 50%; }
+.ddopt .sico { width: 22px; height: 22px; flex: none; fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ddopt[aria-pressed="true"] .sico { stroke: var(--accent); }
+.ddopt .dir { margin-left: 2px; }
+.togrow { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 52px; padding: 0 16px; text-align: left; }
+.sw { margin-left: auto; width: 44px; height: 26px; border-radius: 13px; background: var(--line); position: relative; flex: none; transition: background .2s; }
+.sw i { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(8, 10, 18, .3); transition: transform .2s; }
+.togrow[aria-pressed="true"] .sw { background: var(--accent); }
+.togrow[aria-pressed="true"] .sw i { transform: translateX(18px); }
 .ddopt .tn { display: inline-grid; place-items: center; min-width: 1.65em; height: 1.65em; padding: 0 .3em; border-radius: var(--r-pill); background: var(--tier, var(--muted)); color: var(--tnc, #fff); font-size: .78rem; line-height: 1; }
 .ddopt .dir { color: var(--muted); font-weight: 400; }
 .ddopt .ck { margin-left: auto; opacity: 0; }
@@ -733,11 +744,11 @@ img.mini { width: 28px; height: 28px; object-fit: contain; flex: none; }
 .fbar i { position: absolute; top: 0; bottom: 0; border-radius: 7px; } .fbar i.a { background: #3B7BEF; } .fbar i.b { background: #E5484D; }
 .facthint { display: flex; justify-content: space-between; margin-top: 6px; }
 
-/* zoom suave al pasar el ratón (solo ratón; sin inclinación) */
+/* zoom suave al pasar el ratón (solo ratón, solo piezas pequeñas; las cajas anchas y los desplegables no se agrandan) */
 @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
-  button:not(:disabled):hover, a.row:hover, a.card:hover, a.chip:hover, a.evo-card:hover, .slotopt:hover { transform: scale(1.06) !important; transition: transform .14s ease-out !important; }
-  a.row:hover, a.card:hover, a.evo-card:hover, .slotopt:hover { transform: scale(1.025) !important; }
-  button:not(:disabled):active, a.row:active, a.card:active, a.chip:active, a.evo-card:active { transform: scale(.97) !important; }
+  .chip:not(:disabled):hover, .iconbtn:not(:disabled):hover, .backfab:hover, .avatarbtn:hover, .dk a:hover, .dk button:hover { transform: scale(1.06) !important; transition: transform .14s ease-out !important; }
+  a.row:hover, a.card:hover, a.evo-card:hover { transform: scale(1.02) !important; transition: transform .14s ease-out !important; }
+  .chip:not(:disabled):active, .iconbtn:active, .backfab:active, a.row:active, a.card:active, a.evo-card:active { transform: scale(.97) !important; }
 }
 
 /* puntuación del equipo en el círculo de cada hueco */
