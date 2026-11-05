@@ -711,20 +711,23 @@ img.mini { width: 28px; height: 28px; object-fit: contain; flex: none; }
 @media (hover: hover) and (pointer: fine) and (min-width: 820px) {
   :root { --nav: 64px; }
   #dock {
-    top: 0; bottom: auto; left: 0; right: 0; translate: none; width: 100%; height: var(--nav); padding: 0 24px; border-radius: 0; border-width: 0 0 1px;
-    display: flex; justify-content: center; align-items: center; gap: 6px; box-shadow: none;
+    top: 0; bottom: auto; left: 0; right: 0; translate: none; width: 100%; height: var(--nav); border-radius: 0; border-width: 0 0 1px;
+    display: flex; justify-content: flex-start; align-items: center; gap: 6px; box-shadow: none;
+    padding: 0 max(6px, calc((100% - 680px) / 2 + 6px));
     background: color-mix(in srgb, var(--bg) 88%, transparent);
   }
-  .dk { display: inline-flex; align-items: center; gap: 9px; height: 42px; padding: 0 16px; border-radius: var(--r-pill); font-weight: 700; font-size: .95rem; }
-  .dk .ic { width: 24px; height: 24px; flex: none; }
-  .dk .lb { display: inline; }
+  .dk { display: inline-grid; place-items: center; width: 46px; height: 46px; padding: 0; border-radius: 50%; }
+  .dk .ic { width: 26px; height: 26px; flex: none; }
+  .dk .lb { display: none; }
   .dk::after { display: none; }
   .dk.on .ic { transform: none; }
   .dk.on { background: var(--soft); }
+  .dk[data-act="dock-favs"] { margin-left: auto; }
   .dk:not(.on):hover { color: var(--ink); }
   #app { padding-top: calc(var(--nav) + 20px); padding-bottom: 48px; }
   .backfab { top: calc(var(--nav) + 12px); }
   #toast, .toast { bottom: 32px; }
+}
 }
 
 /* comparador: dos cajas con un VS en medio y una lista propia para elegir equipo */
