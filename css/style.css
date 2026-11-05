@@ -1400,3 +1400,5 @@ dialog.cfm::backdrop { background: rgba(10, 12, 20, .5); }
 .flavor summary::-webkit-details-marker { display: none; }
 .flavor summary::after { content: ' ▾'; }
 .flavor[open] summary { margin-bottom: 4px; }
+
+.flavor small { display: block; font-weight: 700; margin-bottom: 2px; opacity: .8; }
