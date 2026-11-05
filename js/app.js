@@ -835,8 +835,8 @@ function renderResults(reset = true) {
   if (!isFiltering()) {
     state.randoms ??= pickRandoms(true);
     box.innerHTML = `
-      <div class="block-title"><h2>${state.randomMode === 'daily' ? t('daily') : t('random')}</h2>
-        <button class="chip small" data-act="shuffle">${'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>'}${t('shuffle')}</button></div>
+      <div class="block-title"><h2>${t('daily')}</h2>
+        <button class="chip small" data-act="shuffle">${'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>'}${t('random')}</button></div>
       <div class="cards">${state.randoms.map(id => cardHTML(BYID.get(id))).join('')}</div>`;
     return;
   }
@@ -1390,7 +1390,7 @@ document.addEventListener('click', e => {
     case 'reset':
       Object.assign(state, { q: '', sort: 'num', dir: 1, types: [], tiers: [], gens: [], favs: false, gen9: false, dd: null });
       $('#q').value = ''; renderResults(); break;
-    case 'shuffle': state.randomMode = 'random'; state.randoms = pickRandoms(false); renderResults(); break;
+    case 'shuffle': { const pool = INDEX.filter(p => !p.g); location.hash = '#/pokemon/' + pool[Math.floor(Math.random() * pool.length)].id; break; }
     case 'tier-go': goSearch({ tiers: [v] }); break;
 
     // ficha
