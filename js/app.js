@@ -396,6 +396,8 @@ sheet.addEventListener('click', e => { if (e.target === sheet) sheet.close(); })
 const otherName = x => (dn2(x) && dn2(x) !== dn(x) ? `<p class="dim">${t('otherName', { n: esc(dn2(x)) })}</p>` : '');
 
 // ───────────────────────── Páginas de movimiento y habilidad ─────────────────────────
+// la flecha de volver sale en todas las páginas cuando hay una anterior a la que volver
+const backBar = () => (navIdx > 0 ? topbarHTML() : '');
 const topbarHTML = () => `<button class="backfab" data-act="back" aria-label="${t('backShort')}">${I.back}</button><div class="topgap"></div>`;
 const FIRST = 12; // Pokémon que se enseñan antes de "Ver todos"
 const strength = p => tierNum(p.r) || 14; // 1 = más fuerte; LC y NFE cuentan como lo más débil
@@ -907,7 +909,7 @@ function watchSentinel() {
 function renderHome() {
   state.view = 'home';
   document.title = 'PokeScanner';
-  $app.innerHTML = homeHTML();
+  $app.innerHTML = backBar() + homeHTML();
   document.documentElement.style.removeProperty('--accent');
   renderResults(false); // al volver desde una ficha se conserva cuántos resultados había cargados
   window.scrollTo(0, state.scroll || 0);
@@ -1167,7 +1169,7 @@ function renderTeams() {
   state.view = 'teams';
   document.title = `${t('teamsTitle')} · PokeScanner`;
   document.documentElement.style.removeProperty('--accent');
-  $app.innerHTML = '<div id="teams-root"></div>';
+  $app.innerHTML = backBar() + '<div id="teams-root"></div>';
   paintTeams();
   window.scrollTo(0, 0);
   updateDock();
@@ -1213,7 +1215,7 @@ async function renderBattle() {
   state.view = 'battle';
   document.title = `${t('battleTitle')} · PokeScanner`;
   document.documentElement.style.removeProperty('--accent');
-  $app.innerHTML = '<div id="battle-root"></div>';
+  $app.innerHTML = backBar() + '<div id="battle-root"></div>';
   window.scrollTo(0, 0);
   updateDock();
   if (!auth.currentUser()) { paintBattle(); return; }
