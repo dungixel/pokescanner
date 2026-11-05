@@ -54,6 +54,7 @@ const I = {
   compare: '<svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
   shuffle: '<svg viewBox="0 0 24 24"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>',
   down: '<svg viewBox="0 0 24 24"><path d="M12 4v15M6 13l6 6 6-6"/></svg>',
+  chev: '<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>',
   copy: '<svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>',
 };
 /** Ajustes: ventana en medio de la pantalla (idioma con bandera y tema claro/oscuro) */
@@ -1111,9 +1112,10 @@ function slotHTML(i) {
     ${members.length ? teamHTML(members) : ''}</div>`;
   return `<section class="slot ${open ? 'open' : ''}">
     <button class="slothead" data-act="slot-open" data-v="${i}" aria-expanded="${open}">
-      <span class="sn">${i + 1}</span>
+      <span class="chev">${I.chev}</span>
+      ${members.length >= 3 ? (sc => `<span class="sn sc" style="--sc:${scoreInfo(sc).c}" title="${t('an_title')}">${sc}</span>`)(analyzeTeam(members).score) : `<span class="sn sc none" title="${t('an_title')}">-</span>`}
       <span class="sname"><b>${esc(teamName(i))}</b><span class="minis">${members.map(p => pokeImg(p, 'small', 'mini')).join('') || `<small>${t('teamEmpty')}</small>`}</span></span>
-      <span class="scount">${members.length}/${MAXTEAM}</span><span class="chev">${I.down}</span></button>${body}</section>`;
+      <span class="scount">${members.length}/${MAXTEAM}</span></button>${body}</section>`;
 }
 function teamsHTML() {
   if (!auth.currentUser()) return `<header class="hero"><h1>${t('teamsTitle')}</h1><p>${t('teamsLead')}</p></header>${loginCta('loginTitle', 'favs')}`;
