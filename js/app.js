@@ -2805,7 +2805,7 @@ document.addEventListener('click', e => {
     case 'friend-accept': auth.respondFriend(v, true).then(() => refreshFriends()).then(() => { paintBattle(); watchBattle(); }).catch(() => toast(t('syncFail'))); break;
     case 'friend-decline': askConfirm(t('cfmDecline'), t('decline'), () => auth.respondFriend(v, false).then(() => auth.removeFriend(v)).catch(() => {}).then(() => refreshFriends()).then(() => { paintBattle(); watchBattle(); })); break;
     case 'friend-remove': askConfirm(t('cfmFriend'), t('cfmRemove'), () => { auth.removeFriend(v).then(() => refreshFriends()).then(() => { if (bt.b.owner === v) bt.b = { owner: 'me', slot: 1 }; bt.res = null; paintBattle(); watchBattle(); }).catch(() => toast(t('syncFail')));; }); break;
-    case 'compare': runCompare(); break;
+    case 'compare': if (state.view === 'battle') runCompare(); else openCompare(); break;
     case 'bt-mode': if (!bt.busy && bt.mode !== v) { bt.mode = v; bt.cmpMsg = ''; paintBattle(); } break;
     case 'bt-plan': bt.planSide = v; paintBattle(); break;
     case 'sign-in': startLogin(); break;
@@ -2863,7 +2863,6 @@ document.addEventListener('click', e => {
     case 'notif-go': goNotif(v); break;
     case 'dock-settings': if (smodal.hidden) openSettings(); else closeSettings(); break;
     case 'settings-close': closeSettings(); break;
-    case 'compare': openCompare(); break;
     case 'tier': location.hash = `#/tier/${v}`; break;
     case 'move': location.hash = `#/move/${v}`; break;
     case 'ability': location.hash = `#/ability/${v}`; break;
