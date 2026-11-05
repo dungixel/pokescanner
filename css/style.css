@@ -1236,3 +1236,14 @@ button.slot.slothead { cursor: pointer; }
 .fstats b { font-size: .95rem; }
 .spill .ddl::after { content: ":"; }
 .spills .spill { order: 0; } .spills .sdl { order: 0; flex: 0 0 100%; margin-top: 0; }
+
+#com-root .hero { margin-bottom: 28px; }
+.comfilters .chip .chev { width: 16px; height: 16px; margin-left: 2px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; transition: transform .2s; }
+.comfilters .chip[aria-expanded="true"] .chev { transform: rotate(180deg); }
+.companel { display: grid; gap: 2px; padding: 12px 14px 14px; margin-bottom: 12px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line); }
+.companel .lbl { margin: 10px 2px 6px; }
+.companel .lbl:first-child { margin-top: 0; }
+.companel .chips { gap: 6px; }
+.companel .chip svg, .companel .chip img { width: 18px; height: 18px; }
+.companel .ghost { justify-self: start; margin-top: 12px; }
+.companel .chip svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }

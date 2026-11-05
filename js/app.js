@@ -1797,7 +1797,7 @@ document.addEventListener('change', e => {
 });
 
 // ───────────────────────── Comunidad ─────────────────────────
-const com = { q: '', pokes: [], sort: 'new', items: [], more: false, loading: false, err: false, post: null, comments: [], full: null, confirm: null, busy: false, msg: '' };
+const com = { q: '', pokes: [], types: [], minScore: 0, fopen: false, sort: 'new', items: [], more: false, loading: false, err: false, post: null, comments: [], full: null, confirm: null, busy: false, msg: '' };
 let curPostId = null, pubCtx = null;
 const PAGE = 20;
 const ago = iso => {
@@ -1826,14 +1826,33 @@ function postCardHTML(x) {
       <button class="cact" data-act="com-open" data-v="${x.id}" aria-label="${t('comComments')}">${bubble}<span>${x.comments}</span></button><span class="grow"></span>${delBtns(x)}</div>
   </article>`;
 }
+const FILTIC = '<svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>';
+const postScore = x => { if (x._sc == null) { const ps = (x.members || []).map(m => BYID.get(m.id)).filter(Boolean); x._sc = ps.length >= 3 ? analyzeTeam(ps).score : -1; } return x._sc; };
+const comClient = () => com.types.length > 0 || com.minScore > 0;
+const comVisible = () => (!comClient() ? com.items : com.items.filter(x => {
+  const ps = (x.members || []).map(m => BYID.get(m.id)).filter(Boolean);
+  return com.types.every(ty => ps.some(p => p.t.includes(ty))) && (!com.minScore || postScore(x) >= com.minScore);
+}));
+const comFCount = () => com.pokes.length + com.types.length + (com.minScore ? 1 : 0);
+function comPanelHTML() {
+  const pk = com.pokes.map(id => BYID.get(id)).filter(Boolean).map(p => `<button class="chip pkf" data-act="com-pk-del" data-v="${p.id}" aria-label="${t('edRemove')}">${pokeImg(p, 'small', 'thumb')}${esc(pname(p))}<span class="x">${IC.x}</span></button>`).join('');
+  return `<div class="companel">
+    <p class="lbl">${t('comFPokes')}</p><div class="chips">${pk}${com.pokes.length < 3 ? `<button class="chip" data-act="com-pk-add">${IC.plus}${t('comFAdd')}</button>` : ''}</div>
+    <p class="lbl">${t('comFTypes')}</p><div class="chips">${TYPES.map(ty => `<button class="chip" data-act="com-type" data-v="${ty}" aria-pressed="${com.types.includes(ty)}">${typeIcon(ty)}${typeName(ty)}</button>`).join('')}</div>
+    <p class="lbl">${t('comFScore')}</p><div class="chips">${[0, 50, 70, 85].map(n => `<button class="chip" data-act="com-score" data-v="${n}" aria-pressed="${com.minScore === n}">${n ? `${n}+` : t('comFAny')}</button>`).join('')}</div>
+    ${comFCount() ? `<button class="chip ghost" data-act="com-fclear">${t('comFClear')}</button>` : ''}
+  </div>`;
+}
 function communityHTML() {
   const sortBtn = (k, lbl) => `<button class="chip" data-act="com-sort" data-v="${k}" aria-pressed="${com.sort === k}">${t(lbl)}</button>`;
-  const list = com.items.length ? com.items.map(postCardHTML).join('')
-    : com.loading ? '' : com.err ? `<div class="empty"><b>${t('comLoadFail')}</b></div>` : (com.q.trim() || com.pokes.length) ? `<div class="empty"><b>${t('comNoMatch')}</b></div>` : `<div class="empty"><b>${t('comEmpty')}</b>${t('comEmptyHint')}</div>`;
+  const vis = comVisible();
+  const list = vis.length ? vis.map(postCardHTML).join('')
+    : com.loading ? '' : com.err ? `<div class="empty"><b>${t('comLoadFail')}</b></div>` : (com.q.trim() || comFCount()) ? `<div class="empty"><b>${t('comNoMatch')}</b></div>` : `<div class="empty"><b>${t('comEmpty')}</b>${t('comEmptyHint')}</div>`;
   const pkChips = com.pokes.map(id => BYID.get(id)).filter(Boolean).map(p => `<button class="chip pkf" data-act="com-pk-del" data-v="${p.id}" aria-label="${t('edRemove')}">${pokeImg(p, 'small', 'thumb')}${esc(pname(p))}<span class="x">${IC.x}</span></button>`).join('');
   return `<header class="hero"><h1>${t('comTitle')}</h1><p>${t('comLead')}</p></header>
     <div class="searchbar"><div class="search ${com.q ? 'filled' : ''}">${I.search}<input id="com-q" type="search" inputmode="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${t('comSearchPh')}" value="${esc(com.q)}" aria-label="${t('comSearchPh')}"></div></div>
-    <div class="comfilters">${pkChips}${com.pokes.length < 3 ? `<button class="chip" data-act="com-pk-add">${IC.plus}${t('comFilterPoke')}</button>` : ''}</div>
+    <div class="comfilters"><button class="chip ${com.fopen ? 'on' : ''}" data-act="com-ftoggle" aria-expanded="${com.fopen}">${FILTIC}${t('comFilters')}${comFCount() ? ` <span class="badge on">${comFCount()}</span>` : ''}<svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button></div>
+    ${com.fopen ? comPanelHTML() : ''}
     <div class="comtools"><div class="comsort">${sortBtn('new', 'comNew')}${sortBtn('top', 'comTop')}</div><span class="comtools-r">${auth.isAdmin() ? `<button class="chip" data-act="adm-bans">${t('admBans')}</button>` : ''}<button class="chip accent" data-act="com-publish">${IC.plus}${t('comPublish')}</button></span></div>
     <div class="cfeed">${list}</div>
     ${com.more ? `<div class="ctarow"><button class="chip" data-act="com-more" ${com.loading ? 'disabled' : ''}>${t('comMore')}</button></div>` : ''}`;
@@ -1863,9 +1882,12 @@ async function loadFeed(reset) {
     if (seq !== com.seq) return;
     com.items = com.items.concat(rows.filter(r => !com.items.some(x => String(x.id) === String(r.id))));
     com.more = rows.length === PAGE;
+    if (reset) com.auto = 0;
   } catch { if (seq !== com.seq) return; com.err = true; if (com.items.length) toast(t('comLoadFail')); }
   com.loading = false;
   if (state.view === 'community') paintCom();
+  // con filtros de tipo o puntuación (que se aplican aquí) se siguen pidiendo páginas hasta que salgan unos cuantos equipos
+  if (!com.err && comClient() && com.more && comVisible().length < 6 && (com.auto = (com.auto || 0) + 1) <= 8 && seq === com.seq) loadFeed(false);
 }
 function renderCommunity() {
   state.view = 'community';
@@ -2623,6 +2645,10 @@ document.addEventListener('click', e => {
     case 'off-download': offlineDownload(); break;
     case 'off-clear': offlineClear(); break;
     case 'off-install': { const pr = off.prompt; off.prompt = null; pr?.prompt?.(); refreshModal(); break; }
+    case 'com-ftoggle': com.fopen = !com.fopen; paintCom(); break;
+    case 'com-type': com.types = com.types.includes(v) ? com.types.filter(x => x !== v) : [...com.types, v]; com.auto = 0; paintCom(); if (com.more && comVisible().length < 6) loadFeed(false); break;
+    case 'com-score': com.minScore = Number(v); com.auto = 0; paintCom(); if (com.more && comVisible().length < 6) loadFeed(false); break;
+    case 'com-fclear': com.types = []; com.minScore = 0; if (com.pokes.length) { com.pokes = []; loadFeed(true); } else paintCom(); break;
     case 'go-calc': location.hash = '#/calc'; break;
     case 'calc-pick': calcOpenPick(v); break;
     case 'calc-edit': calcEdit(v); break;
