@@ -1340,3 +1340,7 @@ dialog.cfm::backdrop { background: rgba(10, 12, 20, .5); }
 .cbox .cresl { margin: 0; }
 .cbox .cres { background: var(--surface); border-color: transparent; }
 .cbox .cbar { background: color-mix(in srgb, var(--sc) 10%, var(--soft)); }
+.cbox .lbl { margin: 0 2px 6px; }
+.cbox .hpch { margin-bottom: 12px; }
+.cbox .hpch .chip { background: var(--surface); }
+.cbox .hpch .chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); }

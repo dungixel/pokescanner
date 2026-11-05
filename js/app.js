@@ -1707,9 +1707,9 @@ async function runShowdownImport() {
 // ───────────────────────── Calculadora de daño ─────────────────────────
 const CALC_KEY = 'pk.calc';
 const ZB = () => ({ atk: 0, def: 0, spa: 0, spd: 0 });
-const calc = { a: { id: 'garchomp' }, d: { id: 'corviknight' }, ua: null, ud: null, boosts: { a: ZB(), d: ZB() }, hp: 1, weather: '', terrain: '', doubles: false, reflect: false, lightScreen: false, crit: false, busy: false, err: false, det: {} };
-try { const sv = JSON.parse(store.get(CALC_KEY) || 'null'); if (sv?.a?.id && sv?.d?.id) Object.assign(calc, { a: sv.a, d: sv.d, weather: sv.weather || '', terrain: sv.terrain || '', doubles: !!sv.doubles, reflect: !!sv.reflect, lightScreen: !!sv.lightScreen, hp: sv.hp || 1 }); } catch { /* sin guardado */ }
-const saveCalc = () => store.set(CALC_KEY, JSON.stringify({ a: calc.a, d: calc.d, weather: calc.weather, terrain: calc.terrain, doubles: calc.doubles, reflect: calc.reflect, lightScreen: calc.lightScreen, hp: calc.hp }));
+const calc = { a: { id: 'garchomp' }, d: { id: 'corviknight' }, ua: null, ud: null, boosts: { a: ZB(), d: ZB() }, hp: 1, hpA: 1, weather: '', terrain: '', doubles: false, reflect: false, lightScreen: false, crit: false, busy: false, err: false, det: {} };
+try { const sv = JSON.parse(store.get(CALC_KEY) || 'null'); if (sv?.a?.id && sv?.d?.id) Object.assign(calc, { a: sv.a, d: sv.d, weather: sv.weather || '', terrain: sv.terrain || '', doubles: !!sv.doubles, reflect: !!sv.reflect, lightScreen: !!sv.lightScreen, hp: sv.hp || 1, hpA: sv.hpA || 1 }); } catch { /* sin guardado */ }
+const saveCalc = () => store.set(CALC_KEY, JSON.stringify({ a: calc.a, d: calc.d, weather: calc.weather, terrain: calc.terrain, doubles: calc.doubles, reflect: calc.reflect, lightScreen: calc.lightScreen, hp: calc.hp, hpA: calc.hpA }));
 const WEATHERS = [['', 'cNone'], ['Sun', 'cSun'], ['Rain', 'cRain'], ['Sand', 'cSand'], ['Snow', 'cSnow']];
 const TERRAINS = [['', 'cNone'], ['Electric', 'cElectric'], ['Grassy', 'cGrassy'], ['Psychic', 'cPsychic'], ['Misty', 'cMisty']];
 let calcSeq = 0;
@@ -1791,10 +1791,11 @@ function calcRows(from, to, hpLeft) {
   });
 }
 function calcListHTML(from, to) {
-  const hp = calc.hp, dmax = (to === 'd' ? calc.ud : calc.ua).maxHP;
-  const rows = calcRows(from, to, to === 'd' ? hp : 1);
+  const hp = from === 'a' ? calc.hp : calc.hpA, dmax = (to === 'd' ? calc.ud : calc.ua).maxHP;
+  const rows = calcRows(from, to, hp);
   const pf = BYID.get(calc[from].id), pt = BYID.get(calc[to].id);
-  return `<div class="cbox ${from === 'a' ? 'fa' : 'fd'}"><h3 class="cdir">${pokeImg(pf, 'small', 'mini')}<b>${esc(pname(pf))}</b> <span>→</span> ${pokeImg(pt, 'small', 'mini')}<b>${esc(pname(pt))}</b></h3>${rows.length ? `<ul class="cresl">${rows.map(({ mv, m, r, lo, hi, k, txt, fmt }) => `<li class="cres k-${k}" style="--tc:${TYPE_COLOR[mv.t]}"><div class="cmv">${typeIcon(mv.t)}<b>${esc(m ? dn(m) : mv.name)}</b>${catIcon(mv.c)}<span class="cko">${txt}</span></div>
+  return `<div class="cbox ${from === 'a' ? 'fa' : 'fd'}"><h3 class="cdir">${pokeImg(pf, 'small', 'mini')}<b>${esc(pname(pf))}</b> <span>→</span> ${pokeImg(pt, 'small', 'mini')}<b>${esc(pname(pt))}</b></h3>
+    <p class="lbl">${t('calcHpOf', { n: esc(pname(pt)) })}</p><div class="chips hpch">${[1, 0.75, 0.5, 0.25].map(h => `<button class="chip" data-act="${from === 'a' ? 'calc-hp' : 'calc-hpa'}" data-v="${h}" aria-pressed="${hp === h}">${h * 100} %</button>`).join('')}</div>${rows.length ? `<ul class="cresl">${rows.map(({ mv, m, r, lo, hi, k, txt, fmt }) => `<li class="cres k-${k}" style="--tc:${TYPE_COLOR[mv.t]}"><div class="cmv">${typeIcon(mv.t)}<b>${esc(m ? dn(m) : mv.name)}</b>${catIcon(mv.c)}<span class="cko">${txt}</span></div>
       <div class="cbar"><i style="width:${Math.min(100, r.max * 100)}%"></i><u style="width:${Math.min(100, r.min * 100)}%"></u></div>
       <div class="cnum"><b>${fmt(r.min)}–${fmt(r.max)} %</b><small>${lo}–${hi} / ${dmax} ${t('calcHp')}</small></div></li>`).join('')}</ul>` : `<p class="hint">${t('calcNoMoves')}</p>`}</div>`;
 }
@@ -1806,7 +1807,6 @@ function calcHTML() {
     <div class="calcswap"><button class="chip" data-act="calc-swap">⇅ ${t('calcSwap')}</button></div>
     ${calcSideHTML('d')}
     <section class="sec"><h2>${t('calcResult')}</h2>
-      <p class="lbl">${t('calcHpLeft')}</p><div class="chips">${[1, 0.75, 0.5, 0.25].map(h => chip('calc-hp', h, calc.hp === h, `${h * 100} %`)).join('')}</div>
       ${calcListHTML('a', 'd')}${calcListHTML('d', 'a')}
     </section>
     <section class="sec"><h2>${t('calcField')}</h2>
@@ -2741,7 +2741,8 @@ document.addEventListener('click', e => {
     case 'calc-edit': calcEdit(v); break;
     case 'calc-swap': [calc.a, calc.d] = [calc.d, calc.a]; [calc.boosts.a, calc.boosts.d] = [calc.boosts.d, calc.boosts.a]; calc.ua = calc.ud = null; paintCalc(); loadCalcUnits(); break;
     case 'calc-hp': calc.hp = Number(v); paintCalc(); break;
-    case 'calc-reset': Object.assign(calc, { weather: '', terrain: '', doubles: false, reflect: false, lightScreen: false, crit: false, hp: 1, boosts: { a: ZB(), d: ZB() } }); paintCalc(); break;
+    case 'calc-hpa': calc.hpA = Number(v); paintCalc(); break;
+    case 'calc-reset': Object.assign(calc, { weather: '', terrain: '', doubles: false, reflect: false, lightScreen: false, crit: false, hp: 1, hpA: 1, boosts: { a: ZB(), d: ZB() } }); paintCalc(); break;
     case 'calc-boost': { const [sd, k, n] = v.split(':'); calc.boosts[sd][k] = Math.max(-6, Math.min(6, calc.boosts[sd][k] + Number(n))); paintCalc(); break; }
     case 'calc-set': { const i = v.indexOf(':'); calc[v.slice(0, i)] = v.slice(i + 1); paintCalc(); break; }
     case 'calc-tog': calc[v] = !calc[v]; paintCalc(); break;
