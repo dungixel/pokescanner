@@ -434,10 +434,12 @@ function listSection(key, title, hint, items, render, wrap) {
     ${!all && items.length > shown.length ? `<button class="chip accent more" data-act="more-list" data-v="${key}">${t('showAllN', { n: items.length })}</button>` : ''}</section>`;
 }
 let pageExpand = new Set(), pageData = null;
-let pf = { types: [], tiers: [], open: false }; // filtros de las listas de Pokémon de estas páginas
-const pfActive = () => pf.types.length + pf.tiers.length;
-const pfPass = p => (!pf.types.length || pf.types.every(ty => p.t.includes(ty))) && (!pf.tiers.length || pf.tiers.includes(p.r));
-function pfBar(withTiers = true) {
+const pfNew = () => ({ types: [], tiers: [], gens: [], gen9: false, sort: '', dir: -1, open: false });
+let pf = pfNew(); // filtros de las listas de Pokémon de estas páginas
+const pfSorted = () => !!pf.sort;
+const pfActive = () => pf.types.length + pf.tiers.length + pf.gens.length + (pf.gen9 ? 1 : 0) + (pfSorted() ? 1 : 0);
+const pfPass = p => (!pf.types.length || pf.types.every(ty => p.t.includes(ty))) && (!pf.tiers.length || pf.tiers.includes(p.r)) && (!pf.gens.length || pf.gens.includes(genOf(p.num))) && (!pf.gen9 || !p.g);
+function pfBar(withTiers = true, withSort = false) {
   const n = pfActive();
   const chip = (act, v, on, inner) => `<button class="chip small" data-act="${act}" data-v="${v}" aria-pressed="${on}">${inner}</button>`;
   return `<div class="pfbar"><div class="pfrow">
@@ -446,6 +448,8 @@ function pfBar(withTiers = true) {
     ${pf.open ? `<div class="pfpanel">
       <div class="frow"><span>${t('type')}</span><div class="scroller">${TYPES.map(ty => chip('pf-type', ty, pf.types.includes(ty), `${typeIcon(ty)}${typeName(ty)}`)).join('')}</div></div>
       ${withTiers ? `<div class="frow"><span>${t('tier')} <small>${t('tierHint')}</small></span><div class="scroller">${TIER_ORDER.map(r => chip('pf-tier', esc(r), pf.tiers.includes(r), `${tierNumHTML(r)}${tierLabel(r)}`)).join('')}</div></div>` : ''}
+      <div class="frow"><span>${t('generation')}</span><div class="scroller">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(g => chip('pf-gen', g, pf.gens.includes(g), genLabel(g))).join('')}${chip('pf-gen9', '1', pf.gen9, t('gen9Only'))}</div></div>
+      ${withSort ? `<div class="frow"><span>${t('sortBy')}</span><div class="scroller">${SORTS.map(k => chip('pf-sort', k, pf.sort === k, `${sortLabel(k)}${pf.sort === k ? (pf.dir === -1 ? ' ↓' : ' ↑') : ''}`)).join('')}</div></div>` : ''}
     </div>` : ''}</div>`;
 }
 const pfEmpty = () => `<section class="sec"><div class="empty"><b>${t('emptyTitle')}</b>${t('emptyHint')}</div></section>`;
@@ -528,10 +532,8 @@ function itemHTML(id) {
 function tierHTML(r) {
   const info = tierInfo(r), n = tierNum(r);
   const power = p => bst(p.s) + (p.ns ? 50 : 0); // primero los que tienen build en Smogon; después, por estadísticas totales
-  const inTier = INDEX.filter(p => p.r === r && (!pf.types.length || pf.types.every(ty => p.t.includes(ty)))).sort((x, y) => power(y) - power(x) || x.num - y.num)
+  const inTier = INDEX.filter(p => p.r === r && pfPass(p)).sort((x, y) => (!pf.sort ? power(y) - power(x) : pf.sort === 'num' ? 0 : (statOf(x, pf.sort) - statOf(y, pf.sort)) * pf.dir) || (x.num - y.num) * (pf.sort === 'num' ? pf.dir : 1))
     .map(p => ({ p, why: [`${t('total')} ${bst(p.s)}`, ...(p.ns ? [t(p.ns === 1 ? 'nBuild1' : 'nBuilds', { n: p.ns })] : [])] }));
-  const near = n ? [TIER_ORDER[TIER_ORDER.indexOf(r) - 1], TIER_ORDER[TIER_ORDER.indexOf(r) + 1]].filter(x => x && tierNum(x)) : [];
-  const nearChip = x => `<a class="chip" href="#/tier/${x}"><span class="tier" style="--tier:${tierColor(x)}">${tierNumHTML(x)}${esc(tierLabel(x))}</span></a>`;
   const all = pageExpand.has('mons'), shown = all ? inTier : inTier.slice(0, FIRST);
   return `${topbarHTML()}
   <section class="mhero" style="--tc:${tierColor(r)}">
@@ -540,9 +542,8 @@ function tierHTML(r) {
     <span class="en">${esc(info ? info.n : r)}</span>
   </section>
   <section class="sec"><h2>${t('meaning')}</h2><p class="desc">${esc(info?.d || t('tierDefault'))}</p>
-    <p class="hint">${n ? t('tierPos', { n, m: TIER_MAX }) : t('tierNoScale')}</p>
-    ${near.length ? `<div class="chips near">${near.map(nearChip).join('')}</div>` : ''}</section>
-  ${pfBar(false)}
+    <p class="hint">${n ? t('tierPos', { n, m: TIER_MAX }) : t('tierNoScale')}</p></section>
+  ${pfBar(false, true)}
   <section class="sec"><h2>${t('tr_best')} <small>${inTier.length}</small></h2><p class="hint">${t('tr_bestNote')}</p>
     ${inTier.length ? '' : `<div class="empty"><b>${t('emptyTitle')}</b>${t('emptyHint')}</div>`}
     <div class="list">${shown.map(fitRow).join('')}</div>
@@ -555,7 +556,7 @@ async function renderDetailPage(kind, id) {
   const src = SRC[kind];
   window.scrollTo(0, 0);
   pageExpand = new Set();
-  pf = { types: [], tiers: [], open: false };
+  pf = pfNew();
   pageData = { kind, id };
   $app.innerHTML = `<p class="boot">${t('loading', { n: '…' })}</p>`;
   try { await Promise.all([getDict(), kind === 'move' ? getLearners() : kind === 'ability' ? getAbil() : kind === 'item' ? getItems() : null]); }
@@ -745,25 +746,36 @@ function searchScored(q, list) {
 }
 
 const MOVES_MAX = 6;
-/** Movimientos cuyo nombre (en cualquier idioma) contiene lo escrito; se piden los datos la primera vez que se busca */
-function searchMoves(q) {
+/** Movimientos, habilidades y objetos cuyo nombre (en cualquier idioma) contiene lo escrito; se piden los datos la primera vez que se busca */
+function searchDict(q, kind, max = MOVES_MAX) {
   if (!state.q || q.length < 2 || state.types.length || state.tiers.length || state.favs) return { list: [], total: 0 };
   if (!DICT) { getDict().then(() => { if (state.view === 'home' && fold(state.q).length >= 2) renderResults(false); }).catch(() => {}); return { list: [], total: 0 }; }
   const out = [];
-  for (const [id, m] of Object.entries(DICT.moves)) {
+  for (const [id, m] of Object.entries(DICT[kind])) {
     m.fs ??= fold(m.n); m.fe ??= fold(m.e);
     const sc = m.fs.startsWith(q) || m.fe.startsWith(q) ? 0 : m.fs.includes(q) || m.fe.includes(q) ? 1 : -1;
     if (sc >= 0) out.push({ id, m, sc });
   }
   out.sort((a, b) => a.sc - b.sc || dn(a.m).length - dn(b.m).length || dn(a.m).localeCompare(dn(b.m)));
-  return { list: out.slice(0, MOVES_MAX), total: out.length };
+  return { list: out.slice(0, max), total: out.length };
 }
+const searchMoves = q => searchDict(q, 'moves');
+const ABIL_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.2 5.3 5.8.5-4.4 3.8 1.4 5.6L12 15l-5 3.2 1.4-5.6L4 8.8l5.8-.5z"/></svg>';
 function movesBlock({ list, total }) {
   if (!list.length) return '';
   const rows = list.map(({ id, m }) => `<li><button class="lm solo" style="--tc:${TYPE_COLOR[m.t]}" data-act="move" data-v="${id}">${typeIcon(m.t)}<span class="n">${esc(dn(m))}</span>${catIcon(m.c)}<span class="pw">${m.p || '—'}</span></button></li>`).join('');
   return `<div class="block-title tight"><h2>${t('moves')}</h2></div><ul class="lvl mvlist">${rows}</ul>
     ${total > list.length ? `<p class="hint" style="margin-top:8px">${t('moreMoves', { n: total - list.length })}</p>` : ''}`;
 }
+/** Bloque de habilidades u objetos del buscador */
+function namedBlock({ list, total }, kind) {
+  if (!list.length) return '';
+  const isItem = kind === 'items';
+  const rows = list.map(({ id, m }) => `<li><button class="lm solo named" style="--tc:var(--accent)" data-act="${isItem ? 'item' : 'ability'}" data-v="${id}">${isItem && m.i ? itemImg(m) : `<span class="ticon abicon">${ABIL_ICON}</span>`}<span class="n">${esc(dn(m))}</span></button></li>`).join('');
+  return `<div class="block-title tight"><h2>${t(isItem ? 'items' : 'abilities')}</h2></div><ul class="lvl mvlist">${rows}</ul>
+    ${total > list.length ? `<p class="hint" style="margin-top:8px">${t('moreMoves', { n: total - list.length })}</p>` : ''}`;
+}
+const searchBlocks = q => movesBlock(searchMoves(q)) + namedBlock(searchDict(q, 'abilities', 4), 'abilities') + namedBlock(searchDict(q, 'items', 4), 'items');
 
 // ───────────────────────── Análisis del equipo (favoritos) ─────────────────────────
 const partColor = r => (r >= 0.8 ? '#6CC070' : r >= 0.6 ? '#E6C84F' : r >= 0.4 ? '#F0974B' : '#E5645A');
@@ -843,7 +855,7 @@ function renderResults(reset = true) {
   }
 
   const list = (state.list = compute());
-  const mv = movesBlock(searchMoves(fold(state.q)));
+  const mv = searchBlocks(fold(state.q));
   const head = mv + `<div class="block-title tight"><h2>${t(list.length === 1 ? 'result1' : 'resultN', { n: list.length })}</h2></div>`;
   if (!list.length) {
     // si no hay Pokémon pero sí movimientos, solo se muestran los movimientos
@@ -1378,8 +1390,11 @@ document.addEventListener('click', e => {
     case 'close': closeSheet(); break;
     case 'back': backFlag = true; if (navIdx > 0) history.back(); else if (location.hash === '#/' || !location.hash) route(); else location.hash = '#/'; break;
     case 'pf-toggle': pf.open = !pf.open; repaintKeep(); break;
-    case 'pf-clear': pf.types = []; pf.tiers = []; pageExpand = new Set(); repaintKeep(); break;
+    case 'pf-clear': { const o = pf.open; pf = pfNew(); pf.open = o; } pageExpand = new Set(); repaintKeep(); break;
     case 'pf-type': pf.types = pf.types.includes(v) ? pf.types.filter(x => x !== v) : [...pf.types, v]; pageExpand = new Set(); repaintKeep(); break;
+    case 'pf-gen': { const g = Number(v); pf.gens = pf.gens.includes(g) ? pf.gens.filter(x => x !== g) : [...pf.gens, g]; pageExpand = new Set(); repaintKeep(); break; }
+    case 'pf-gen9': pf.gen9 = !pf.gen9; pageExpand = new Set(); repaintKeep(); break;
+    case 'pf-sort': if (pf.sort === v) pf.dir = -pf.dir; else { pf.sort = v; pf.dir = v === 'num' ? 1 : -1; } pageExpand = new Set(); repaintKeep(); break;
     case 'pf-tier': pf.tiers = pf.tiers.includes(v) ? pf.tiers.filter(x => x !== v) : [...pf.tiers, v]; pageExpand = new Set(); repaintKeep(); break;
     case 'more-list': { const y = window.scrollY; pageExpand.add(v); paintDetailPage(); window.scrollTo(0, y); break; }
 
@@ -1457,29 +1472,6 @@ document.addEventListener('click', e => {
     case 'remove': cmp.others = cmp.others.filter(p => p.id !== v); renderCompare(); break;
   }
 });
-
-/** Al pasar el ratón por un botón o tarjeta: zoom suave y una inclinación 3D hacia el lado que tocas (solo con ratón) */
-if (matchMedia('(hover: hover) and (pointer: fine)').matches && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-  const TILT = 'button:not(:disabled), a.row, a.card, a.chip, a.evo-card, .frow, .slotopt';
-  let cur = null;
-  const reset = () => { if (!cur) return; cur.classList.remove('tilt-on'); ['--rx', '--ry', '--s'].forEach(k => cur.style.removeProperty(k)); cur = null; };
-  document.addEventListener('pointermove', e => {
-    if (e.pointerType !== 'mouse') return;
-    const el = e.target.closest?.(TILT);
-    if (el !== cur) { reset(); if (!el) return; cur = el; el.classList.add('tilt-on'); }
-    const r = cur.getBoundingClientRect();
-    const x = (e.clientX - r.left) / r.width - 0.5, y = (e.clientY - r.top) / r.height - 0.5;
-    const big = Math.max(r.width, r.height) > 260; // las piezas grandes se inclinan menos
-    const max = big ? 5 : 14;
-    cur.style.setProperty('--ry', `${(x * max * 2).toFixed(2)}deg`);
-    cur.style.setProperty('--rx', `${(-y * max * 2).toFixed(2)}deg`);
-    cur.style.setProperty('--s', big ? 1.03 : 1.09);
-  }, { passive: true });
-  document.addEventListener('pointerleave', reset);
-  document.addEventListener('pointerdown', () => cur?.style.setProperty('--s', 0.96));
-  document.addEventListener('pointerup', () => cur?.style.setProperty('--s', 1.06));
-  window.addEventListener('blur', reset);
-}
 
 /** En la app instalada de iOS la web puede quedar bajo la barra de estado sin que env() lo indique: se calcula a mano */
 function fixStatusBar() {
