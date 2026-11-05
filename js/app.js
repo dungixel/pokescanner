@@ -261,12 +261,12 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSetting
 const dockEl = document.getElementById('dock');
 function renderDock() {
   const it = (act, label) => `<button class="dk" data-act="${act}" aria-label="${label}" title="${label}"><span class="ic">${DOCK[act].o}${DOCK[act].f}</span><span class="lb">${label}</span></button>`;
-  dockEl.innerHTML = it('dock-home', t('dockHome')) + it('dock-battle', t('dockBattle')) + it('dock-search', t('dockSearch')) + it('dock-favs', t('dockFavs')) + it('dock-settings', t('settings'));
+  dockEl.innerHTML = it('dock-home', t('dockHome')) + it('dock-battle', t('dockBattle')) + it('dock-favs', t('dockFavs')) + it('dock-settings', t('settings'));
   updateDock();
 }
 function updateDock() {
   const home = state.view === 'home';
-  const on = { 'dock-home': home && state.mode !== 'search', 'dock-search': home && state.mode === 'search', 'dock-battle': state.view === 'battle', 'dock-favs': state.view === 'teams', 'dock-settings': !smodal.hidden };
+  const on = { 'dock-home': home, 'dock-battle': state.view === 'battle', 'dock-favs': state.view === 'teams', 'dock-settings': !smodal.hidden };
   dockEl.querySelectorAll('.dk').forEach(b => b.classList.toggle('on', !!on[b.dataset.act]));
 }
 /** Vuelve al buscador con los filtros que se indiquen (el resto se limpia) */
@@ -1433,12 +1433,15 @@ function resultHTML() {
   const { r, ua, ub, aName, bName, swaps } = bt.res[bt.mode];
   const pa = Math.round(r.pA * 100), pb = 100 - pa;
   const winName = r.win === 'A' ? aName : bName;
-  const reasonList = list => (list.length ? `<ol class="reasons">${list.map(x => `<li>${t(`br_${x.key}${x.key === 'hazards' && !x.vars.noRemoval ? '_b' : ''}`, fmtVars(x.vars))}</li>`).join('')}</ol>` : `<p class="shint">${t('noReasons')}</p>`);
+  // cada razón dice de qué equipo habla (pastilla con su nombre) y los Pokémon salen con su sprite, enlazados a su ficha
+  const teamTag = n => `<span class="chip small teamtag">${n}</span>`;
+  const reasonVars = (v, team, foe) => { const { name, ...rest } = v || {}; const o = fmtVars(rest); if (name) o.name = typeof name === 'string' ? `<b>${esc(name)}</b>` : chipPoke(name); o.team = teamTag(team); o.foe = teamTag(foe); return o; };
+  const reasonList = (list, team, foe) => (list.length ? `<ol class="reasons">${list.map(x => `<li><div class="rt">${t(`br_${x.key}${x.key === 'hazards' && !x.vars.noRemoval ? '_b' : ''}`, reasonVars(x.vars, team, foe))}</div></li>`).join('')}</ol>` : `<p class="shint">${t('noReasons')}</p>`);
   const [reasA, reasB] = r.win === 'A' ? [r.reasons, r.reasonsOther || []] : [r.reasonsOther || [], r.reasons];
   // si está igualado no hay ganador: se enseña lo que aporta cada equipo
   const why = r.close
-    ? `<div class="block-title"><h2>${t('whyEven')}</h2></div><div class="evenwhy"><h3>${t('strengthsOf', { name: aName })}</h3>${reasonList(reasA)}<h3>${t('strengthsOf', { name: bName })}</h3>${reasonList(reasB)}</div>`
-    : `<div class="block-title"><h2>${t('whyFor', { name: winName })}</h2></div>${reasonList(r.reasons)}`;
+    ? `<div class="block-title"><h2>${t('whyEven')}</h2></div><div class="evenwhy"><h3>${t('strengthsOf', { name: aName })}</h3>${reasonList(reasA, aName, bName)}<h3>${t('strengthsOf', { name: bName })}</h3>${reasonList(reasB, bName, aName)}</div>`
+    : `<div class="block-title"><h2>${t('whyFor', { name: winName })}</h2></div>${reasonList(r.reasons, winName, r.win === 'A' ? bName : aName)}`;
   const tipBlock = (name, tips, side) => `<div class="tipbox"><h3>${t('tipsTitle', { name })}</h3>${tips.length ? `<ul class="tips">${tips.map(tipHTML).join('')}</ul>` : `<p class="shint">${t('tipsNone')}</p>`}${swapHTML(swaps?.[side], side)}</div>`;
   const loserTips = r.win === 'A' ? tipBlock(bName, r.tipsB, 'B') : tipBlock(aName, r.tipsA, 'A');
   const winnerTips = r.close ? (r.win === 'A' ? tipBlock(aName, r.tipsA, 'A') : tipBlock(bName, r.tipsB, 'B')) : '';
@@ -1608,7 +1611,6 @@ document.addEventListener('click', e => {
     case 'type-go': goSearch({ types: [v] }); break;
     case 'size-go': goSearch({ sort: v, dir: -1 }); break;
     case 'dock-home': goSearch(); window.scrollTo(0, 0); break;
-    case 'dock-search': goSearch({ q: state.view === 'home' ? state.q : '' }, true); break;
     case 'dock-favs': if (requireLogin({ type: 'favs' })) location.hash = '#/teams'; break;
     case 'dock-battle': location.hash = '#/battle'; break;
     case 'dock-settings': if (smodal.hidden) openSettings(); else closeSettings(); break;

@@ -475,7 +475,7 @@ export function analyzeDoubles(A, B, res) {
   const ohko = (X, Y) => sum(Y, y => (X.some(x => bestMoveD(x, y)?.ohko) ? 1 : 0));
   if (ohko(W, L) - ohko(L, W) >= 2) reasons.push({ key: 'ohko', strength: 0.3 + 0.07 * (ohko(W, L) - ohko(L, W)), vars: { k: ohko(W, L), n: L.length } });
   const star = [...Wrow].sort((a, b) => b.ko - a.ko)[0];
-  if (star && star.ko >= 0.4 && W.length >= 3) reasons.push({ key: 'dstar', strength: 0.3 + star.ko * 0.6, vars: { name: star.u.name, k: Math.round(star.ko * 100) } });
+  if (star && star.ko >= 0.4 && W.length >= 3) reasons.push({ key: 'dstar', strength: 0.3 + star.ko * 0.6, vars: { name: star.u.p, k: Math.round(star.ko * 100) } });
   const weakCount = TYPES18.map(ty => ({ ty, ws: L.filter(u => eff(ty, u.types) >= 2 && IMMUNE_AB[u.ab] !== ty) }));
   const sharedW = weakCount.filter(w => w.ws.length >= 3 && W.some(u => u.types.includes(w.ty) || u.moves.some(m => m.t === w.ty && m.c !== 's' && m.bp >= 60))).sort((a, b) => b.ws.length - a.ws.length)[0];
   if (sharedW) reasons.push({ key: 'weak', strength: (sharedW.ws.length / L.length) * 1.1, vars: { type: sharedW.ty, k: sharedW.ws.length, n: L.length } });

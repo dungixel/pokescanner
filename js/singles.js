@@ -427,7 +427,7 @@ export function analyzeSingles(A, B, res, { dict } = {}) {
   const oW = ohkoCount(W, L), oL = ohkoCount(L, W);
   if (oW - oL >= 2) reasons.push({ key: 'ohko', strength: 0.3 + 0.07 * (oW - oL), vars: { k: oW, n: L.length } });
   const star = [...Wrow].sort((a, b) => b.wins - a.wins || b.score - a.score)[0];
-  if (star && star.wins / L.length >= 0.6) reasons.push({ key: 'star', strength: (star.wins / L.length) * 0.85, vars: { name: star.u.name, k: star.wins, n: L.length } });
+  if (star && star.wins / L.length >= 0.6) reasons.push({ key: 'star', strength: (star.wins / L.length) * 0.85, vars: { name: star.u.p, k: star.wins, n: L.length } });
   const weakCount = TYPES18.map(ty => ({ ty, ws: L.filter(u => eff(ty, u.types) >= 2 && IMMUNE_AB[u.ab] !== ty) }));
   const sharedW = weakCount.filter(w => w.ws.length >= 3 && W.some(u => u.types.includes(w.ty) || u.moves.some(m => m.t === w.ty && m.c !== 's' && m.bp >= 60))).sort((a, b) => b.ws.length - a.ws.length)[0];
   if (sharedW) reasons.push({ key: 'weak', strength: (sharedW.ws.length / L.length) * 1.1, vars: { type: sharedW.ty, k: sharedW.ws.length, n: L.length } });
@@ -436,7 +436,7 @@ export function analyzeSingles(A, B, res, { dict } = {}) {
   const recW = sum(W, u => (u.recover ? 1 : 0)), recL = sum(L, u => (u.recover ? 1 : 0));
   if (recW - recL >= 2) reasons.push({ key: 'recovery', strength: 0.3 + 0.06 * (recW - recL), vars: { k: recW } });
   const sweeper = Wrow.filter(r => r.u.setup && r.wins / L.length >= 0.5 && !has(L, 'phaze')).sort((a, b) => b.wins - a.wins)[0];
-  if (sweeper) reasons.push({ key: 'setup', strength: 0.34, vars: { name: sweeper.u.name } });
+  if (sweeper) reasons.push({ key: 'setup', strength: 0.34, vars: { name: sweeper.u.p } });
   const prioW = sum(W, u => (u.moves.some(m => m.pr > 0 && m.c !== 's' && m.bp > 0) ? 1 : 0)), prioL = sum(L, u => (u.moves.some(m => m.pr > 0 && m.c !== 's' && m.bp > 0) ? 1 : 0));
   if (prioW - prioL >= 2) reasons.push({ key: 'priority', strength: 0.26, vars: { k: prioW } });
   const stW = sum(W, u => (u.statusMoves.length ? 1 : 0)), stL = sum(L, u => (u.statusMoves.length ? 1 : 0));

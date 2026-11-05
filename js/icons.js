@@ -68,7 +68,7 @@ const battleF = svg(`<defs><mask id="bm" maskUnits="userSpaceOnUse" x="0" y="0" 
   <g mask="url(#bm)" fill="currentColor" stroke="none"><circle cx="${AX}" cy="${Y}" r="${R}"/><circle cx="${BX}" cy="${Y}" r="${R}"/></g>${SPARK_F}`, 'f');
 
 export const DOCK = {
-  'dock-home': pair('home'), 'dock-battle': { o: battleO, f: battleF }, 'dock-search': pair('search'), 'dock-favs': pair('star'), 'dock-settings': pair('settings'),
+  'dock-home': pair('home'), 'dock-battle': { o: battleO, f: battleF }, 'dock-favs': pair('star'), 'dock-settings': pair('settings'),
 };
 export const IC = {
   user: svg(T.user.o), userF: svg(T.user.f), plus: svg(T.plus.o), pencil: svg(T.pencil.o), trash: svg(T.trash.o), check: svg(T.check.o),
