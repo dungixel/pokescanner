@@ -134,6 +134,13 @@ export async function saveTeam(slot, name, members) {
   if (error) throw error;
 }
 
+// ───────── comentarios y errores ─────────
+export async function sendFeedback(kind, message, appInfo) {
+  const c = await client();
+  const { error } = await c.from('feedback').insert({ kind, message, app_info: appInfo });
+  if (error) throw error;
+}
+
 // ───────── amigos ─────────
 export async function friendsList() {
   const c = await client();

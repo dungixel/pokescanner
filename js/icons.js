@@ -74,4 +74,6 @@ export const IC = {
   user: svg(T.user.o), userF: svg(T.user.f), plus: svg(T.plus.o), pencil: svg(T.pencil.o), trash: svg(T.trash.o), check: svg(T.check.o),
   x: svg(T.x.o), userPlus: svg(T['user-plus'].o), starF: svg(T.star.f, 'sf'), star: svg(T.star.o), circleCheck: svg(T['circle-check'].o),
   battle: battleO,
+  mail: svg('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>'),
+  share: svg('<path d="M12 15V4"/><path d="M8 8l4-4 4 4"/><path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/>'),
 };

@@ -6,6 +6,7 @@ import {
 } from './util.js';
 import { t, lang, setLang } from './i18n.js';
 import { analyzeTeam, scoreInfo } from './team.js';
+import { META_TEAMS } from './meta.js';
 import * as auth from './auth.js';
 import { DOCK, IC } from './icons.js';
 import { buildUnit, compareTeams, eff } from './battle.js';
@@ -61,7 +62,7 @@ const I = {
 const FLAG = { es: 'icons/flags/es.svg', en: 'icons/flags/gb.svg' };
 const LANGS = { es: 'Español', en: 'English' };
 const smodal = document.getElementById('smodal');
-let modalKind = null; // 'settings' | 'login' | 'teampick' | 'picker'
+let modalKind = null; // 'settings' | 'login' | 'teampick' | 'picker' | 'saveteam'
 let pending = null;   // lo que la persona quería hacer cuando se le pidió iniciar sesión
 const themePref = () => { const v = store.get('pk.theme'); return v === 'light' || v === 'dark' ? v : 'system'; };
 const THEME_ICON = { system: 'desktop', light: 'sun', dark: 'moon' };
@@ -74,6 +75,13 @@ function accountHTML() {
       <button class="chip accent" data-act="un-save" disabled>${t('saveBtn')}</button></div>
     <small id="un-msg" class="unmsg">${t('unHint')}</small></div>`;
 }
+let fbKind = 'bug';
+const FB_KINDS = [['bug', 'fbBug'], ['idea', 'fbIdea'], ['other', 'fbOther']];
+const feedbackHTML = () => `<div class="sgroup fb"><h3>${IC.mail}${t('feedbackTitle')}</h3>
+  <p class="shint">${t('feedbackHint')}</p>
+  <div class="fbkinds" role="radiogroup">${FB_KINDS.map(([k, key]) => `<button class="chip" role="radio" data-act="fb-kind" data-v="${k}" aria-checked="${fbKind === k}" aria-pressed="${fbKind === k}">${t(key)}</button>`).join('')}</div>
+  <textarea id="fb-text" class="fbtext" rows="5" maxlength="2000" placeholder="${t('feedbackPh')}" aria-label="${t('feedbackTitle')}"></textarea>
+  <div class="fbrow"><small id="fb-msg" class="unmsg">${t('feedbackInfo')}</small><button class="chip accent" data-act="fb-send">${t('feedbackSend')}</button></div></div>`;
 function settingsHTML() {
   const pref = themePref();
   return `<div class="scard" role="dialog" aria-modal="true" aria-label="${t('settings')}">
@@ -83,6 +91,7 @@ function settingsHTML() {
       ${['es', 'en'].map(l => `<button class="sopt" role="radio" data-act="set-lang" data-v="${l}" aria-checked="${lang() === l}"><img class="flag" src="${FLAG[l]}" alt="" width="24" height="18">${LANGS[l]}<span class="ck">${I.check}</span></button>`).join('')}</div>
     <div class="sgroup"><h3>${I[THEME_ICON[pref]]}${t('theme')}</h3>
       ${['system', 'light', 'dark'].map(m => `<button class="sopt" role="radio" data-act="set-theme" data-v="${m}" aria-checked="${pref === m}">${I[THEME_ICON[m]]}${t(m === 'system' ? 'themeSystem' : m)}<span class="ck">${I.check}</span></button>`).join('')}</div>
+    ${auth.userInfo() ? feedbackHTML() : ''}
     ${auth.userInfo() ? `<div class="sgroup"><button class="sopt" data-act="sign-out">${I.logout}${t('signOut')}</button></div>` : ''}
   </div>`;
 }
@@ -95,7 +104,7 @@ function loginHTML() {
       <button class="ghostbtn" data-act="settings-close">${t('notNow')}</button></div>
   </div>`;
 }
-const modalHTML = () => (modalKind === 'login' ? loginHTML() : modalKind === 'teampick' ? teamPickHTML() : modalKind === 'picker' ? pickerHTML() : settingsHTML());
+const modalHTML = () => (modalKind === 'login' ? loginHTML() : modalKind === 'saveteam' ? saveTeamHTML() : modalKind === 'teampick' ? teamPickHTML() : modalKind === 'picker' ? pickerHTML() : settingsHTML());
 const refreshModal = () => { if (!smodal.hidden) smodal.innerHTML = modalHTML(); };
 function showModal(kind) {
   modalKind = kind;
@@ -210,6 +219,7 @@ async function onAuth(event, s) {
   refreshModal();
   if (wanted?.type === 'favs') location.hash = '#/teams';
   else if (wanted?.type === 'fav' && BYID.has(wanted.id)) openTeamPick(wanted.id);
+  else if (wanted?.type === 'saveteam' && wanted.ids?.length) openSaveTeam({ name: wanted.name, ids: wanted.ids });
 }
 // la presencia solo cuenta mientras la pestaña está a la vista
 document.addEventListener('visibilitychange', () => {
@@ -221,6 +231,35 @@ document.addEventListener('visibilitychange', () => {
 let pickId = null;     // Pokémon que se está guardando
 let pickCtx = null;    // { mode: 'team', slot } | { mode: 'avatar' }
 const openTeamPick = id => { pickId = id; showModal('teampick'); };
+// guardar en mis equipos un equipo que no es mío (compartido, de un amigo o de ejemplo)
+let saveCtx = null;
+const openSaveTeam = ctx => {
+  const ids = ctx.ids.filter(id => BYID.has(id)).slice(0, MAXTEAM);
+  if (!ids.length || !requireLogin({ type: 'saveteam', ids, name: ctx.name })) return;
+  saveCtx = { name: String(ctx.name || '').slice(0, 24), ids };
+  showModal('saveteam');
+};
+function saveTeamHTML() {
+  const c = saveCtx;
+  return `<div class="scard" role="dialog" aria-modal="true" aria-label="${t('saveTeamTitle')}">
+    <div class="shead"><button class="iconbtn" data-act="settings-close" aria-label="${t('close')}">${IC.x}</button><h2>${t('saveTeamTitle')}</h2></div>
+    <p class="shint">${t('saveTeamText', { name: esc(c.name || t('sharedOwner')) })}</p>
+    <div class="minis savepreview">${c.ids.map(miniPoke).join('')}</div>
+    <div class="slotlist">${teams.map((tm, i) => `<button class="slotopt" data-act="save-into" data-v="${i}">
+        <span class="sn">${i + 1}</span>
+        <span class="sname"><b>${tm.members.length ? `<span class="fulltag">${t('replaceTag')}</span> ` : ''}${esc(teamName(i))}</b><span class="minis">${tm.members.map(m => miniPoke(m.id)).join('') || `<small>${t('teamEmpty')}</small>`}</span></span>
+        <span class="scount">${tm.members.length}/${MAXTEAM}</span>
+        <span class="sck">${IC.plus}</span></button>`).join('')}</div></div>`;
+}
+const shareURL = (ids, name) => `${location.origin}${location.pathname}#/t/${ids.join(',')}${name ? `?n=${encodeURIComponent(name)}` : ''}`;
+async function shareTeam(ids, name) {
+  const url = shareURL(ids, name);
+  try {
+    if (navigator.share && matchMedia('(pointer: coarse)').matches) { await navigator.share({ title: name || 'PokeScanner', url }); return; }
+  } catch (e) { if (e?.name === 'AbortError') return; }
+  try { await navigator.clipboard.writeText(url); toast(t('linkCopied')); }
+  catch { prompt(t('copyLink'), url); }
+}
 function teamPickHTML() {
   const p = BYID.get(pickId);
   return `<div class="scard" role="dialog" aria-modal="true" aria-label="${t('pickTeamTitle')}">
@@ -649,8 +688,9 @@ function route() {
   if (back) { copyKeys(back, state); state.scroll = back.y; state.restoreY = back.y; } // se vuelve a una página ya vista: se recupera tal cual
   const m = location.hash.match(/^#\/pokemon\/([a-z0-9]+)/);
   const d = location.hash.match(/^#\/(move|ability|item|tier)\/([A-Za-z0-9]+)/);
+  const sh = location.hash.match(/^#\/t\/([a-z0-9,]*)(?:\?n=(.*))?$/);
   if (state.view === 'battle' && location.hash !== '#/battle') auth.unwatchFriends().catch(() => {});
-  if (m) renderPokemon(m[1]); else if (d) renderDetailPage(d[1], d[2]); else if (location.hash === '#/teams') renderTeams(); else if (location.hash === '#/battle') renderBattle(); else renderHome();
+  if (sh) renderShared(sh[1], sh[2]); else if (m) renderPokemon(m[1]); else if (d) renderDetailPage(d[1], d[2]); else if (location.hash === '#/teams') renderTeams(); else if (location.hash === '#/battle') renderBattle(); else renderHome();
   updateDock();
   if (wentBack) { $app.classList.remove('goback'); void $app.offsetWidth; $app.classList.add('goback'); setTimeout(() => $app.classList.remove('goback'), 260); }
 }
@@ -806,7 +846,27 @@ const chipsHTML = chips => (chips.length ? `<div class="fchips">${chips.map(c =>
   : `<a class="chip small" href="#/pokemon/${c.poke.id}">${pokeImg(c.poke, 'small', 'thumb')}${esc(pname(c.poke))}</a>`)).join('')}</div>` : '');
 const findHTML = (f, kind) => `<li class="find ${kind}"><span class="mark" aria-hidden="true">${kind === 'bad' ? '!' : '✓'}</span>
   <div><b>${t(`an_${f.key}_t`, f.vars)}</b><p>${t(`an_${f.key}_d`, f.vars)}</p>${chipsHTML(f.chips)}</div></li>`;
-function teamHTML(team) {
+/** Los Pokémon legales que más subirían la puntuación del equipo (con tipos distintos entre sí) */
+function suggestMissing(team, max = 5) {
+  const base = analyzeTeam(team).score, nums = new Set(team.map(p => p.num)), ids = new Set(team.map(p => p.id));
+  const scored = [];
+  for (const p of INDEX) {
+    if (!legalPick(p) || ids.has(p.id) || nums.has(p.num)) continue;
+    const gain = analyzeTeam([...team, p]).score - base;
+    if (gain > 0) scored.push({ p, gain });
+  }
+  scored.sort((a, b) => b.gain - a.gain || strength(a.p) - strength(b.p) || bst(b.p.s) - bst(a.p.s));
+  const out = [], seen = new Set();
+  for (const x of scored) { const k = [...x.p.t].sort().join('/'); if (seen.has(k) || out.some(o => o.p.num === x.p.num)) continue; seen.add(k); out.push(x); if (out.length >= max) break; }
+  return out;
+}
+const missingHTML = team => {
+  if (state.view !== 'teams' || team.length < 3 || team.length >= MAXTEAM || teamsSel.open < 0) return '';
+  const picks = suggestMissing(team);
+  if (!picks.length) return '';
+  return `<div class="swap missing"><h4>${t('an_missing')}</h4><p>${t('an_missingHint', { n: MAXTEAM - team.length })}</p><ul class="pans">${picks.map(x => `<li><span class="lft">${chipPoke(x.p)}<small>${t('an_missingGain', { k: x.gain })}</small></span><button class="chip small accent" data-act="team-sugg-add" data-v="${x.p.id}">${IC.plus}${t('sugAdd')}</button></li>`).join('')}</ul></div>`;
+};
+function teamHTML(team, shared = false) {
   if (team.length < 3) return `<section class="team need"><h4>${t('an_title')}</h4><p>${t('an_need')}</p></section>`;
   const a = analyzeTeam(team);
   const info = scoreInfo(a.score);
@@ -814,10 +874,11 @@ function teamHTML(team) {
     <div class="bar"><i style="--w:${(p.v / p.max * 100).toFixed(1)}%;--bc:${partColor(p.v / p.max)}"></i></div></div>`).join('');
   return `<section class="team" aria-label="${t('an_title')}">
     <div class="team-head"><div class="score" style="--sc:${info.c}"><b>${a.score}</b><small>/100</small></div>
-      <div><h3>${t(`an_s_${info.k}`)}</h3><p>${t('an_sub', { n: team.length })}</p>${team.length > 6 ? `<p>${t('an_over', { n: team.length })}</p>` : ''}</div></div>
+      <div><h3>${t(`an_s_${info.k}`)}</h3><p>${t(shared ? 'an_subShared' : 'an_sub', { n: team.length })}</p>${team.length > 6 ? `<p>${t('an_over', { n: team.length })}</p>` : ''}</div></div>
     <div class="tparts">${parts}</div>
     <div><h4 class="bad">${t('an_bad')}</h4>${a.bad.length ? `<ul class="finds">${a.bad.map(f => findHTML(f, 'bad')).join('')}</ul>` : `<p class="note">${t('an_nobad')}</p>`}</div>
     <div><h4 class="good">${t('an_good')}</h4>${a.good.length ? `<ul class="finds">${a.good.map(f => findHTML(f, 'good')).join('')}</ul>` : `<p class="note">${t('an_nogood')}</p>`}</div>
+    ${missingHTML(team)}
     <p class="note">${t('an_note')}</p></section>`;
 }
 
@@ -1144,7 +1205,7 @@ function slotHTML(i) {
   const body = !open ? '' : `<div class="slotbody">
     <label class="tname"><span>${t('teamName')}</span><input class="unin" id="tn" data-slot="${i}" value="${esc(tm.name)}" placeholder="${t('teamN', { n: i + 1 })}" maxlength="24" autocomplete="off" autocapitalize="sentences"></label>
     ${members.length ? `<div class="list">${members.map(memberRow).join('')}</div>` : `<p class="shint">${t('teamEmptyHint')}</p>`}
-    ${members.length < MAXTEAM ? `<button class="chip" data-act="slot-add">${IC.plus}${t('addPoke')}</button>` : ''}
+    <div class="slotacts">${members.length < MAXTEAM ? `<button class="chip" data-act="slot-add">${IC.plus}${t('addPoke')}</button>` : ''}${members.length ? `<button class="chip" data-act="team-share" data-v="${i}">${IC.share}${t('shareTeam')}</button>` : ''}</div>
     ${members.length ? teamHTML(members) : ''}</div>`;
   return `<section class="slot ${open ? 'open' : ''}">
     <button class="slothead" data-act="slot-open" data-v="${i}" aria-expanded="${open}">
@@ -1163,6 +1224,22 @@ function paintTeams() {
   root.innerHTML = teamsHTML();
   window.scrollTo(0, y);
 }
+function renderShared(idStr, nameRaw) {
+  state.view = 'shared';
+  let name = ''; try { name = decodeURIComponent(nameRaw || '').slice(0, 24); } catch { /* nombre ilegible */ }
+  const ids = [...new Set((idStr || '').split(',').filter(id => BYID.has(id)))].slice(0, MAXTEAM);
+  bt.link = { name: name || t('sharedOwner'), custom: !!name, members: ids.map(id => ({ id })) };
+  document.title = `${bt.link.name} · PokeScanner`;
+  document.documentElement.style.removeProperty('--accent');
+  const ps = ids.map(id => BYID.get(id));
+  $app.innerHTML = topbarHTML() + (ps.length
+    ? `<header class="hero"><h1>${esc(bt.link.name)}</h1><p>${t('sharedLead')}</p></header>
+      <div class="sharedacts"><button class="chip accent" data-act="shared-save">${IC.star}${t('sharedSave')}</button><button class="chip" data-act="shared-compare">${IC.battle}${t('sharedCompare')}</button><button class="chip" data-act="shared-share">${IC.share}${t('shareTeam')}</button></div>
+      <div class="list">${ps.map(rowCore).join('')}</div>${ps.length >= 3 ? teamHTML(ps, true) : ''}`
+    : `<div class="empty"><b>${t('sharedEmpty')}</b></div>`);
+  window.scrollTo(0, 0);
+  updateDock();
+}
 function renderTeams() {
   state.view = 'teams';
   document.title = `${t('teamsTitle')} · PokeScanner`;
@@ -1177,9 +1254,12 @@ function renderTeams() {
 const bt = { friends: [], online: new Map(), others: new Map(), a: { owner: 'me', slot: 0 }, b: { owner: 'me', slot: 1 }, res: null, busy: false, msg: '', live: false, menu: null, mode: 'singles', prog: null, planSide: 'A' };
 const friendById = id => bt.friends.find(f => f.user_id === id);
 const frAvatar = f => avatarImg(f.avatar);
-const teamOf = sel => (sel.owner === 'me' ? teams[sel.slot] : bt.others.get(sel.owner)?.[sel.slot] || null);
-const ownerName = sel => (sel.owner === 'me' ? t('yourTeam') : t('teamOf', { name: friendById(sel.owner)?.username || '?' }));
-const sideName = sel => { const tm = teamOf(sel), nm = esc(tm?.name || t('teamN', { n: sel.slot + 1 })); return sel.owner === 'me' ? nm : `${nm} (${esc(friendById(sel.owner)?.username || '?')})`; };
+// equipos de ejemplo (meta): se usan con la build de su formato (OU en Individual, VGC en Dobles)
+const metaTeam = i => { const m = META_TEAMS[i]; return m ? { name: m.name[lang()] || m.name.es, members: m.members, fmt: m.fmt, num: META_TEAMS.slice(0, i + 1).filter(x => x.fmt === m.fmt).length, force: m.fmt === 'doubles' ? 'vgc2025' : 'ou' } : null; };
+const isFriendOwner = o => o !== 'me' && o !== 'meta' && o !== 'link';
+const teamOf = sel => (sel.owner === 'me' ? teams[sel.slot] : sel.owner === 'meta' ? metaTeam(sel.slot) : sel.owner === 'link' ? bt.link || null : bt.others.get(sel.owner)?.[sel.slot] || null);
+const ownerName = sel => (sel.owner === 'me' ? t('yourTeam') : sel.owner === 'meta' ? t('metaOwner') : sel.owner === 'link' ? t('sharedOwner') : t('teamOf', { name: friendById(sel.owner)?.username || '?' }));
+const sideName = sel => { const tm = teamOf(sel), nm = esc(tm?.name || t('teamN', { n: sel.slot + 1 })); return !isFriendOwner(sel.owner) ? nm : `${nm} (${esc(friendById(sel.owner)?.username || '?')})`; };
 
 async function refreshFriends() {
   try { bt.friends = await auth.friendsList(); } catch { bt.friends = []; toast(t('syncFail')); }
@@ -1192,7 +1272,7 @@ async function refreshFriends() {
     });
   } catch { /* sin equipos de amigos */ }
   const ids = new Set(bt.friends.filter(f => f.direction === 'friend').map(f => f.user_id));
-  if (bt.b.owner !== 'me' && !ids.has(bt.b.owner)) bt.b = { owner: 'me', slot: bt.b.slot };
+  if (isFriendOwner(bt.b.owner) && !ids.has(bt.b.owner)) bt.b = { owner: 'me', slot: bt.b.slot };
 }
 async function watchBattle() {
   const ids = bt.friends.filter(f => f.direction === 'friend').map(f => f.user_id);
@@ -1230,14 +1310,19 @@ function teamMenuHTML(side) {
   const opt = (owner, i, tm) => {
     const ps = tm.members.map(m => BYID.get(m.id)).filter(Boolean), on = val === `${owner}:${i}`;
     return `<button class="topt ${on ? 'on' : ''}" role="option" aria-selected="${on}" data-act="team-pick" data-side="${side}" data-v="${owner}:${i}" ${ps.length ? '' : 'disabled'}>
-      <span class="sn">${i + 1}</span>
+      <span class="sn">${tm.num ?? i + 1}</span>
       <span class="tn2"><b>${esc(tm.name || t('teamN', { n: i + 1 }))}</b><span class="minis">${ps.map(p => pokeImg(p, 'small', 'mini')).join('') || `<small>${t('teamEmpty')}</small>`}</span></span>
-      <span class="tck">${on ? IC.check : `<small>${tm.members.length}/${MAXTEAM}</small>`}</span></button>`;
+      <span class="tck">${on ? IC.check : `<small>${tm.fmt ? t(tm.fmt === 'doubles' ? 'bt_double' : 'bt_single') : `${tm.members.length}/${MAXTEAM}`}</small>`}</span></button>`;
   };
   const groups = [`<div class="tgrp">${t('mineGroup')}</div>${teams.map((tm, i) => opt('me', i, tm)).join('')}`];
   bt.friends.filter(f => f.direction === 'friend').forEach(f => {
     const list = (bt.others.get(f.user_id) || []).map((tm, i) => [tm, i]).filter(([tm]) => tm.members.length);
     if (list.length) groups.push(`<div class="tgrp">${esc(t('friendGroup', { name: f.username }))}</div>${list.map(([tm, i]) => opt(f.user_id, i, tm)).join('')}`);
+  });
+  if (bt.link?.members.length) groups.push(`<div class="tgrp">${t('sharedOwner')}</div>${opt('link', 0, bt.link)}`);
+  [['singles', 'metaGroupS'], ['doubles', 'metaGroupD']].forEach(([fmt, key]) => {
+    const rows = META_TEAMS.map((_, i) => [metaTeam(i), i]).filter(([m]) => m.fmt === fmt);
+    groups.push(`<div class="tgrp">${t(key)}</div>${rows.map(([m, i]) => opt('meta', i, m)).join('')}`);
   });
   return `<div class="tmenu ${side}" role="listbox" aria-label="${t(side === 'a' ? 'yourTeam' : 'rivalTeam')}">${groups.join('')}</div>`;
 }
@@ -1266,8 +1351,8 @@ function battleHTML() {
     <div class="frform"><input id="fr-name" class="unin" placeholder="${t('friendAddPh')}" maxlength="16" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="chip accent" data-act="friend-add">${IC.userPlus}${t('friendAdd')}</button></div>
     ${bt.msg ? `<small class="unmsg">${esc(bt.msg)}</small>` : ''}
     <div class="frlist">${[...inc, ...fr, ...out].map(friendRow).join('') || `<p class="shint">${t('friendNone')}</p>`}</div></section>`;
-  const compare = `<section class="sec"><div class="block-title"><h2>${t('compareTitle')}</h2>${bt.res && bt.b.owner !== 'me' ? `<span class="livebadge"><i></i>${t('live')}</span>` : ''}</div>
-    <div class="vswrap"><div class="vsgrid">${sidePreview(bt.a, 'a')}<span class="vs" aria-hidden="true"><b>${t('vs')}</b></span>${sidePreview(bt.b, 'b')}</div>${bt.menu ? teamMenuHTML(bt.menu) : ''}</div>
+  const compare = `<section class="sec"><div class="block-title"><h2>${t('compareTitle')}</h2>${bt.res && isFriendOwner(bt.b.owner) ? `<span class="livebadge"><i></i>${t('live')}</span>` : ''}</div>
+    <div class="vswrap"><div class="vsgrid">${sidePreview(bt.a, 'a')}<span class="vs" aria-hidden="true"><b>${t('vs')}</b></span>${sidePreview(bt.b, 'b')}</div>${bt.menu ? teamMenuHTML(bt.menu) : ''}${['a', 'b'].filter(sd => bt[sd].owner !== 'me' && teamOf(bt[sd])?.members.length).map(sd => `<button class="chip small sidesave" data-act="save-side" data-v="${sd}">${IC.star}${t('saveSide', { name: esc(teamOf(bt[sd]).name || t('teamN', { n: bt[sd].slot + 1 })) })}</button>`).join('')}</div>
     <div class="modetabs" role="tablist">${['singles', 'doubles'].map(m => `<button role="tab" data-act="bt-mode" data-v="${m}" aria-selected="${bt.mode === m}" ${bt.busy ? 'disabled' : ''}>${t(m === 'singles' ? 'bt_single' : 'bt_double')}</button>`).join('')}</div>
     <p class="shint modehint">${t(bt.mode === 'singles' ? 'bt_modeHint_single' : 'bt_modeHint_double')}</p>
     <button class="gbtn comparebtn" data-act="compare" ${bt.busy ? 'disabled' : ''}>${IC.battle}${t(bt.busy ? 'comparing' : 'compareBtn')}</button>
@@ -1346,8 +1431,12 @@ async function runCompare() {
     let out;
     try {
       const eng = await getEngine();
-      const load = ms => Promise.all(ms.map(async m => eng.X.makeUnit(await getPokemon(m.id), m, dict, mode, { learnable: learnableOf, pname })));
-      const [ua, ub] = await Promise.all([load(A.members), load(B.members)]);
+      const load = (ms, force) => Promise.all(ms.map(async m => {
+        const p = await getPokemon(m.id); let mm = m;
+        if (force) { const i = p.sets?.findIndex(x => x.f === force) ?? -1; if (i >= 0) mm = { ...m, s: i }; } // equipos de ejemplo: la build de su formato
+        return eng.X.makeUnit(p, mm, dict, mode, { learnable: learnableOf, pname });
+      }));
+      const [ua, ub] = await Promise.all([load(A.members, A.force), load(B.members, B.force)]);
       eng.X.clearMemo(); eng.S.clearDuelMemo();
       const onProgress = (f, label) => { bt.prog = { f: Math.min(0.97, f), label }; paintProgress(); };
       const comp = mode === 'doubles' ? await eng.D.compareDoubles(ua, ub, { onProgress, budgetMs: 22000 }) : await eng.S.compareSingles(ua, ub, { onProgress, budgetMs: 22000, dict });
@@ -1541,7 +1630,7 @@ document.addEventListener('click', e => {
   const v = el.dataset.v;
   switch (el.dataset.act) {
     case 'team-menu': bt.menu = bt.menu === v ? null : v; paintBattle(); if (bt.menu) $('.tmenu')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); break;
-    case 'team-pick': { const k = v.lastIndexOf(':'), side = el.dataset.side; bt[side] = { owner: v.slice(0, k), slot: Number(v.slice(k + 1)) }; bt.menu = null; bt.res = null; bt.cmpMsg = ''; paintBattle(); break; }
+    case 'team-pick': { const k = v.lastIndexOf(':'), side = el.dataset.side; bt[side] = { owner: v.slice(0, k), slot: Number(v.slice(k + 1)) }; { const mt = bt[side].owner === 'meta' ? metaTeam(bt[side].slot) : null; if (mt) bt.mode = mt.fmt; } bt.menu = null; bt.res = null; bt.cmpMsg = ''; paintBattle(); break; }
     case 'settings': { const p = el.parentElement.querySelector('.spanel'), open = p.hidden; closeSettings(); p.hidden = !open; el.setAttribute('aria-expanded', String(open)); break; }
     case 'set-theme': setTheme(v); break;
     case 'set-lang': switchLang(v); break;
@@ -1589,6 +1678,24 @@ document.addEventListener('click', e => {
     }
     case 'slot-open': teamsSel.open = teamsSel.open === Number(v) ? -1 : Number(v); paintTeams(); break;
     case 'slot-add': if (teamsSel.open >= 0) openPicker({ mode: 'team', slot: teamsSel.open }); break;
+    case 'team-sugg-add': if (teamsSel.open >= 0) { const had = teams[teamsSel.open].members.some(m => m.id === v); if (!had && toggleInTeam(teamsSel.open, v)) toast(t('addedTo', { name: pname(BYID.get(v)), team: teamName(teamsSel.open) })); } break;
+    case 'fb-kind': fbKind = v; document.querySelectorAll('[data-act="fb-kind"]').forEach(b => { const on = b.dataset.v === v; b.setAttribute('aria-pressed', on); b.setAttribute('aria-checked', on); }); break;
+    case 'fb-send': {
+      const box = $('#fb-text'), msg = $('#fb-msg'), text = (box?.value || '').trim();
+      if (text.length < 5) { if (msg) msg.textContent = t('feedbackShort'); box?.focus(); break; }
+      el.disabled = true;
+      auth.sendFeedback(fbKind, text, `${navigator.userAgent.slice(0, 220)} | ${location.hash.slice(0, 80)} | ${lang()}`)
+        .then(() => { if (box) box.value = ''; if (msg) msg.textContent = t('feedbackThanks'); toast(t('feedbackThanks')); })
+        .catch(err => { if (msg) msg.textContent = /rate_limit/.test(err?.message || '') ? t('feedbackLimit') : t('feedbackFail'); })
+        .finally(() => { el.disabled = false; });
+      break;
+    }
+    case 'team-share': { const tm = teams[Number(v)]; if (tm?.members.length) shareTeam(tm.members.map(m => m.id), tm.name); break; }
+    case 'save-into': { const i = Number(v); if (!saveCtx) break; teams[i].members = saveCtx.ids.map(id => ({ id })); if (saveCtx.name) teams[i].name = saveCtx.name; saveSlot(i); afterTeamsChange(); closeSettings(); toast(t('teamSaved', { team: teamName(i) })); break; }
+    case 'shared-save': openSaveTeam({ name: bt.link?.name, ids: (bt.link?.members || []).map(m => m.id) }); break;
+    case 'shared-share': if (bt.link) shareTeam(bt.link.members.map(m => m.id), bt.link.custom ? bt.link.name : ''); break;
+    case 'shared-compare': bt.b = { owner: 'link', slot: 0 }; bt.res = null; bt.cmpMsg = ''; location.hash = '#/battle'; break;
+    case 'save-side': { const sel = bt[v], tm = teamOf(sel); if (tm?.members.length) openSaveTeam({ name: tm.name, ids: tm.members.map(m => m.id) }); break; }
     case 'team-remove': if (teamsSel.open >= 0) toggleInTeam(teamsSel.open, v); break;
     case 'pk-pick':
       if (pickCtx?.mode === 'avatar') setAvatar(BYID.get(v).num);

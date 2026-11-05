@@ -859,3 +859,27 @@ table.mx { display: table; margin: 0 auto; }
   body::after { content: ""; position: fixed; left: 0; right: 0; bottom: 0; height: calc(88px + env(safe-area-inset-bottom)); z-index: 80; pointer-events: none; background: linear-gradient(to top, var(--bg) 42%, color-mix(in srgb, var(--bg) 0%, transparent)); }
   html.kb body::after { display: none; }
 }
+
+/* "El Pokémon que te falta" dentro del análisis del equipo */
+.swap.missing { background: var(--soft); border-color: transparent; padding: 20px; gap: 16px; margin-top: 0; }
+.swap.missing .pans { gap: 16px; }
+.swap.missing .pans li { flex-wrap: nowrap; justify-content: space-between; gap: 12px; }
+.swap.missing .lft { display: grid; gap: 6px; justify-items: start; min-width: 0; }
+.swap.missing .pans li .chip.accent { flex: none; }
+
+/* equipos compartidos y guardar equipos de otros */
+.slotacts { display: flex; flex-wrap: wrap; gap: 8px; }
+.sharedacts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 6px 0 26px; }
+.sharedacts .chip { justify-content: center; }
+.sharedacts .chip.accent { grid-column: 1 / -1; }
+.sidesave { margin-top: 12px; margin-right: 8px; }
+.savepreview { display: flex; flex-wrap: wrap; gap: 4px; }
+
+/* comentarios y errores (Ajustes) */
+.fbkinds { display: flex; flex-wrap: wrap; gap: 8px; }
+.fbkinds .chip[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.fbtext { width: 100%; resize: vertical; min-height: 120px; padding: 14px 16px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--soft); color: var(--ink); font: inherit; line-height: 1.4; }
+.fbtext:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.fbrow { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.fbrow .unmsg { margin: 0; flex: 1; }
+.sgroup.fb { gap: 14px; } .sgroup.fb .shint { padding: 0 10px; }
