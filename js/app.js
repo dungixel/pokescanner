@@ -463,7 +463,6 @@ function filterRowsHTML(c) {
   rows.push(dd('type', t('type'), '', TYPES.map(ty => opt(c.acts.type, ty, `${typeIcon(ty)}${typeName(ty)}`, 'type')).join('')));
   if (c.tiers) rows.push(dd('tier', t('tier'), t('tierHint'), TIER_ORDER.map(r => opt(c.acts.tier, r, `${tierNumHTML(r)}${tierLabel(r)}`, 'tier')).join('')));
   rows.push(dd('gen', t('generation'), '', [1, 2, 3, 4, 5, 6, 7, 8, 9].map(g => opt(c.acts.gen, g, genLabel(g), 'gen')).join('')));
-  rows.push(`<button class="ddbtn togrow" data-act="${c.acts.gen9.act}" ${c.acts.gen9.v ? `data-v="${c.acts.gen9.v}"` : ''} aria-pressed="${c.on('gen9')}"><span class="ddl">${t('gen9Only')}</span><span class="sw" aria-hidden="true"><i></i></span></button>`);
   return `<div class="fgroup">${rows.join('')}</div>`;
 }
 const selText = (list, none, name) => (!list.length ? none : list.length <= 2 ? list.map(name).join(', ') : t('nSelected', { n: list.length }));
