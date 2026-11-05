@@ -1794,9 +1794,9 @@ function calcListHTML(from, to) {
   const hp = calc.hp, dmax = (to === 'd' ? calc.ud : calc.ua).maxHP;
   const rows = calcRows(from, to, to === 'd' ? hp : 1);
   const pf = BYID.get(calc[from].id), pt = BYID.get(calc[to].id);
-  return `<h3 class="cdir">${esc(pname(pf))} <span>→</span> ${esc(pname(pt))}</h3>${rows.length ? `<ul class="cresl">${rows.map(({ mv, m, r, lo, hi, k, txt, fmt }) => `<li class="cres k-${k}" style="--tc:${TYPE_COLOR[mv.t]}"><div class="cmv">${typeIcon(mv.t)}<b>${esc(m ? dn(m) : mv.name)}</b>${catIcon(mv.c)}<span class="cko">${txt}</span></div>
+  return `<div class="cbox ${from === 'a' ? 'fa' : 'fd'}"><h3 class="cdir">${pokeImg(pf, 'small', 'mini')}<b>${esc(pname(pf))}</b> <span>→</span> ${pokeImg(pt, 'small', 'mini')}<b>${esc(pname(pt))}</b></h3>${rows.length ? `<ul class="cresl">${rows.map(({ mv, m, r, lo, hi, k, txt, fmt }) => `<li class="cres k-${k}" style="--tc:${TYPE_COLOR[mv.t]}"><div class="cmv">${typeIcon(mv.t)}<b>${esc(m ? dn(m) : mv.name)}</b>${catIcon(mv.c)}<span class="cko">${txt}</span></div>
       <div class="cbar"><i style="width:${Math.min(100, r.max * 100)}%"></i><u style="width:${Math.min(100, r.min * 100)}%"></u></div>
-      <div class="cnum"><b>${fmt(r.min)}–${fmt(r.max)} %</b><small>${lo}–${hi} / ${dmax} ${t('calcHp')}</small></div></li>`).join('')}</ul>` : `<p class="hint">${t('calcNoMoves')}</p>`}`;
+      <div class="cnum"><b>${fmt(r.min)}–${fmt(r.max)} %</b><small>${lo}–${hi} / ${dmax} ${t('calcHp')}</small></div></li>`).join('')}</ul>` : `<p class="hint">${t('calcNoMoves')}</p>`}</div>`;
 }
 function calcHTML() {
   if (calc.err) return `<div class="empty"><b>${t('loadFail')}</b>${t('loadFailHint')}</div>`;

@@ -1329,3 +1329,14 @@ dialog.cfm::backdrop { background: rgba(10, 12, 20, .5); }
 #battle-root .unmsg { display: block; margin-top: 12px; }
 
 .compare-btn + .compare-btn { margin-top: 8px; }
+
+/* calculadora: una caja por dirección (atacante → defensor, defensor → atacante) */
+.cbox { margin-top: 18px; padding: 14px 12px 12px; border-radius: var(--r-lg); border: 1px solid transparent; }
+.cbox.fa { background: color-mix(in srgb, #3B7BEF 12%, var(--surface)); --sc: #3B7BEF; }
+.cbox.fd { background: color-mix(in srgb, #E5484D 12%, var(--surface)); --sc: #E5484D; }
+.cbox .cdir { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; margin: 0 0 12px; padding: 0 2px; font-size: 1rem; }
+.cbox .cdir .mini { width: 32px; height: 32px; object-fit: contain; flex: none; }
+.cbox .cdir span { color: var(--sc); font-weight: 800; }
+.cbox .cresl { margin: 0; }
+.cbox .cres { background: var(--surface); border-color: transparent; }
+.cbox .cbar { background: color-mix(in srgb, var(--sc) 10%, var(--soft)); }
