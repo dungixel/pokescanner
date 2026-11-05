@@ -134,11 +134,11 @@ export const formatName = f => (f === 'doublesou' ? t('fmt_doublesou') : FORMAT_
 
 // ───────── nombres según el idioma ─────────
 export const pname = p => (lang() === 'en' ? p.en : p.es);
-/** el nombre en el otro idioma (para mostrarlo debajo) */
-export const pname2 = p => (lang() === 'en' ? p.es : p.en);
+/** el nombre en inglés (para mostrarlo debajo cuando la web no está en inglés) */
+export const pname2 = p => (lang() === 'en' ? '' : p.en);
 /** nombre y descripción de movimientos, habilidades, objetos y naturalezas */
 export const dn = x => (lang() === 'en' ? x.e : x.n);
-export const dn2 = x => (lang() === 'en' ? x.n : x.e);
+export const dn2 = x => (lang() === 'en' ? '' : x.e);
 export const dd = x => (lang() === 'en' ? (x.de || x.d) : x.d);
 export const how = n => (lang() === 'en' ? (n.hx || n.how) : n.how);
 

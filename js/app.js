@@ -1327,7 +1327,7 @@ function pokemonHTML() {
     ${artImg(d)}
     <span class="num">${dexNum(d.num)}</span>
     <h1>${esc(pname(d))}${page.mod ? ` <small class="modtag">(${t('modified')})</small>` : ''}</h1>
-    ${same ? '' : `<span class="en">${esc(pname2(d))}</span>`}
+    ${same || !pname2(d) ? '' : `<span class="en">${esc(pname2(d))}</span>`}
     <div class="tags">${d.t.map(typePill).join('')}</div>
     <div class="rank"><small>${t('rank')}</small><button class="tier" style="--tier:${tierColor(d.r)}" data-act="tier" data-v="${esc(d.r)}" aria-label="${t('rankAria', { r: esc(tierLabel(d.r)) })}">${tierNumHTML(d.r)}${esc(tierLabel(d.r))}</button>
       ${d.g ? `<small>· ${t('gen', { g: d.g })}</small>` : ''}${d.dr ? `<small>· ${t('doubles', { r: esc(tierLabel(d.dr)) })}</small>` : ''}</div>
