@@ -1251,3 +1251,4 @@ button.slot.slothead { cursor: pointer; }
 
 .hero h1.brand { display: flex; align-items: center; gap: .26em; }
 .hero h1.brand .applogo { width: 1.05em; height: 1.05em; flex: none; border-radius: 22%; box-shadow: 0 2px 8px rgba(8, 10, 18, .18); }
+.hero h1.brand .applogo { border-radius: 0; box-shadow: none; }
