@@ -406,13 +406,14 @@ export function analyzeSingles(A, B, res, { dict } = {}) {
   const rowA = A.map((u, i) => ({ u, wins: sum(M[i], s => (s > 0.001 ? 1 : 0)), score: mean(M[i]) }));
   const rowB = B.map((u, j) => ({ u, wins: sum(M, r => (r[j] < -0.001 ? 1 : 0)), score: mean(M.map(r => -r[j])) }));
   const pA = res.pA, win = pA >= 0.5 ? 'A' : 'B', pct = Math.round(Math.max(pA, 1 - pA) * 100);
-  const W = win === 'A' ? A : B, L = win === 'A' ? B : A, Wrow = win === 'A' ? rowA : rowB;
   const pairs = nA * nB;
   const fs = u => speedOf(newState(u), {});
   const fasterA = sum(A, a => sum(B, b => (fs(a) > fs(b) ? 1 : 0))), fasterB = sum(B, b => sum(A, a => (fs(b) > fs(a) ? 1 : 0)));
   const has = (T, k) => sum(T, u => (k === 'hazards' ? u.hazards.length : k === 'removal' ? (u.removal ? 1 : 0) : k === 'phaze' ? (u.phaze ? 1 : 0) : k === 'pivot' ? (u.pivot ? 1 : 0) : 0));
-  const reasons = [];
   const margin = pct - 50;
+  const reasonsFor = win => {
+  const W = win === 'A' ? A : B, L = win === 'A' ? B : A, Wrow = win === 'A' ? rowA : rowB;
+  const reasons = [];
   // 1 contra 1
   const winsW = win === 'A' ? sum(rowA, r => r.wins) : sum(rowB, r => r.wins), winsL = win === 'A' ? sum(rowB, r => r.wins) : sum(rowA, r => r.wins);
   if (winsW - winsL >= Math.max(2, pairs * 0.1)) reasons.push({ key: 'duels', strength: (winsW - winsL) / pairs * 1.6, vars: { k: winsW, n: pairs } });
@@ -442,7 +443,9 @@ export function analyzeSingles(A, B, res, { dict } = {}) {
   if (stW - stL >= 2) reasons.push({ key: 'status', strength: 0.22 + 0.04 * (stW - stL), vars: { k: stW } });
   reasons.sort((a, b) => b.strength - a.strength);
   const maxReasons = margin < 8 ? 1 : margin < 18 ? 2 : 3;
-  const top = reasons.filter(r => r.strength >= 0.18).slice(0, maxReasons);
+  return reasons.filter(r => r.strength >= 0.18).slice(0, maxReasons);
+  };
+  const top = reasonsFor(win), topOther = reasonsFor(win === 'A' ? 'B' : 'A');
 
   // consejos para cada bando
   const tipsFor = (T, O, Trow, Mt, side) => {
@@ -475,7 +478,7 @@ export function analyzeSingles(A, B, res, { dict } = {}) {
     support: 0.03 * (Math.min(2, sum(A, u => u.statusMoves.length)) - Math.min(2, sum(B, u => u.statusMoves.length))) + 0.025 * (Math.min(3, sum(A, u => (u.recover ? 1 : 0))) - Math.min(3, sum(B, u => (u.recover ? 1 : 0)))),
   };
   return {
-    mode: 'singles', pA, win, pct, close, matrix: S.map(r => r.map(c => ({ s: c.s }))), rowA, rowB, reasons: top, tipsA, tipsB, speeds, factors,
+    mode: 'singles', pA, win, pct, close, matrix: S.map(r => r.map(c => ({ s: c.s }))), rowA, rowB, reasons: top, reasonsOther: topOther, tipsA, tipsB, speeds, factors,
     summary: { fasterA, fasterB, pairs, winsA: sum(rowA, r => r.wins), winsB: sum(rowB, r => r.wins) },
     plan: { A: planA, B: planB }, trials: res.trials, ms: res.ms,
   };

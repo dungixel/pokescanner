@@ -1430,7 +1430,12 @@ function resultHTML() {
   const { r, ua, ub, aName, bName, swaps } = bt.res[bt.mode];
   const pa = Math.round(r.pA * 100), pb = 100 - pa;
   const winName = r.win === 'A' ? aName : bName;
-  const rs = r.reasons.length ? `<ol class="reasons">${r.reasons.map(x => `<li>${t(`br_${x.key}${x.key === 'hazards' && !x.vars.noRemoval ? '_b' : ''}`, fmtVars(x.vars))}</li>`).join('')}</ol>` : `<p class="shint">${t('noReasons')}</p>`;
+  const reasonList = list => (list.length ? `<ol class="reasons">${list.map(x => `<li>${t(`br_${x.key}${x.key === 'hazards' && !x.vars.noRemoval ? '_b' : ''}`, fmtVars(x.vars))}</li>`).join('')}</ol>` : `<p class="shint">${t('noReasons')}</p>`);
+  const [reasA, reasB] = r.win === 'A' ? [r.reasons, r.reasonsOther || []] : [r.reasonsOther || [], r.reasons];
+  // si está igualado no hay ganador: se enseña lo que aporta cada equipo
+  const why = r.close
+    ? `<div class="block-title"><h2>${t('whyEven')}</h2></div><div class="evenwhy"><h3>${t('strengthsOf', { name: aName })}</h3>${reasonList(reasA)}<h3>${t('strengthsOf', { name: bName })}</h3>${reasonList(reasB)}</div>`
+    : `<div class="block-title"><h2>${t('whyTitle')}</h2></div>${reasonList(r.reasons)}`;
   const tipBlock = (name, tips, side) => `<div class="tipbox"><h3>${t('tipsTitle', { name })}</h3>${tips.length ? `<ul class="tips">${tips.map(tipHTML).join('')}</ul>` : `<p class="shint">${t('tipsNone')}</p>`}${swapHTML(swaps?.[side], side)}</div>`;
   const loserTips = r.win === 'A' ? tipBlock(bName, r.tipsB, 'B') : tipBlock(aName, r.tipsA, 'A');
   const winnerTips = r.close ? (r.win === 'A' ? tipBlock(aName, r.tipsA, 'A') : tipBlock(bName, r.tipsB, 'B')) : '';
@@ -1449,16 +1454,16 @@ function resultHTML() {
   const f = r.factors;
   const FACT = [['duels', f.duels], ['speed', f.speed], ['hazards', f.hazards], ['support', f.support]];
   const fmax = Math.max(0.6, ...FACT.map(([, v]) => Math.abs(v)));
-  const factors = FACT.map(([k, v]) => `<div class="fact"><span>${t(`f_${k}`)}</span><div class="fbar"><i class="${v >= 0 ? 'a' : 'b'}" style="width:${(Math.abs(v) / fmax * 50).toFixed(1)}%;${v >= 0 ? 'right:50%' : 'left:50%'}"></i></div></div>`).join('');
+  const factors = FACT.map(([k, v]) => `<div class="fact"><span>${t(`${r.mode === 'doubles' ? 'fd' : 'f'}_${k}`)}</span><div class="fbar"><i class="${v >= 0 ? 'a' : 'b'}" style="width:${(Math.abs(v) / fmax * 50).toFixed(1)}%;${v >= 0 ? 'right:50%' : 'left:50%'}"></i></div></div>`).join('');
   return `<section class="sec result">
     <div class="block-title"><h2>${t('resultTitle')}</h2></div>
     <div class="resbox"><div class="vsnames"><span class="na">${aName}</span><span class="nb">${bName}</span></div>
       <div class="vsbar" role="img" aria-label="${pa}% / ${pb}%"><i class="va" style="width:${pa}%"><b>${pa}%</b></i><i class="vb"><b>${pb}%</b></i></div>
       <h3 class="winline">${r.close ? t('resEven') : t('resWin', { name: winName })}</h3></div>
-    <div class="block-title"><h2>${t('whyTitle')}</h2></div>${rs}
+    ${why}
     ${planHTML(bt.res[bt.mode], bt.planSide)}
     <div class="block-title"><h2>${t('improveTitle')}</h2></div>${loserTips}${winnerTips}
-    <div class="block-title"><h2>${t('extraMatrix')}</h2></div><p class="shint">${t('extraMatrixHint')}</p>${matrix}
+    <div class="block-title"><h2>${t(r.mode === 'doubles' ? 'extraMatrixD' : 'extraMatrix')}</h2></div><p class="shint">${t(r.mode === 'doubles' ? 'extraMatrixHintD' : 'extraMatrixHint')}</p>${matrix}
     <div class="block-title"><h2>${t('extraStars')}</h2></div><div class="starsgrid">${star(r.rowA, aName)}${star(r.rowB, bName)}</div>
     <div class="block-title"><h2>${t('extraSpeed')}</h2></div><div class="spdlist">${speed}</div>
     <div class="block-title"><h2>${t('extraFactors')}</h2></div><div class="factors">${factors}</div><p class="shint facthint"><span>← ${aName}</span><span>${bName} →</span></p>

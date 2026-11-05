@@ -39,7 +39,7 @@ function playDoubles(UA, UB, strA, strB, { rng, tie = 'A', trace = false } = {})
   const foesOf = s => [0, 1].map(k => mon(1 - s, k)).filter(alive);
   const allyOf = (s, k) => { const m = mon(s, 1 - k); return alive(m) ? m : null; };
   const first = [];
-  const kos = { A: 0, B: 0 };
+  const kos = { A: 0, B: 0 }, kosBy = new Map();
   const ctxFor = (att, tgt, extra = {}) => ({
     field: fieldFor(f, sides),
     aSide: { helpingHand: !!att.st.helped, battery: false, powerSpot: false },
@@ -99,7 +99,7 @@ function playDoubles(UA, UB, strA, strB, { rng, tie = 'A', trace = false } = {})
           const r = damage(U, st, t.u, t.st, m, ctxFor(me, t));
           const dd = Math.min(r.exp, remHP(t));
           let val = dd * (0.75 + 0.5 * threatScore(t)) + (r.exp >= remHP(t) - 1e-6 ? 0.3 : 0);
-          if (m.id === 'fakeout' || m.id === 'firstimpression') val += 0.35 * threatScore(t) + 0.1;
+          if (m.id === 'fakeout' || m.id === 'firstimpression') val += 0.9 * threatScore(t) + 0.2;
           opts.push({ type: 'atk', m, targets: [t], val });
         }
       }
@@ -282,7 +282,7 @@ function playDoubles(UA, UB, strA, strB, { rng, tie = 'A', trace = false } = {})
           }
           if (m.id === 'fakeout' && t.s !== me.s && t.u.ab !== 'innerfocus' && t.u.ab !== 'shielddust') flinched.add(t.st);
           if (SPEED_DROP[m.id] && t.s !== me.s) t.st.boosts[SPEED_DROP[m.id]] = Math.max(-6, t.st.boosts[SPEED_DROP[m.id]] - 1);
-          if (t.st.hp <= 1e-6) kos[t.s === 0 ? 'B' : 'A']++;
+          if (t.st.hp <= 1e-6 && t.s !== me.s) { kos[t.s === 0 ? 'B' : 'A']++; kosBy.set(me.u.uid, (kosBy.get(me.u.uid) || 0) + 1); }
         }
         if (U.item === 'lifeorb' && U.ab !== 'magicguard') st.hp -= 0.1;
       }
@@ -332,7 +332,7 @@ function playDoubles(UA, UB, strA, strB, { rng, tie = 'A', trace = false } = {})
   const nA = sides[0].st.length, nB = sides[1].st.length, N = Math.max(nA, nB);
   const aAlive = teamAlive(0), bAlive = teamAlive(1);
   const v = aAlive && !bAlive ? total(0) / N : bAlive && !aAlive ? -total(1) / N : (total(0) - total(1)) / N;
-  return { v, turns, first, kos, win: v > 0 ? 'A' : v < 0 ? 'B' : (tie === 'A' ? 'A' : 'B') };
+  return { v, turns, first, kos, kosBy, win: v > 0 ? 'A' : v < 0 ? 'B' : (tie === 'A' ? 'A' : 'B') };
 }
 
 // ───────── elección de los 4 y de los líderes ─────────
@@ -389,12 +389,13 @@ export async function compareDoubles(A, B, { onProgress = () => {}, budgetMs = 2
   const rng = mulberry(777);
   const pick = p => { let r = rng(), c = 0; for (let k = 0; k < p.length; k++) { c += p[k]; if (r <= c) return k; } return p.length - 1; };
   let wins = 0, trials = 0;
-  const kosA = A.map(() => 0), kosB = B.map(() => 0);
+  const unitKos = new Map();
   const tStart = Date.now(), MAX = 16000;
   while (trials < MAX && Date.now() - tStart < budgetMs) {
     const i = pick(game.pa), j = pick(game.pb);
     const r = playDoubles(A, B, SA[i], SB[j], { rng });
     trials++; if (r.win === 'A') wins++;
+    for (const [uid, k] of r.kosBy) unitKos.set(uid, (unitKos.get(uid) || 0) + k);
     if (trials % 8 === 0) { onProgress(0.4 + 0.5 * Math.min(1, Math.max((Date.now() - tStart) / budgetMs, trials / MAX)), 'combates'); await yieldNow(); }
   }
   const pMC = trials ? wins / trials : 0.5;
@@ -407,7 +408,7 @@ export async function compareDoubles(A, B, { onProgress = () => {}, budgetMs = 2
   const traceB = playDoubles(A, B, SA[bi], SB[bj], { tie: 'B', trace: true });
   onProgress(0.92, 'análisis');
   await tick();
-  return { pA, pMC, pExp, trials, value: game.value, V, game, SA, SB, bi, bj, trace, traceB, ms: Date.now() - t0 };
+  return { pA, pMC, pExp, trials, unitKos, value: game.value, V, game, SA, SB, bi, bj, trace, traceB, ms: Date.now() - t0 };
 }
 
 // ───────── análisis: razones, consejos y plan de juego ─────────
@@ -451,10 +452,17 @@ export function analyzeDoubles(A, B, res) {
   const Mb = B.map((_, j) => A.map((_, i) => -mx[i][j].s));
   const rowA = A.map((u, i) => ({ u, wins: sum(mx[i], c => (c.s > 0.001 ? 1 : 0)), score: mean(mx[i].map(c => c.s)) }));
   const rowB = B.map((u, j) => ({ u, wins: sum(mx, r => (r[j].s < -0.001 ? 1 : 0)), score: mean(mx.map(r => -r[j].s)) }));
-  const W = win === 'A' ? A : B, L = win === 'A' ? B : A, Wrow = win === 'A' ? rowA : rowB;
-  const reasons = [];
+  const totKos0 = 0;
   const fs = u => speedOf(newState(u), {});
   const fasterA = sum(A, a => sum(B, b => (fs(a) > fs(b) ? 1 : 0))), fasterB = sum(B, b => sum(A, a => (fs(b) > fs(a) ? 1 : 0)));
+  const totKos = sum([...res.unitKos.values()]) || 1;
+  const share = u => (res.unitKos.get(u.uid) || 0) / totKos;
+  // quién protagoniza las derrotas dentro de su equipo
+  const teamShare = (T, u) => (res.unitKos.get(u.uid) || 0) / (sum(T, x => res.unitKos.get(x.uid) || 0) || 1);
+  [...rowA.map(r => [r, A]), ...rowB.map(r => [r, B])].forEach(([r, T]) => { r.ko = teamShare(T, r.u); r.score = 0.7 * (r.ko - 1 / T.length) * 2 + 0.3 * r.score; });
+  const reasonsFor = win => {
+  const W = win === 'A' ? A : B, L = win === 'A' ? B : A, Wrow = win === 'A' ? rowA : rowB;
+  const reasons = [];
   const fW = (win === 'A' ? fasterA : fasterB) / pairs, fL = (win === 'A' ? fasterB : fasterA) / pairs;
   if (fW - fL >= 0.16) reasons.push({ key: 'speed', strength: (fW - fL) * 1.2, vars: { k: Math.round(fW * 100) } });
   const cW = controlCount(W), cL = controlCount(L);
@@ -466,15 +474,17 @@ export function analyzeDoubles(A, B, res) {
   if (tW / L.length - tL / W.length >= 0.2) reasons.push({ key: 'cover', strength: (tW / L.length - tL / W.length) * 1.3, vars: { k: tW, n: L.length } });
   const ohko = (X, Y) => sum(Y, y => (X.some(x => bestMoveD(x, y)?.ohko) ? 1 : 0));
   if (ohko(W, L) - ohko(L, W) >= 2) reasons.push({ key: 'ohko', strength: 0.3 + 0.07 * (ohko(W, L) - ohko(L, W)), vars: { k: ohko(W, L), n: L.length } });
-  const star = [...Wrow].sort((a, b) => b.wins - a.wins || b.score - a.score)[0];
-  if (star && star.wins / L.length >= 0.6) reasons.push({ key: 'star', strength: (star.wins / L.length) * 0.85, vars: { name: star.u.name, k: star.wins, n: L.length } });
+  const star = [...Wrow].sort((a, b) => b.ko - a.ko)[0];
+  if (star && star.ko >= 0.4 && W.length >= 3) reasons.push({ key: 'dstar', strength: 0.3 + star.ko * 0.6, vars: { name: star.u.name, k: Math.round(star.ko * 100) } });
   const weakCount = TYPES18.map(ty => ({ ty, ws: L.filter(u => eff(ty, u.types) >= 2 && IMMUNE_AB[u.ab] !== ty) }));
   const sharedW = weakCount.filter(w => w.ws.length >= 3 && W.some(u => u.types.includes(w.ty) || u.moves.some(m => m.t === w.ty && m.c !== 's' && m.bp >= 60))).sort((a, b) => b.ws.length - a.ws.length)[0];
   if (sharedW) reasons.push({ key: 'weak', strength: (sharedW.ws.length / L.length) * 1.1, vars: { type: sharedW.ty, k: sharedW.ws.length, n: L.length } });
   const foeIntim = sum(L, u => (u.ab === 'intimidate' ? 1 : 0)), myIntim = sum(W, u => (u.ab === 'intimidate' ? 1 : 0));
   if (myIntim - foeIntim >= 1 && sum(L, u => (u.p.s[1] >= u.p.s[3] ? 1 : 0)) >= L.length / 2) reasons.push({ key: 'intim', strength: 0.3, vars: {} });
   reasons.sort((a, b) => b.strength - a.strength);
-  const top = reasons.filter(r => r.strength >= 0.18).slice(0, margin < 8 ? 1 : margin < 18 ? 2 : 3);
+  return reasons.filter(r => r.strength >= 0.18).slice(0, margin < 8 ? 1 : margin < 18 ? 2 : 3);
+  };
+  const top = reasonsFor(win), topOther = reasonsFor(win === 'A' ? 'B' : 'A');
 
   // probabilidad con la que cada Pokémon entra en el equipo de 4 y cada pareja sale de líder
   const probs = (S, pr, n) => {
@@ -541,7 +551,7 @@ export function analyzeDoubles(A, B, res) {
     support: 0.05 * (Math.min(3, spreadCount(A)) - Math.min(3, spreadCount(B))),
   };
   return {
-    mode: 'doubles', pA, win, pct, close: margin < 6, matrix: mx, rowA, rowB, reasons: top, tipsA, tipsB, speeds, factors,
+    mode: 'doubles', pA, win, pct, close: margin < 6, matrix: mx, rowA, rowB, reasons: top, reasonsOther: topOther, tipsA, tipsB, speeds, factors,
     plan: { A: planA, B: planB }, trials: res.trials, ms: res.ms,
   };
 }
