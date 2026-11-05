@@ -995,12 +995,20 @@ table.mx { display: table; margin: 0 auto; }
 .edmove .ticon { width: 22px; height: 22px; border-radius: 50%; flex: none; }
 .edmove .mn { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .edmove small { color: var(--muted); font-weight: 600; }
-.edrow { display: grid; grid-template-columns: 52px 1fr 36px 40px; align-items: center; gap: 8px; }
-.edrow:has(.edr[data-ed="v"]) { grid-template-columns: 52px 1fr 36px; }
-.edl { font-size: .84rem; color: var(--muted); font-weight: 600; }
+.edrow { display: grid; grid-template-columns: 20px 74px minmax(0, 1fr) 34px 38px; align-items: center; gap: 8px; }
+.edrow:has(.edr[data-ed="v"]) { grid-template-columns: 20px 74px minmax(0, 1fr) 34px; }
+.edsi { width: 20px; height: 20px; fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.edl { font-size: .84rem; color: var(--muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .edrow output { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
 .edst { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; font-size: .86rem; }
-.edr { width: 100%; accent-color: var(--ink); height: 28px; }
+input.edr { -webkit-appearance: none; appearance: none; width: 100%; min-width: 0; height: 32px; margin: 0; background: transparent; --p: 0%; }
+input.edr::-webkit-slider-runnable-track { height: 12px; border-radius: 6px; background: linear-gradient(to right, var(--ink) var(--p), var(--line) var(--p)); }
+input.edr::-moz-range-track { height: 12px; border-radius: 6px; background: var(--line); }
+input.edr::-moz-range-progress { height: 12px; border-radius: 6px; background: var(--ink); }
+input.edr::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 26px; height: 26px; margin-top: -7px; border-radius: 50%; background: #fff; border: 2px solid var(--ink); box-shadow: 0 1px 4px rgba(8, 10, 18, .3); }
+input.edr::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 2px solid var(--ink); box-shadow: 0 1px 4px rgba(8, 10, 18, .3); }
+input.edr:focus-visible { outline: none; }
+input.edr:focus-visible::-webkit-slider-thumb { outline: 3px solid color-mix(in srgb, var(--accent, var(--ink)) 45%, transparent); outline-offset: 1px; }
 .edph { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .edph .unin { flex: 1; }
 .edlist { display: grid; gap: 4px; }

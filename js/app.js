@@ -1317,6 +1317,16 @@ function mergeEditor(dict, E) {
   for (const [id, x] of Object.entries(E.items)) if (!dict.items[id]) dict.items[id] = { n: x[0], e: x[1], d: '', de: '', i: x[2] };
   for (const [id, x] of Object.entries(E.natures)) if (!dict.natures[id]) dict.natures[id] = { n: x[0], e: x[1], plus: x[2], minus: x[3] };
 }
+const STAT_IC = [
+  '<path d="M19.5 12.572l-7.5 7.428l-7.5 -7.428a5 5 0 1 1 7.5 -6.566a5 5 0 1 1 7.5 6.572"/>',
+  '<path d="M20 4v5l-9 7l-4 4l-3 -3l4 -4l7 -9l5 0"/><path d="M6.5 11.5l6 6"/>',
+  '<path d="M12 3a12 12 0 0 0 8.5 3a12 12 0 0 1 -8.5 15a12 12 0 0 1 -8.5 -15a12 12 0 0 0 8.5 -3"/>',
+  '<path d="M6 21l15 -15l-3 -3l-15 15l3 3"/><path d="M15 6l3 3"/><path d="M9 3a2 2 0 0 0 2 2a2 2 0 0 0 -2 2a2 2 0 0 0 -2 -2a2 2 0 0 0 2 -2"/><path d="M19 13a2 2 0 0 0 2 2a2 2 0 0 0 -2 2a2 2 0 0 0 -2 -2a2 2 0 0 0 2 -2"/>',
+  '<path d="M12 3a12 12 0 0 0 8.5 3a12 12 0 0 1 -8.5 15a12 12 0 0 1 -8.5 -15a12 12 0 0 0 8.5 -3"/><path d="M12 3v18"/>',
+  '<path d="M13 3l0 7l6 0l-8 11l0 -7l-6 0l8 -11"/>',
+];
+const statIc = i => `<svg class="edsi" viewBox="0 0 24 24" aria-hidden="true">${STAT_IC[i]}</svg>`;
+const pct = (v, max) => Math.round(v / max * 100);
 let ed = null; // { slot, k, d, base, cur, pick, q }
 async function openEditor(slot, k) {
   const m = teams[slot]?.members[k]; if (!m) return;
@@ -1347,8 +1357,8 @@ function editorHTML() {
   };
   const stats = finalStats(d.s, cur.e, cur.v, cur.n, DICT.natures), tot = evTotal(cur.e);
   const row = (kind, i) => kind === 'e'
-    ? `<div class="edrow"><span class="edl">${statName(EDK[i])}</span><input class="edr" type="range" data-ed="e" data-k="${i}" min="0" max="${EV_MAX}" step="4" value="${cur.e[i]}" aria-label="EV ${statName(EDK[i])}"><output id="ev-${i}">${cur.e[i]}</output><b class="edst" id="st-${i}">${stats[i]}</b></div>`
-    : `<div class="edrow"><span class="edl">${statName(EDK[i])}</span><input class="edr" type="range" data-ed="v" data-k="${i}" min="0" max="31" step="1" value="${cur.v[i]}" aria-label="IV ${statName(EDK[i])}"><output id="iv-${i}">${cur.v[i]}</output></div>`;
+    ? `<div class="edrow">${statIc(i)}<span class="edl">${statName(EDK[i])}</span><input class="edr" type="range" data-ed="e" data-k="${i}" min="0" max="${EV_MAX}" step="4" value="${cur.e[i]}" style="--p:${pct(cur.e[i], EV_MAX)}%" aria-label="EV ${statName(EDK[i])}"><output id="ev-${i}">${cur.e[i]}</output><b class="edst" id="st-${i}">${stats[i]}</b></div>`
+    : `<div class="edrow">${statIc(i)}<span class="edl">${statName(EDK[i])}</span><input class="edr" type="range" data-ed="v" data-k="${i}" min="0" max="31" step="1" value="${cur.v[i]}" style="--p:${pct(cur.v[i], 31)}%" aria-label="IV ${statName(EDK[i])}"><output id="iv-${i}">${cur.v[i]}</output></div>`;
   const item = cur.i && DICT.items[cur.i];
   return `<div class="ed">
     <div class="edtop">${pokeImg(d, 'art', 'edart', 96, cur.sh)}<div class="edtx"><b>${esc(pname(d))}</b><span class="types">${d.t.map(typeDot).join('')}</span></div></div>
@@ -1396,9 +1406,9 @@ function onEditorInput(e) {
     const others = evTotal(cur.e) - cur.e[i];
     const room = Math.max(0, Math.floor((EV_TOTAL - others) / 4) * 4);
     if (v > room) { v = room; el.value = v; }
-    cur.e[i] = v; $(`#ev-${i}`).textContent = v;
+    cur.e[i] = v; $(`#ev-${i}`).textContent = v; el.style.setProperty('--p', pct(v, EV_MAX) + '%');
     $('#ev-tot').textContent = `${t('edTotal')} ${evTotal(cur.e)}/${EV_TOTAL}`;
-  } else { cur.v[i] = v; $(`#iv-${i}`).textContent = v; }
+  } else { cur.v[i] = v; $(`#iv-${i}`).textContent = v; el.style.setProperty('--p', pct(v, 31) + '%'); }
   finalStats(d.s, cur.e, cur.v, cur.n, DICT.natures).forEach((x, j) => { const o = $(`#st-${j}`); if (o) o.textContent = x; });
 }
 
