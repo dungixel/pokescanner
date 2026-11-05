@@ -875,7 +875,8 @@ table.mx { display: table; margin: 0 auto; }
 
 /* móvil: un desvanecido bajo el menú para que el contenido no se vea entre el menú y la barra del navegador */
 @media (hover: none) and (pointer: coarse) {
-  body::after { content: ""; position: fixed; left: 0; right: 0; bottom: 0; height: calc(88px + env(safe-area-inset-bottom)); z-index: 80; pointer-events: none; background: linear-gradient(to top, var(--bg) 42%, color-mix(in srgb, var(--bg) 0%, transparent)); }
+  /* Safari de iPhone: al subir, su barra inferior empuja la vista y deja ver el contenido bajo el dock; el velo baja 240px por debajo del borde para taparlo */
+  body::after { content: ""; position: fixed; left: 0; right: 0; bottom: -240px; height: calc(88px + 240px + env(safe-area-inset-bottom)); z-index: 80; pointer-events: none; background: linear-gradient(to top, var(--bg) calc(240px + 40px + env(safe-area-inset-bottom)), color-mix(in srgb, var(--bg) 0%, transparent)); }
   html.kb body::after { display: none; }
 }
 

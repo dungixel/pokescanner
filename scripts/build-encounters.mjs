@@ -22,6 +22,7 @@ function parseCSV(text) {
   return rest.filter(r => r.length === head.length).map(r => Object.fromEntries(head.map((k, i) => [k, r[i]])));
 }
 const csv = n => parseCSV(fs.readFileSync(path.join(RAW, `${n}.csv`), 'utf8'));
+import { readPkhex } from './pkhex-encounters.mjs';
 const ES = '7', EN = '9';
 const names = (file, idCol, extra = {}) => { const m = new Map(); for (const r of csv(file)) { const o = m.get(r[idCol]) || {}; if (r.local_language_id === ES) o.es = r.name; if (r.local_language_id === EN) o.en = r.name; m.set(r[idCol], o); } return m; };
 
@@ -46,9 +47,17 @@ const COND_ES = { 'swarm-yes': 'Durante un enjambre', 'time-morning': 'Por la ma
   'story-progress-hall-of-fame': 'Tras entrar en el Salón de la Fama', 'story-progress-national-dex': 'Con el Pokédex Nacional' };
 const GROUP_ES = { 21: 'Isla de la Armadura', 22: 'Nieves de la Corona' };
 const GROUP_EN = { 21: 'The Isle of Armor', 22: 'The Crown Tundra' };
-const esLoc = s => s.replace(/\bRoute\b/g, 'Ruta').replace(/\bMt\.? /g, 'Monte ');
+const esLoc = s => s.replace(/^Roaming (the )?(.+)$/i, 'Errante por $2').replace(/\bSea Route\b/g, 'Ruta').replace(/\bRoute\b/g, 'Ruta').replace(/\bMt\.? /g, 'Monte ');
 
 // ───── tablas ─────
+// nombres oficiales de los lugares: PKHeX trae los textos de cada juego en inglés y español con el mismo índice
+const normName = s => s.toLowerCase().replace(/[’‘`´]/g, "'").replace(/\s+/g, ' ').trim();
+const OFFICIAL = new Map();
+for (const f of fs.readdirSync(path.join(RAW, 'pkhex')).filter(f => f.endsWith('_en.txt'))) {
+  const en = fs.readFileSync(path.join(RAW, 'pkhex', f), 'utf8').split('\n'), es = fs.readFileSync(path.join(RAW, 'pkhex', f.replace('_en', '_es')), 'utf8').split('\n');
+  for (let i = 1; i < en.length; i++) { const a = en[i].trim(), b = (es[i] || '').trim(); if (a && b && !/^[—-]+$/.test(a)) { const k = normName(a), m = OFFICIAL.get(k) || new Map(); m.set(b, (m.get(b) || 0) + 1); OFFICIAL.set(k, m); } }
+}
+const officialEs = en => { const m = OFFICIAL.get(normName(en)); return m ? [...m.entries()].sort((a, b) => b[1] - a[1])[0][0] : null; };
 const index = JSON.parse(fs.readFileSync(path.join(OUT, 'index.json'), 'utf8'));
 const locName = names('location_names', 'location_id'), regName = names('region_names', 'region_id'), verName = names('version_names', 'version_id');
 const condProse = names('encounter_condition_value_prose', 'encounter_condition_value_id'), methProse = names('encounter_method_prose', 'encounter_method_id');
@@ -100,8 +109,12 @@ for (const [pid, m] of per) {
   byPokemon.set(pid, rows);
 }
 
+// ───── Escarlata/Púrpura, BDSP, Leyendas Arceus y Z-A (PKHeX) ─────
+const PK = readPkhex({ RAW, index });
+
 // ───── diccionario ─────
 const dict = { ver: {}, grp: {}, loc: {}, area: {}, meth: {}, cond: {}, reg: {} };
+const UNTRANSLATED = new Set();
 const grpVers = new Map();
 for (const v of [...usedVer].sort((a, b) => a - b)) {
   const ver = versions.get(String(v)); const g = ver.version_group_id;
@@ -117,7 +130,8 @@ for (const [g, vs] of grpVers) {
 for (const l of usedLoc) {
   const r = locs.get(String(l)), n = locName.get(String(l)) || {};
   const en = n.en || r.identifier.replace(/-/g, ' ');
-  dict.loc[l] = [n.es || esLoc(en), en, Number(r.region_id) || 0];
+  dict.loc[l] = [officialEs(en) || n.es || esLoc(en), en, Number(r.region_id) || 0];
+  if (!officialEs(en) && !n.es) UNTRANSLATED.add(en);
   if (r.region_id) dict.reg[r.region_id] = [regName.get(r.region_id)?.es || regName.get(r.region_id)?.en || '', regName.get(r.region_id)?.en || ''];
 }
 const prettyArea = s => (/^b?\d+f$/i.test(s) ? s.toUpperCase() : s.replace(/-/g, ' ').replace(/^\w/, c => c.toUpperCase()));
@@ -139,7 +153,11 @@ for (const [pid, rows] of byPokemon) {
   }
   byPokemon.set(pid, [...m.values()]);
 }
+for (const k of ['grp', 'ver', 'loc', 'meth', 'cond']) Object.assign(dict[k], PK.dict[k]);
+for (const [k, v] of Object.entries(PK.dict.reg)) dict.reg[k] = v;
+for (const r of csv('regions')) if (['hisui', 'paldea'].includes(r.identifier) && !dict.reg[r.id]) dict.reg[r.id] = [regName.get(r.id)?.es || regName.get(r.id)?.en || r.identifier, regName.get(r.id)?.en || r.identifier];
 fs.writeFileSync(path.join(OUT, 'enc-dict.json'), JSON.stringify(dict));
+fs.writeFileSync(path.join(RAW, 'untranslated-locations.txt'), [...UNTRANSLATED].sort().join('\n'));
 
 // ───── paquetes por k (los mismos que data/pokemon) ─────
 fs.mkdirSync(path.join(OUT, 'enc'), { recursive: true });
@@ -149,5 +167,6 @@ for (const [pid, rows] of byPokemon) {
     (bundles.get(p.k) || bundles.set(p.k, {}).get(p.k))[p.id] = rows; withData++; rowsTotal += rows.length;
   }
 }
+for (const [id, rows] of PK.rows) { const p = index.find(x => x.id === id); if (!p) continue; const b = bundles.get(p.k) || bundles.set(p.k, {}).get(p.k); if (!b[id]) withData++; b[id] = [...(b[id] || []), ...rows]; rowsTotal += rows.length; }
 for (const [k, b] of bundles) fs.writeFileSync(path.join(OUT, 'enc', `${k}.json`), JSON.stringify(b));
 console.log(`Pokémon con datos: ${withData}/${index.length} · filas: ${rowsTotal} · paquetes: ${bundles.size}`);

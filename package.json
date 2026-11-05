@@ -7,7 +7,8 @@
   "scripts": {
     "fetch": "node scripts/fetch-sources.mjs",
     "build": "node scripts/build-data.mjs",
-    "update": "npm run fetch && npm run build",
+    "encounters": "node scripts/build-encounters.mjs",
+    "update": "npm run fetch && npm run build && npm run encounters",
     "serve": "npx --yes serve . -l 8080"
   },
   "license": "MIT",
