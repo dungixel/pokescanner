@@ -940,3 +940,12 @@ table.mx { display: table; margin: 0 auto; }
 .tc-detail .mx-row { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
 .tc-detail .mx-row b { width: auto; }
 .tc-detail .mx { gap: 14px; }
+.shinybtn { position: absolute; top: 12px; right: 12px; z-index: 2; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--surface); border: 1px solid var(--line); color: var(--ink); cursor: pointer; transition: transform .15s var(--ease), background .2s, color .2s; }
+.shinybtn:active { transform: scale(.92); }
+.shinybtn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linejoin: round; }
+.shinybtn.on { background: var(--ink); color: var(--bg); }
+.shinybtn.on svg { fill: currentColor; }
+.phero .art.swap-in { animation: shinyIn .45s var(--ease); }
+@keyframes shinyIn { from { opacity: 0; transform: scale(.9) rotate(-3deg); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .phero .art.swap-in { animation: none; } }

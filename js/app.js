@@ -2,7 +2,7 @@ import {
   TYPES, TYPE_ES, TYPE_EN, TYPE_COLOR, STATS, typeName, statName, catName, tierInfo, TIER_ORDER, formatName,
   esc, fold, dexNum, fmtNum, store, matchups, bst, statColor, tierLabel, tierColor, tierNum, tierNumHTML, TIER_MAX, formatRank,
   pname, pname2, dn, dn2, dd, how,
-  pokeImg, itemImg, typeIcon, typePill, typeDot, catIcon, SPR,
+  pokeImg, itemImg, typeIcon, typePill, typeDot, catIcon, SPR, img, spriteChain,
 } from './util.js';
 import { t, lang, setLang } from './i18n.js';
 import { analyzeTeam, scoreInfo } from './team.js';
@@ -1140,6 +1140,12 @@ function levelMovesHTML(expanded) {
 }
 
 const favBtnInner = on => (on ? `${IC.starF}${t('favAddedBtn')}` : `${IC.star}${t('favAddBtn')}`);
+const SPARK = '<svg viewBox="0 0 24 24"><path d="M10 4l1.7 4.6L16.3 10l-4.6 1.7L10 16.3 8.3 11.7 3.7 10l4.6-1.4L10 4zM18 13l.9 2.1L21 16l-2.1.9L18 19l-.9-2.1L15 16l2.1-.9L18 13z"/></svg>';
+const artImg = d => {
+  const sh = page?.shiny;
+  const srcs = sh ? [`${SPR}/pokemon/other/official-artwork/shiny/${d.sp}.png`, `${SPR}/pokemon/other/home/shiny/${d.sp}.png`, `https://play.pokemonshowdown.com/sprites/gen5-shiny/${d.ss}.png`] : spriteChain({ sp: d.sp, ss: d.ss }, 'art');
+  return img(srcs, { cls: 'poke art', alt: '', w: 300, h: 300 }).replace('loading="lazy"', 'fetchpriority="high"');
+};
 function pokemonHTML() {
   const { d } = page;
   const isFav = favs.has(d.id);
@@ -1148,7 +1154,8 @@ function pokemonHTML() {
   return `
   ${topbarHTML()}
   <section class="phero" aria-label="${esc(pname(d))}">
-    ${pokeImg({ sp: d.sp, ss: d.ss }, 'art', 'art', 300).replace('loading="lazy"', 'fetchpriority="high"')}
+    <button class="shinybtn ${page.shiny ? 'on' : ''}" data-act="shiny" aria-pressed="${!!page.shiny}" aria-label="${t('shiny')}">${SPARK}</button>
+    ${artImg(d)}
     <span class="num">${dexNum(d.num)}</span>
     <h1>${esc(pname(d))}</h1>
     ${same ? '' : `<span class="en">${esc(pname2(d))}</span>`}
@@ -1723,6 +1730,13 @@ document.addEventListener('click', e => {
 
     // ficha
     case 'row-fav': if (requireLogin({ type: 'fav', id: v })) openTeamPick(v); break;
+    case 'shiny': {
+      page.shiny = !page.shiny;
+      const b = $('.shinybtn'); b.classList.toggle('on', page.shiny); b.setAttribute('aria-pressed', page.shiny);
+      const old = $('.phero .art'); old.insertAdjacentHTML('beforebegin', artImg(page.d)); old.remove();
+      $('.phero .art').classList.add('swap-in');
+      break;
+    }
     case 'fav': if (requireLogin({ type: 'fav', id: page.d.id })) openTeamPick(page.d.id); break;
     case 'login-open': openLogin({ type: v }); break;
     case 'team-toggle': {
