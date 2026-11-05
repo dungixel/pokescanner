@@ -67,8 +67,8 @@ const battleF = svg(`<defs><mask id="bm" maskUnits="userSpaceOnUse" x="0" y="0" 
   <circle cx="${AX}" cy="${Y}" r="1.3" fill="#fff"/><circle cx="${BX}" cy="${Y}" r="1.3" fill="#fff"/></mask></defs>
   <g mask="url(#bm)" fill="currentColor" stroke="none"><circle cx="${AX}" cy="${Y}" r="${R}"/><circle cx="${BX}" cy="${Y}" r="${R}"/></g>${SPARK_F}`, 'f');
 
-const USERS_O = '<circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><path d="M21 21v-2a4 4 0 0 0-3-3.85"/>';
-const USERS_F = '<circle cx="9" cy="7" r="4"/><path d="M3 20v-1a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v1a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M16.5 3.2a4 4 0 0 1 0 7.6a4 4 0 0 0 0-7.6z"/><path d="M17.5 14.2a4 4 0 0 1 3.5 3.95V19a2 2 0 0 1-2 2h-1.4c.3-.6.4-1.2.4-1.9v-1.1a5.5 5.5 0 0 0-1.4-3.4z"/>';
+const USERS_O = '<path d="M21 14l-3 -3h-7a1 1 0 0 1 -1 -1v-6a1 1 0 0 1 1 -1h9a1 1 0 0 1 1 1v10"/><path d="M14 15v2a1 1 0 0 1 -1 1h-7l-3 3v-10a1 1 0 0 1 1 -1h2"/>';
+const USERS_F = '<path d="M20.901 14.995l-.044 -.006a.4 .4 0 0 1 -.102 -.02l-.045 -.012l-.048 -.017l-.045 -.016l-.043 -.02l-.045 -.022l-.04 -.024l-.044 -.026l-.043 -.032l-.036 -.027a1 1 0 0 1 -.073 -.066l-2.707 -2.707h-6.586a2 2 0 0 1 -2 -2v-6a2 2 0 0 1 2 -2h9a2 2 0 0 1 2 2v10a1 1 0 0 1 -.076 .383l-.02 .043l-.022 .045l-.024 .04l-.026 .044l-.032 .043l-.027 .036a1 1 0 0 1 -.578 .347l-.052 .008l-.044 .006a1 1 0 0 1 -.198 0"/><path d="M7 8.999v1.001a4 4 0 0 0 4 4h4v3a2 2 0 0 1 -2 2h-6.586l-2.707 2.707c-.63 .63 -1.707 .184 -1.707 -.707v-10a2 2 0 0 1 2 -2z"/>';
 export const DOCK = {
   'dock-community': { o: svg(USERS_O, 'o'), f: svg(USERS_F, 'f') },
   'dock-home': pair('home'), 'dock-battle': { o: battleO, f: battleF }, 'dock-favs': pair('star'), 'dock-settings': pair('settings'),
