@@ -1303,8 +1303,6 @@ dialog.cfm::backdrop { background: rgba(10, 12, 20, .5); }
 .clike svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .clike.on { color: #e5484d; } .clike.on svg { fill: #e5484d; animation: starpop .38s cubic-bezier(.34, 1.56, .64, 1); }
 .clike:active { background: var(--line); }
-.creps { list-style: none; margin: 0; padding: 0 0 0 22px; }
-.creps > ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .ccm.rep { padding: 10px; }
 .ccm.rep .avbtn .av { width: 28px; height: 28px; }
 .replybar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 0 0; padding: 6px 6px 6px 12px; border-radius: var(--r-pill); background: var(--soft); color: var(--muted); font-size: .84rem; font-weight: 600; }
@@ -1347,3 +1345,9 @@ dialog.cfm::backdrop { background: rgba(10, 12, 20, .5); }
 .cmvlink { display: inline-flex; align-items: center; gap: 8px; min-width: 0; padding: 0; background: none; border: 0; color: inherit; font: inherit; cursor: pointer; text-align: left; }
 .cmvlink b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cmvlink:active b { opacity: .6; }
+
+/* hilo: el comentario y todas sus respuestas viven dentro de una misma caja (como en Instagram) */
+.cthread { padding: 12px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line); }
+.cthread > .ccm { padding: 0; border: 0; background: none; border-radius: 0; }
+.cthread .creps { list-style: none; margin: 12px 0 0; padding: 0 0 0 10px; display: flex; flex-direction: column; gap: 8px; }
+.cthread .ccm.rep { padding: 10px; background: var(--soft); border: 0; border-radius: var(--r-md); }

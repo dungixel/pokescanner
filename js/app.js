@@ -2029,12 +2029,13 @@ function buildCardHTML({ m, d, cur }) {
 function commentHTML(c, reply = false) {
   const can = c.mine || com.post?.mine || auth.isAdmin();
   const body = esc(c.body).replace(/^@([A-Za-z0-9_]{3,16})/, '<span class="ment">@$1</span>');
-  return `<li class="ccm ${reply ? 'rep' : ''}" id="cm-${c.id}">
+  const tag = reply ? 'li' : 'div';
+  return `<${tag} class="ccm ${reply ? 'rep' : ''}" id="cm-${c.id}">
     <button class="avbtn" data-act="user-open" data-v="${c.user_id}" aria-label="${esc(c.username || '')}">${avatarImg(c.avatar, 'sm')}</button>
     <div class="cbody"><p><button class="userlink" data-act="user-open" data-v="${c.user_id}"><b>${esc(c.username || '?')}</b></button> ${body}</p>
       <div class="cmeta"><small>${ago(c.created_at)}</small>${c.likes ? `<small>${t(c.likes === 1 ? 'cmLikeOne' : 'cmLikeN', { n: c.likes })}</small>` : ''}<button class="cmbtn" data-act="cm-reply" data-v="${c.id}">${t('cmReply')}</button>${can ? `<button class="cmbtn del" data-act="com-cdel" data-v="${c.id}" aria-label="${t('comDelete')}">${IC.trash}</button>` : ''}</div></div>
     <button class="clike ${c.liked ? 'on' : ''}" data-act="cm-like" data-v="${c.id}" aria-pressed="${!!c.liked}" aria-label="${t('comLike')}">${heart(c.liked)}</button>
-  </li>`;
+  </${tag}>`;
 }
 /** comentarios principales con sus respuestas debajo (como en Instagram, las respuestas a respuestas cuelgan del mismo comentario) */
 function commentsListHTML() {
@@ -2042,7 +2043,7 @@ function commentsListHTML() {
   const orphans = all.filter(c => c.parent_id && !ids.has(String(c.parent_id)));
   return [...top, ...orphans].map(c => {
     const reps = all.filter(r => String(r.parent_id) === String(c.id));
-    return commentHTML(c) + (reps.length ? `<li class="creps"><ul>${reps.map(r => commentHTML(r, true)).join('')}</ul></li>` : '');
+    return `<li class="cthread">${commentHTML(c)}${reps.length ? `<ul class="creps">${reps.map(r => commentHTML(r, true)).join('')}</ul>` : ''}</li>`;
   }).join('');
 }
 function postHTML() {
