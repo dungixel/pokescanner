@@ -91,9 +91,9 @@ function settingsHTML() {
     ${accountHTML()}
     <div class="sgroup"><div class="spills">
       <button class="ddbtn spill" data-act="sdd" data-v="lang" aria-expanded="${sdd === 'lang'}" aria-haspopup="listbox"><span class="ddl">${t('language')}</span><span class="ddv"><img class="flag" src="${FLAG[lang()]}" alt="" width="18" height="14">${LANGS[lang()]}</span><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
-      <button class="ddbtn spill" data-act="sdd" data-v="theme" aria-expanded="${sdd === 'theme'}" aria-haspopup="listbox"><span class="ddl">${t('theme')}</span><span class="ddv">${t(pref === 'system' ? 'themeSystem' : pref)}</span><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button></div>
       ${sdd === 'lang' ? `<div class="sdl" role="listbox">${['es', 'en'].map(l => `<button class="sopt" role="radio" data-act="set-lang" data-v="${l}" aria-checked="${lang() === l}"><img class="flag" src="${FLAG[l]}" alt="" width="24" height="18">${LANGS[l]}<span class="ck">${I.check}</span></button>`).join('')}</div>` : ''}
-      ${sdd === 'theme' ? `<div class="sdl" role="listbox">${['system', 'light', 'dark'].map(m => `<button class="sopt" role="radio" data-act="set-theme" data-v="${m}" aria-checked="${pref === m}">${I[THEME_ICON[m]]}${t(m === 'system' ? 'themeSystem' : m)}<span class="ck">${I.check}</span></button>`).join('')}</div>` : ''}</div>
+      <button class="ddbtn spill" data-act="sdd" data-v="theme" aria-expanded="${sdd === 'theme'}" aria-haspopup="listbox"><span class="ddl">${t('theme')}</span><span class="ddv">${t(pref === 'system' ? 'themeSystem' : pref)}</span><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+      ${sdd === 'theme' ? `<div class="sdl" role="listbox">${['system', 'light', 'dark'].map(m => `<button class="sopt" role="radio" data-act="set-theme" data-v="${m}" aria-checked="${pref === m}">${I[THEME_ICON[m]]}${t(m === 'system' ? 'themeSystem' : m)}<span class="ck">${I.check}</span></button>`).join('')}</div>` : ''}</div></div>
     ${offlineHTML()}
     ${auth.userInfo() ? feedbackHTML() : ''}
     ${auth.userInfo() ? `<div class="sgroup"><button class="sopt" data-act="sign-out">${I.logout}${t('signOut')}</button></div>` : ''}

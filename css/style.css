@@ -1235,3 +1235,4 @@ button.slot.slothead { cursor: pointer; }
 .fstats small { display: block; color: var(--muted); font-size: .68rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fstats b { font-size: .95rem; }
 .spill .ddl::after { content: ":"; }
+.spills .spill { order: 0; } .spills .sdl { order: 0; flex: 0 0 100%; margin-top: 0; }
