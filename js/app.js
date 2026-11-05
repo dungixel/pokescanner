@@ -1138,7 +1138,7 @@ function renderTeams() {
 }
 
 // ───────────────────────── Batalla ─────────────────────────
-const bt = { friends: [], online: new Map(), others: new Map(), a: { owner: 'me', slot: 0 }, b: { owner: 'me', slot: 1 }, res: null, busy: false, msg: '', live: false };
+const bt = { friends: [], online: new Map(), others: new Map(), a: { owner: 'me', slot: 0 }, b: { owner: 'me', slot: 1 }, res: null, busy: false, msg: '', live: false, menu: null };
 const friendById = id => bt.friends.find(f => f.user_id === id);
 const frAvatar = f => avatarImg(f.avatar);
 const teamOf = sel => (sel.owner === 'me' ? teams[sel.slot] : bt.others.get(sel.owner)?.[sel.slot] || null);
@@ -1188,20 +1188,29 @@ async function renderBattle() {
   watchBattle().catch(() => {});
 }
 const optLabel = (i, tm) => `${i + 1}. ${tm.name || t('teamN', { n: i + 1 })} (${tm.members.length}/${MAXTEAM})`;
-function teamSelect(id, side) {
-  const sel = bt[side];
-  const val = `${sel.owner}:${sel.slot}`;
-  const mine = `<optgroup label="${t('mineGroup')}">${teams.map((tm, i) => `<option value="me:${i}" ${val === `me:${i}` ? 'selected' : ''}>${esc(optLabel(i, tm))}</option>`).join('')}</optgroup>`;
-  const theirs = bt.friends.filter(f => f.direction === 'friend').map(f => {
+/** Lista de equipos elegibles (los tuyos y los de tus amigos), con el diseño de la web en vez del desplegable del navegador */
+function teamMenuHTML(side) {
+  const sel = bt[side], val = `${sel.owner}:${sel.slot}`;
+  const opt = (owner, i, tm) => {
+    const ps = tm.members.map(m => BYID.get(m.id)).filter(Boolean), on = val === `${owner}:${i}`;
+    return `<button class="topt ${on ? 'on' : ''}" role="option" aria-selected="${on}" data-act="team-pick" data-side="${side}" data-v="${owner}:${i}" ${ps.length ? '' : 'disabled'}>
+      <span class="sn">${i + 1}</span>
+      <span class="tn2"><b>${esc(tm.name || t('teamN', { n: i + 1 }))}</b><span class="minis">${ps.map(p => pokeImg(p, 'small', 'mini')).join('') || `<small>${t('teamEmpty')}</small>`}</span></span>
+      <span class="tck">${on ? IC.check : `<small>${tm.members.length}/${MAXTEAM}</small>`}</span></button>`;
+  };
+  const groups = [`<div class="tgrp">${t('mineGroup')}</div>${teams.map((tm, i) => opt('me', i, tm)).join('')}`];
+  bt.friends.filter(f => f.direction === 'friend').forEach(f => {
     const list = (bt.others.get(f.user_id) || []).map((tm, i) => [tm, i]).filter(([tm]) => tm.members.length);
-    return list.length ? `<optgroup label="${esc(t('friendGroup', { name: f.username }))}">${list.map(([tm, i]) => `<option value="${f.user_id}:${i}" ${val === `${f.user_id}:${i}` ? 'selected' : ''}>${esc(optLabel(i, tm))}</option>`).join('')}</optgroup>` : '';
-  }).join('');
-  return `<select id="${id}" class="tsel" data-side="${side}" aria-label="${t(side === 'a' ? 'yourTeam' : 'rivalTeam')}">${mine}${theirs}</select>`;
+    if (list.length) groups.push(`<div class="tgrp">${esc(t('friendGroup', { name: f.username }))}</div>${list.map(([tm, i]) => opt(f.user_id, i, tm)).join('')}`);
+  });
+  return `<div class="tmenu ${side}" role="listbox" aria-label="${t(side === 'a' ? 'yourTeam' : 'rivalTeam')}">${groups.join('')}</div>`;
 }
 const sidePreview = (sel, cls) => {
   const tm = teamOf(sel);
   const ps = (tm?.members || []).map(m => BYID.get(m.id)).filter(Boolean);
-  return `<div class="side ${cls}"><small>${ownerName(sel)}</small><b>${esc(tm?.name || t('teamN', { n: sel.slot + 1 }))}</b><span class="minis">${ps.map(p => pokeImg(p, 'small', 'mini')).join('') || `<small>${t('teamEmpty')}</small>`}</span></div>`;
+  const open = bt.menu === cls;
+  return `<button class="side ${cls} ${open ? 'open' : ''}" data-act="team-menu" data-v="${cls}" aria-haspopup="listbox" aria-expanded="${open}" aria-label="${t(cls === 'a' ? 'yourTeam' : 'rivalTeam')}">
+    <small>${ownerName(sel)}</small><b>${esc(tm?.name || t('teamN', { n: sel.slot + 1 }))}</b><span class="minis">${ps.map(p => pokeImg(p, 'small', 'mini')).join('') || `<small>${t('teamEmpty')}</small>`}</span><i class="sdd">${I.chev}</i></button>`;
 };
 function friendRow(f) {
   const on = !!bt.online.get(f.user_id);
@@ -1222,7 +1231,7 @@ function battleHTML() {
     ${bt.msg ? `<small class="unmsg">${esc(bt.msg)}</small>` : ''}
     <div class="frlist">${[...inc, ...fr, ...out].map(friendRow).join('') || `<p class="shint">${t('friendNone')}</p>`}</div></section>`;
   const compare = `<section class="sec"><div class="block-title"><h2>${t('compareTitle')}</h2>${bt.res && bt.b.owner !== 'me' ? `<span class="livebadge"><i></i>${t('live')}</span>` : ''}</div>
-    <div class="vsgrid"><div class="vscol">${teamSelect('sel-a', 'a')}${sidePreview(bt.a, 'a')}</div><span class="vs">${t('vs')}</span><div class="vscol">${teamSelect('sel-b', 'b')}${sidePreview(bt.b, 'b')}</div></div>
+    <div class="vswrap"><div class="vsgrid">${sidePreview(bt.a, 'a')}<span class="vs" aria-hidden="true"><b>${t('vs')}</b></span>${sidePreview(bt.b, 'b')}</div>${bt.menu ? teamMenuHTML(bt.menu) : ''}</div>
     <button class="gbtn comparebtn" data-act="compare" ${bt.busy ? 'disabled' : ''}>${IC.battle}${t(bt.busy ? 'comparing' : 'compareBtn')}</button>
     ${bt.cmpMsg ? `<small class="unmsg">${esc(bt.cmpMsg)}</small>` : ''}</section>`;
   return head + friendsSec + compare + (bt.res ? resultHTML() : '');
@@ -1350,19 +1359,16 @@ async function addFriend() {
   paintBattle();
 }
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'fr-name') { e.preventDefault(); addFriend(); } });
-document.addEventListener('change', e => {
-  const el = e.target;
-  if (el.classList?.contains('tsel')) {
-    const k = el.value.lastIndexOf(':');
-    bt[el.dataset.side] = { owner: el.value.slice(0, k), slot: Number(el.value.slice(k + 1)) };
-    bt.res = null; bt.cmpMsg = ''; paintBattle();
-  }
-});
+// el menú de equipos se cierra al pulsar fuera o con Escape
+document.addEventListener('pointerdown', e => { if (bt.menu && !e.target.closest('.tmenu, [data-act="team-menu"]')) { bt.menu = null; paintBattle(); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && bt.menu) { bt.menu = null; paintBattle(); } });
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-act]');
   if (!el) return;
   const v = el.dataset.v;
   switch (el.dataset.act) {
+    case 'team-menu': bt.menu = bt.menu === v ? null : v; paintBattle(); if (bt.menu) $('.tmenu')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); break;
+    case 'team-pick': { const k = v.lastIndexOf(':'), side = el.dataset.side; bt[side] = { owner: v.slice(0, k), slot: Number(v.slice(k + 1)) }; bt.menu = null; bt.res = null; bt.cmpMsg = ''; paintBattle(); break; }
     case 'settings': { const p = el.parentElement.querySelector('.spanel'), open = p.hidden; closeSettings(); p.hidden = !open; el.setAttribute('aria-expanded', String(open)); break; }
     case 'set-theme': setTheme(v); break;
     case 'set-lang': switchLang(v); break;

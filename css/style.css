@@ -652,14 +652,6 @@ img.mini { width: 28px; height: 28px; object-fit: contain; flex: none; }
 .fname { display: grid; min-width: 0; } .fname b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .fname small { color: var(--muted); } .fname small.live { color: #2FAE5F; font-weight: 700; }
 
 /* comparador */
-.tsel { width: 100%; height: 46px; padding: 0 12px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-size: .95rem; font-weight: 600; -webkit-appearance: none; appearance: none; background-image: none; text-overflow: ellipsis; }
-.vsgrid { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: start; gap: 8px; }
-.vscol { display: grid; gap: 10px; min-width: 0; }
-.vs { align-self: center; font-weight: 800; color: var(--muted); font-size: .85rem; padding-top: 0; }
-.vscol .side { display: grid; gap: 4px; padding: 12px; border-radius: var(--r-lg); min-height: 96px; align-content: start; }
-.vscol .side.a { background: color-mix(in srgb, #3B7BEF 12%, var(--surface)); }
-.vscol .side.b { background: color-mix(in srgb, #E5484D 12%, var(--surface)); }
-.vscol .side small { color: var(--muted); } .vscol .side b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .comparebtn { width: 100%; margin-top: 14px; justify-content: center; }
 .comparebtn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .livebadge { display: inline-flex; align-items: center; gap: 6px; font-size: .78rem; font-weight: 700; color: #2FAE5F; }
@@ -734,3 +726,32 @@ img.mini { width: 28px; height: 28px; object-fit: contain; flex: none; }
   .backfab { top: calc(var(--nav) + 12px); }
   #toast, .toast { bottom: 32px; }
 }
+
+/* comparador: dos cajas con un VS en medio y una lista propia para elegir equipo */
+.vswrap { position: relative; }
+.vsgrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: stretch; gap: 14px; position: relative; }
+.vsgrid .side { position: relative; display: grid; gap: 4px; padding: 14px 14px 14px 14px; border-radius: var(--r-lg); min-height: 112px; align-content: center; text-align: left; transition: box-shadow .2s; }
+.vsgrid .side.a { background: color-mix(in srgb, #3B7BEF 13%, var(--surface)); --sc: #3B7BEF; }
+.vsgrid .side.b { background: color-mix(in srgb, #E5484D 13%, var(--surface)); --sc: #E5484D; }
+.vsgrid .side.open { box-shadow: 0 0 0 3px color-mix(in srgb, var(--sc) 45%, transparent); }
+.vsgrid .side.a { padding-right: 34px; } .vsgrid .side.b { padding-left: 36px; }
+.vsgrid .side small { color: var(--muted); }
+.vsgrid .side b { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.2; overflow-wrap: anywhere; }
+.sdd { position: absolute; top: 12px; right: 12px; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; background: color-mix(in srgb, var(--sc) 18%, transparent); color: var(--sc); }
+.sdd svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; transition: transform .2s; }
+.side.open .sdd svg { transform: rotate(180deg); }
+.vs { position: absolute; left: 50%; top: 50%; translate: -50% -50%; z-index: 3; width: 62px; height: 62px; border-radius: 50%; display: grid; place-items: center; pointer-events: none;
+  background: conic-gradient(from 210deg, #3B7BEF, #8A5CF6 25%, #E5484D 50%, #F2872B 75%, #3B7BEF); padding: 3px;
+  box-shadow: -10px 0 22px -6px rgba(59, 123, 239, .55), 10px 0 22px -6px rgba(229, 72, 77, .55), 0 6px 16px rgba(8, 10, 18, .25); }
+.vs b { width: 100%; height: 100%; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: var(--bg); font-size: 1.28rem; font-weight: 900; font-style: italic; letter-spacing: -.04em; padding-right: 2px; text-shadow: 0 0 10px color-mix(in srgb, var(--bg) 50%, transparent); }
+.tmenu { margin-top: 10px; scroll-margin-bottom: 110px; max-height: min(60dvh, 420px); overflow-y: auto; overscroll-behavior: contain; padding: 8px; display: grid; gap: 4px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line); box-shadow: 0 18px 44px rgba(8, 10, 18, .28); animation: tmenuIn .16s ease-out; }
+@keyframes tmenuIn { from { opacity: 0; transform: translateY(-6px); } }
+.tgrp { padding: 8px 8px 4px; font-size: .78rem; font-weight: 700; color: var(--muted); }
+.topt { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--r-md); text-align: left; }
+.topt:hover:not(:disabled) { background: var(--soft); }
+.topt:disabled { opacity: .45; }
+.topt.on { background: color-mix(in srgb, var(--sc, var(--accent)) 14%, var(--surface)); }
+.tmenu.a .topt.on { --sc: #3B7BEF; } .tmenu.b .topt.on { --sc: #E5484D; }
+.topt .sn { width: 32px; height: 32px; font-size: .9rem; }
+.tn2 { display: grid; gap: 2px; min-width: 0; } .tn2 b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tck { color: var(--muted); font-weight: 700; } .tck svg { width: 20px; height: 20px; fill: none; stroke: var(--sc); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
