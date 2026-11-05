@@ -1344,3 +1344,6 @@ dialog.cfm::backdrop { background: rgba(10, 12, 20, .5); }
 .cbox .hpch { margin-bottom: 12px; }
 .cbox .hpch .chip { background: var(--surface); }
 .cbox .hpch .chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.cmvlink { display: inline-flex; align-items: center; gap: 8px; min-width: 0; padding: 0; background: none; border: 0; color: inherit; font: inherit; cursor: pointer; text-align: left; }
+.cmvlink b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cmvlink:active b { opacity: .6; }
