@@ -1211,7 +1211,7 @@ function pokemonHTML() {
     <button class="shinybtn ${page.shiny ? 'on' : ''}" data-act="shiny" aria-pressed="${!!page.shiny}" aria-label="${t('shiny')}">${SPARK}</button>
     ${artImg(d)}
     <span class="num">${dexNum(d.num)}</span>
-    <h1>${esc(pname(d))}</h1>
+    <h1>${esc(pname(d))}${page.mod ? ` <small class="modtag">(${t('modified')})</small>` : ''}</h1>
     ${same ? '' : `<span class="en">${esc(pname2(d))}</span>`}
     <div class="tags">${d.t.map(typePill).join('')}</div>
     <div class="rank"><small>${t('rank')}</small><button class="tier" style="--tier:${tierColor(d.r)}" data-act="tier" data-v="${esc(d.r)}" aria-label="${t('rankAria', { r: esc(tierLabel(d.r)) })}">${tierNumHTML(d.r)}${esc(tierLabel(d.r))}</button>
@@ -1251,8 +1251,8 @@ async function renderPokemon(id) {
   let d;
   try { [d] = await Promise.all([getPokemon(id), getDict()]); }
   catch { $app.innerHTML = `<div class="empty"><b>${t('loadFail')}</b>${t('loadFailHint')}</div>`; return; }
-  if (state.view !== 'pokemon' || !location.hash.endsWith(id)) return; // se navegó a otro sitio mientras cargaba
-  page = { d, fmt: d.sets[0]?.f, idx: 0, expanded: false };
+  if (state.view !== 'pokemon' || !location.hash.startsWith(`#/pokemon/${id}`)) return; // se navegó a otro sitio mientras cargaba
+  page = { d, fmt: d.sets[0]?.f, idx: 0, expanded: false, mod: /[?&]mod=1\b/.test(location.hash) };
   $app.innerHTML = pokemonHTML();
   document.documentElement.style.setProperty('--accent', TYPE_COLOR[d.t[0]]);
   animate($('#stats'));
@@ -1550,7 +1550,7 @@ function buildCardHTML({ m, d, cur }) {
   const it = DICT.items[cur.i], ab = d.ab.find(a => a.id === cur.a), nat = DICT.natures[cur.n];
   const evs = cur.e.map((v, i) => (v ? `${v} ${statName(EDK[i])}` : '')).filter(Boolean).join(' / ');
   const ivs = cur.v.some(v => v !== 31) ? cur.v.map((v, i) => (v !== 31 ? `${v} ${statName(EDK[i])}` : '')).filter(Boolean).join(' / ') : '';
-  return `<div class="cbuild"><a class="cb-poke" href="#/pokemon/${d.id}">${pokeImg(d, 'small', 'thumb', undefined, cur.sh)}<b>${esc(pname(d))}</b></a>
+  return `<div class="cbuild"><a class="cb-poke" href="#/pokemon/${d.id}${m.b && Object.keys(m.b).some(k => k !== 'sh') ? '?mod=1' : ''}">${pokeImg(d, 'small', 'thumb', undefined, cur.sh)}<b>${esc(pname(d))}</b></a>
     <div class="cb-info">
       <div class="cb-line">${it ? `<span class="cb-item">${itemImg(it)}${esc(dn(it))}</span>` : ''}${ab ? `<span>${esc(dn(ab))}</span>` : ''}${nat ? `<span>${esc(dn(nat))}${nat.plus ? ` <small>+${statName(nat.plus)} −${statName(nat.minus)}</small>` : ''}</span>` : ''}</div>
       <div class="cb-moves">${cur.m.map(id => { const mv = DICT.moves[id]; return mv ? `<span class="cb-mv" style="--tc:${TYPE_COLOR[mv.t]}">${typeIcon(mv.t)}${esc(dn(mv))}</span>` : ''; }).join('')}</div>

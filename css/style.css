@@ -1061,3 +1061,4 @@ table.mx { display: table; margin: 0 auto; }
 .ccm > div { min-width: 0; flex: 1; }
 .shint.err { color: #e5484d; min-height: 1em; }
 .slotopt:not(.on) .sck { opacity: 0; }
+.modtag { font-size: .4em; font-weight: 600; color: var(--muted); letter-spacing: 0; white-space: nowrap; vertical-align: middle; }
