@@ -705,4 +705,4 @@ img.mini { width: 28px; height: 28px; object-fit: contain; flex: none; }
 .facthint { display: flex; justify-content: space-between; margin-top: 6px; }
 
 /* zoom e inclinación 3D al pasar el ratón (lo controla el JS; ver "tilt-on") */
-.tilt-on { transform: perspective(700px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) scale(var(--s, 1.04)) !important; transition: transform .14s ease-out !important; will-change: transform; }
+.tilt-on { transform: perspective(520px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) scale(var(--s, 1.09)) !important; transition: transform .14s ease-out !important; will-change: transform; }

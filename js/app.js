@@ -1460,14 +1460,14 @@ if (matchMedia('(hover: hover) and (pointer: fine)').matches && !matchMedia('(pr
     const r = cur.getBoundingClientRect();
     const x = (e.clientX - r.left) / r.width - 0.5, y = (e.clientY - r.top) / r.height - 0.5;
     const big = Math.max(r.width, r.height) > 260; // las piezas grandes se inclinan menos
-    const max = big ? 2.2 : 6;
+    const max = big ? 5 : 14;
     cur.style.setProperty('--ry', `${(x * max * 2).toFixed(2)}deg`);
     cur.style.setProperty('--rx', `${(-y * max * 2).toFixed(2)}deg`);
-    cur.style.setProperty('--s', big ? 1.012 : 1.045);
+    cur.style.setProperty('--s', big ? 1.03 : 1.09);
   }, { passive: true });
   document.addEventListener('pointerleave', reset);
-  document.addEventListener('pointerdown', () => cur?.style.setProperty('--s', 0.98));
-  document.addEventListener('pointerup', () => cur?.style.setProperty('--s', 1.04));
+  document.addEventListener('pointerdown', () => cur?.style.setProperty('--s', 0.96));
+  document.addEventListener('pointerup', () => cur?.style.setProperty('--s', 1.06));
   window.addEventListener('blur', reset);
 }
 
