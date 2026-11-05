@@ -66,6 +66,9 @@ function switchLang() {
     $app.innerHTML = pokemonHTML();
     $('#stats')?.classList.add('go'); // las barras salen ya llenas: no se vuelven a animar
     window.scrollTo(0, y);
+  } else if (['move', 'ability', 'item', 'tier'].includes(state.view) && pageData) {
+    paintDetailPage();
+    window.scrollTo(0, y);
   } else if (state.view === 'home') {
     state.scroll = y;
     renderHome();
@@ -78,8 +81,10 @@ async function getJSON(url) {
   if (!r.ok) throw new Error(`${r.status} ${url}`);
   return r.json();
 }
-let dictP = null, learnersP = null, LEARNERS = null;
+let dictP = null, learnersP = null, LEARNERS = null, abilP = null, ABIL = null, itemP = null, ITEMS = null;
 const getDict = () => (dictP ??= getJSON('data/dict.json').then(d => (DICT = d)).catch(e => { dictP = null; throw e; }));
+const getAbil = () => (abilP ??= getJSON('data/abilities.json').then(d => (ABIL = d)).catch(e => { abilP = null; throw e; }));
+const getItems = () => (itemP ??= getJSON('data/items.json').then(d => (ITEMS = d)).catch(e => { itemP = null; throw e; }));
 const getLearners = () => (learnersP ??= getJSON('data/learners.json').then(d => (LEARNERS = d)).catch(e => { learnersP = null; throw e; }));
 /** Las fichas viajan en paquetes de 60 Pokémon (data/pokemon/<k>.json); se piden una vez y se reutilizan */
 async function getPokemon(id) {
@@ -137,46 +142,166 @@ sheet.addEventListener('close', () => document.documentElement.classList.remove(
 sheet.addEventListener('click', e => { if (e.target === sheet) sheet.close(); });
 
 const otherName = x => (dn2(x) && dn2(x) !== dn(x) ? `<p class="dim">${t('otherName', { n: esc(dn2(x)) })}</p>` : '');
-function moveSheet(id) {
-  const m = DICT.moves[id];
-  if (!m) return;
-  openSheet(dn(m), `
-    <div class="lead">${typePill(m.t)}<span class="chip small ghost">${catIcon(m.c)} ${catName(m.c)}</span></div>
-    <div class="kv">
-      <div><b>${m.p || '—'}</b><small>${t('power')}</small></div>
-      <div><b>${m.a ? m.a + '%' : '—'}</b><small>${t('accuracy')}</small></div>
-      <div><b>${m.pp || '—'}</b><small>PP</small></div>
-      <div><b>${m.pr > 0 ? '+' + m.pr : m.pr}</b><small>${t('priority')}</small></div>
-    </div>
-    <p>${esc(dd(m)) || `<span class="dim">${t('noDesc')}</span>`}</p>
-    ${otherName(m)}
-    <div class="learners" id="learners"></div>`);
-  sheet.dataset.mv = id;
-  getLearners().then(() => renderLearners(id, false)).catch(() => {});
+
+// ───────────────────────── Páginas de movimiento y habilidad ─────────────────────────
+let navDepth = 0; // cuántas navegaciones se han hecho dentro de la web (para que "volver" no mande siempre al inicio)
+const topbarHTML = () => `<div class="topbar">
+    <button class="iconbtn" data-act="back" aria-label="${t('backShort')}">${I.back}</button>
+    <div class="right">${langBtn()}${themeBtn()}</div></div>`;
+const FIRST = 12; // Pokémon que se enseñan antes de "Ver todos"
+const strength = p => tierNum(p.r) || 14; // 1 = más fuerte; LC y NFE cuentan como lo más débil
+
+const fitSets = (k, n) => (n === 1 ? t('fit_set1') : t('fit_sets', { k, n }));
+/** Puntúa lo bien que le viene un movimiento a un Pokémon y explica por qué */
+function moveFit(m, p, use, total) {
+  let sc = 0; const why = [];
+  if (use) { sc += 40 + 50 * use / total; why.push(fitSets(use, total)); }
+  else why.push(t('fit_lv'));
+  if (m.c !== 'e') {
+    const stab = p.t.includes(m.t);
+    const v = p.s[m.c === 'f' ? 1 : 3];
+    if (stab) { sc += 14; why.push(t('fit_stab')); }
+    sc += v / 255 * 22;
+    if (v >= 100) why.push(`${statName(m.c === 'f' ? 'atk' : 'spa')} ${v}`);
+  }
+  sc += (14 - strength(p)) * 1.4;
+  return { p, sc, why };
 }
-/** Pokémon que aprenden un movimiento (por nivel o en su build); se carga bajo demanda */
-function renderLearners(id, all) {
-  const box = $('#learners', sheet);
-  if (!box || sheet.dataset.mv !== id) return;
-  const list = (LEARNERS[id] || []).map(i => INDEX[i]);
-  if (!list.length) { box.innerHTML = `<p class="hint">${t('noLearners')}</p>`; return; }
-  const shown = all ? list : list.slice(0, 24);
-  box.innerHTML = `<h3>${t('learnersTitle', { n: list.length })}</h3><p class="hint">${t('learnersNote')}</p>
-    <div class="chips">${shown.map(p => `<a class="chip" href="#/pokemon/${p.id}">${pokeImg(p, 'small', 'thumb')}${esc(pname(p))}</a>`).join('')}
-    ${!all && list.length > shown.length ? `<button class="chip accent" data-act="learners-all" data-v="${id}">${t('showAllN', { n: list.length })}</button>` : ''}</div>`;
+function fitRow({ p, why }) {
+  return `<a class="row" href="#/pokemon/${p.id}" style="--c:${TYPE_COLOR[p.t[0]]}">
+    ${pokeImg(p, 'small')}
+    <span class="meta"><b>${esc(pname(p))}</b><span class="sub"><span class="types">${p.t.map(typeDot).join('')}</span></span>
+      <span class="why">${why.map(esc).join(' · ')}</span></span>
+    <span class="side">${tierBadge(p.r, '', p.g)}</span></a>`;
 }
-function abilitySheet(id) {
-  const a = DICT.abilities[id];
-  if (!a) return;
-  openSheet(dn(a), `<p>${esc(dd(a)) || `<span class="dim">${t('noDesc')}</span>`}</p>${otherName(a)}`);
+const chipPoke = p => `<a class="chip" href="#/pokemon/${p.id}">${pokeImg(p, 'small', 'thumb')}${esc(pname(p))}</a>`;
+const byStrength = (a, b) => strength(a) - strength(b) || a.num - b.num;
+/** Lista que muestra los primeros y deja ver el resto con un botón */
+function listSection(key, title, hint, items, render, wrap) {
+  if (!items.length) return '';
+  const all = pageExpand.has(key), shown = all ? items : items.slice(0, FIRST);
+  return `<section class="sec"><h2>${title} <small>${items.length}</small></h2>${hint ? `<p class="hint">${hint}</p>` : ''}
+    <div class="${wrap}">${shown.map(render).join('')}</div>
+    ${!all && items.length > shown.length ? `<button class="chip accent more" data-act="more-list" data-v="${key}">${t('showAllN', { n: items.length })}</button>` : ''}</section>`;
 }
-function itemSheet(id) {
-  const it = DICT.items[id];
-  if (!it) return;
-  openSheet(dn(it), `
-    <div class="lead">${it.i ? itemImg(it, 'big') : ''}<div><b>${esc(dn(it))}</b>${dn2(it) !== dn(it) ? `<div class="dim">${esc(dn2(it))}</div>` : ''}</div></div>
-    <p>${esc(dd(it)) || ''}</p>`);
+let pageExpand = new Set(), pageData = null;
+const SRC = { move: 'moves', ability: 'abilities', item: 'items', tier: null };
+const HTML = { move: moveHTML, ability: abilityHTML, item: itemHTML, tier: tierHTML };
+
+function moveHTML(id) {
+  const m = DICT.moves[id], L = LEARNERS[id] || { s: [], l: [] };
+  const fit = [
+    ...L.s.map(([i, k, n]) => moveFit(m, INDEX[i], k, n)),
+    ...L.l.map(i => moveFit(m, INDEX[i], 0, 0)),
+  ].sort((x, y) => y.sc - x.sc || byStrength(x.p, y.p));
+  const best = fit.filter(f => f.sc >= 0).slice(0, FIRST);
+  const rest = fit.slice(FIRST);
+  const all = pageExpand.has('rest');
+  const body = fit.length
+    ? `<section class="sec"><h2>${t('mv_best')} <small>${best.length}</small></h2><p class="hint">${t('mv_bestNote')}</p>
+        <div class="list">${best.map(fitRow).join('')}</div></section>
+       ${rest.length ? `<section class="sec"><h2>${t('mv_rest')} <small>${rest.length}</small></h2>
+         <div class="list">${(all ? rest : rest.slice(0, 0)).map(fitRow).join('')}</div>
+         ${all ? '' : `<button class="chip accent more" data-act="more-list" data-v="rest">${t('showAllN', { n: rest.length })}</button>`}</section>` : ''}`
+    : `<section class="sec"><p class="hint">${t('noLearners')}</p></section>`;
+  return `${topbarHTML()}
+  <section class="mhero" style="--tc:${TYPE_COLOR[m.t]}">
+    <span class="mtag">${t('move')}</span>
+    <h1>${esc(dn(m))}</h1>
+    ${dn2(m) && dn2(m) !== dn(m) ? `<span class="en">${esc(dn2(m))}</span>` : ''}
+    <div class="tags">${typePill(m.t)}<span class="chip small ghost">${catIcon(m.c)} ${catName(m.c)}</span></div>
+  </section>
+  <section class="sec"><div class="kv">
+    <div><b>${m.p || '—'}</b><small>${t('power')}</small></div>
+    <div><b>${m.a ? m.a + '%' : '—'}</b><small>${t('accuracy')}</small></div>
+    <div><b>${m.pp || '—'}</b><small>PP</small></div>
+    <div><b>${m.pr > 0 ? '+' + m.pr : m.pr}</b><small>${t('priority')}</small></div>
+  </div></section>
+  <section class="sec"><h2>${t('description')}</h2><p class="desc">${esc(dd(m)) || `<span class="dim">${t('noDesc')}</span>`}</p></section>
+  ${body}${footerHTML()}`;
 }
+function abilityHTML(id) {
+  const a = DICT.abilities[id], L = ABIL[id] || { s: [], n: [], h: [] };
+  const users = L.s.map(([i, k, n]) => ({ p: INDEX[i], r: k / n, why: [fitSets(k, n)] }))
+    .sort((x, y) => y.r - x.r || byStrength(x.p, y.p));
+  const inSets = new Set(L.s.map(x => x[0]));
+  const plain = list => list.filter(i => !inSets.has(i)).map(i => INDEX[i]).sort(byStrength);
+  const normal = plain(L.n), hidden = plain(L.h);
+  const none = !users.length && !normal.length && !hidden.length;
+  return `${topbarHTML()}
+  <section class="mhero" style="--tc:var(--accent)">
+    <span class="mtag">${t('ability')}</span>
+    <h1>${esc(dn(a))}</h1>
+    ${dn2(a) && dn2(a) !== dn(a) ? `<span class="en">${esc(dn2(a))}</span>` : ''}
+  </section>
+  <section class="sec"><h2>${t('description')}</h2><p class="desc">${esc(dd(a)) || `<span class="dim">${t('noDesc')}</span>`}</p></section>
+  ${listSection('users', t('ab_best'), t('ab_bestNote'), users, fitRow, 'list')}
+  ${listSection('normal', t('ab_normal'), '', normal, chipPoke, 'chips')}
+  ${listSection('hidden', t('ab_hidden'), '', hidden, chipPoke, 'chips')}
+  ${none ? `<section class="sec"><p class="hint">${t('ab_none')}</p></section>` : ''}
+  ${footerHTML()}`;
+}
+
+function itemHTML(id) {
+  const it = DICT.items[id], L = ITEMS[id] || [];
+  const users = L.map(([i, k, n]) => ({ p: INDEX[i], r: k / n, why: [fitSets(k, n)] }))
+    .sort((x, y) => y.r - x.r || byStrength(x.p, y.p));
+  return `${topbarHTML()}
+  <section class="mhero" style="--tc:var(--accent)">
+    <span class="mtag">${t('item')}</span>
+    ${it.i ? itemImg(it, 'big') : ''}
+    <h1>${esc(dn(it))}</h1>
+    ${dn2(it) && dn2(it) !== dn(it) ? `<span class="en">${esc(dn2(it))}</span>` : ''}
+  </section>
+  <section class="sec"><h2>${t('description')}</h2><p class="desc">${esc(dd(it)) || `<span class="dim">${t('noDesc')}</span>`}</p></section>
+  ${users.length ? listSection('users', t('it_best'), t('it_bestNote'), users, fitRow, 'list') : `<section class="sec"><p class="hint">${t('it_none')}</p></section>`}
+  ${footerHTML()}`;
+}
+function tierHTML(r) {
+  const info = tierInfo(r), n = tierNum(r);
+  const power = p => bst(p.s) + (p.ns ? 50 : 0); // primero los que tienen build en Smogon; después, por estadísticas totales
+  const inTier = INDEX.filter(p => p.r === r).sort((x, y) => power(y) - power(x) || x.num - y.num)
+    .map(p => ({ p, why: [`${t('total')} ${bst(p.s)}`, ...(p.ns ? [t(p.ns === 1 ? 'nBuild1' : 'nBuilds', { n: p.ns })] : [])] }));
+  const near = n ? [TIER_ORDER[TIER_ORDER.indexOf(r) - 1], TIER_ORDER[TIER_ORDER.indexOf(r) + 1]].filter(x => x && tierNum(x)) : [];
+  const nearChip = x => `<a class="chip" href="#/tier/${x}"><span class="tier" style="--tier:${tierColor(x)}">${tierNumHTML(x)}${esc(tierLabel(x))}</span></a>`;
+  const all = pageExpand.has('mons'), shown = all ? inTier : inTier.slice(0, FIRST);
+  return `${topbarHTML()}
+  <section class="mhero" style="--tc:${tierColor(r)}">
+    <span class="mtag">${t('rank')}</span>
+    <h1><span class="tier big" style="--tier:${tierColor(r)}">${tierNumHTML(r)}${esc(tierLabel(r))}</span></h1>
+    <span class="en">${esc(info ? info.n : r)}</span>
+  </section>
+  <section class="sec"><h2>${t('meaning')}</h2><p class="desc">${esc(info?.d || t('tierDefault'))}</p>
+    <p class="hint">${n ? t('tierPos', { n, m: TIER_MAX }) : t('tierNoScale')}</p>
+    ${near.length ? `<div class="chips near">${near.map(nearChip).join('')}</div>` : ''}</section>
+  <section class="sec"><h2>${t('tr_best')} <small>${inTier.length}</small></h2><p class="hint">${t('tr_bestNote')}</p>
+    <div class="list">${shown.map(fitRow).join('')}</div>
+    ${!all && inTier.length > shown.length ? `<button class="chip accent more" data-act="more-list" data-v="mons">${t('showAllN', { n: inTier.length })}</button>` : ''}
+    <button class="chip more" data-act="tier-go" data-v="${esc(r)}">${t('tierGo')}</button></section>
+  ${footerHTML()}`;
+}
+async function renderDetailPage(kind, id) {
+  state.view = kind;
+  const src = SRC[kind];
+  window.scrollTo(0, 0);
+  pageExpand = new Set();
+  pageData = { kind, id };
+  $app.innerHTML = `<p class="boot">${t('loading', { n: '…' })}</p>`;
+  try { await Promise.all([getDict(), kind === 'move' ? getLearners() : kind === 'ability' ? getAbil() : kind === 'item' ? getItems() : null]); }
+  catch { $app.innerHTML = `<div class="empty"><b>${t('loadFail')}</b>${t('loadFailHint')}</div>`; return; }
+  if (state.view !== kind || pageData.id !== id) return;
+  const x = src ? DICT[src][id] : tierInfo(id) || (TIER_ORDER.includes(id) ? { n: id } : null);
+  if (!x) { $app.innerHTML = `${topbarHTML()}<div class="empty"><b>${t('notFound')}</b>${t('notFoundHint')}</div>`; return; }
+  document.documentElement.style.removeProperty('--accent');
+  paintDetailPage();
+}
+function paintDetailPage() {
+  if (!pageData) return;
+  const { kind, id } = pageData, src = SRC[kind];
+  document.title = `${src ? dn(DICT[src][id]) : tierLabel(id)} · PokeScanner`;
+  $app.innerHTML = HTML[kind](id);
+}
+
 function natureSheet(id) {
   const n = DICT.natures[id];
   if (!n) return;
@@ -186,22 +311,14 @@ function natureSheet(id) {
     : `<p>${t('natureNeutral')}</p>`;
   openSheet(dn(n), body + otherName(n));
 }
-function tierSheet(r) {
-  const info = tierInfo(r);
-  const name = info ? info.n : r;
-  openSheet(t('tierTitle', { r: tierLabel(r) }), `
-    <div class="lead"><span class="tier" style="--tier:${tierColor(r)}">${tierNumHTML(r)}${esc(tierLabel(r))}</span><b>${esc(name)}</b></div>
-    <p>${esc(info?.d || t('tierDefault'))}</p>
-    <p class="dim">${tierNum(r) ? t('tierPos', { n: tierNum(r), m: TIER_MAX }) : t('tierNoScale')}</p>
-    <button class="chip accent" data-act="tier-go" data-v="${esc(r)}">${t('tierGo')}</button>`);
-}
-
 // ───────────────────────── Router ─────────────────────────
 function route() {
   closeSheet();
+  navDepth++;
   if (state.view === 'home') state.scroll = window.scrollY;
   const m = location.hash.match(/^#\/pokemon\/([a-z0-9]+)/);
-  if (m) renderPokemon(m[1]); else renderHome();
+  const d = location.hash.match(/^#\/(move|ability|item|tier)\/([A-Za-z0-9]+)/);
+  if (m) renderPokemon(m[1]); else if (d) renderDetailPage(d[1], d[2]); else renderHome();
 }
 
 // ───────────────────────── Inicio ─────────────────────────
@@ -675,7 +792,8 @@ document.addEventListener('click', e => {
     case 'lang': switchLang(); break;
     case 'filters-toggle': state.filtersOpen = !state.filtersOpen; syncFilters(); break;
     case 'close': closeSheet(); break;
-    case 'learners-all': renderLearners(v, true); break;
+    case 'back': if (navDepth > 1) history.back(); else location.hash = '#/'; break;
+    case 'more-list': { const y = window.scrollY; pageExpand.add(v); paintDetailPage(); window.scrollTo(0, y); break; }
 
     // inicio
     case 'sort':
@@ -708,10 +826,10 @@ document.addEventListener('click', e => {
       toast(favs.has(page.d.id) ? t('favAdded') : t('favRemoved'));
       break;
     case 'compare': openCompare(); break;
-    case 'tier': tierSheet(v); break;
-    case 'move': moveSheet(v); break;
-    case 'ability': abilitySheet(v); break;
-    case 'item': itemSheet(v); break;
+    case 'tier': location.hash = `#/tier/${v}`; break;
+    case 'move': location.hash = `#/move/${v}`; break;
+    case 'ability': location.hash = `#/ability/${v}`; break;
+    case 'item': location.hash = `#/item/${v}`; break;
     case 'nature': natureSheet(v); break;
     case 'fmt': page.fmt = v; page.idx = 0; $('#build').innerHTML = buildHTML(); break;
     case 'set': page.idx = Number(v); $('#build').innerHTML = buildHTML(); break;

@@ -1,6 +1,8 @@
 // Genera los JSON estáticos que consume la web (carpeta ./data).
 //   data/index.json          → lista ligera de Pokémon (buscador, filtros, aleatorios)
 //   data/learners.json       → qué Pokémon aprenden cada movimiento
+//   data/abilities.json      → qué Pokémon tienen cada habilidad
+//   data/items.json          → qué Pokémon llevan cada objeto en sus builds
 //   data/dict.json           → movimientos, habilidades, objetos y naturalezas (nombre + descripción en español)
 //   data/pokemon/<id>.json   → ficha completa de cada Pokémon
 //
@@ -396,6 +398,7 @@ for (const s of allSpecies) {
   const entry = { id: s.id, num: s.num, es: nameES(s), en: s.name, t: types, r: tier, s: [bs.hp, bs.atk, bs.def, bs.spa, bs.spd, bs.spe], sp: sid, ss: showdownSprite(s) };
   if (s.forme) entry.fm = 1;
   if (old) entry.g = old.g;
+  if (sets.length) entry.ns = sets.length; // nº de builds de Smogon (sirve para ordenar "los mejores" de un rango)
   index.push(entry);
 
   const detail = {
@@ -414,15 +417,28 @@ for (let k = 0; k * SHARD < index.length; k++) {
   for (const e of index.slice(k * SHARD, (k + 1) * SHARD)) bundle[e.id] = details.get(e.id);
   fs.writeFileSync(path.join(OUT, 'pokemon', `${k}.json`), JSON.stringify(bundle));
 }
-// quién aprende cada movimiento (por nivel o en su build de Smogon): movimiento → posiciones en index.json
-const learners = {};
+// quién aprende cada movimiento y quién tiene cada habilidad: id → posiciones en index.json
+//   learners[m] = { s: [[pos, setsQueLoUsan, setsTotales]], l: [pos] }  (s = lo llevan en algún build de Smogon; l = solo lo aprenden por nivel)
+//   abilities[a] = { s: [[pos, setsQueLaUsan, setsTotales]], n: [pos], h: [pos] }  (n = habilidad normal, h = oculta; s = la usan en algún build)
+const learners = {}, abilities = {}, items = {};
 index.forEach((e, i) => {
   const d = details.get(e.id);
-  const ids = new Set(d.lv.map(x => x[1]));
-  d.sets.forEach(st => st.m.forEach(slot => slot.forEach(m => ids.add(m))));
-  ids.forEach(m => (learners[m] ||= []).push(i));
+  const total = d.sets.length;
+  const useM = {}, useA = {}, useI = {};
+  d.sets.forEach(st => {
+    new Set(st.m.flat()).forEach(m => { useM[m] = (useM[m] || 0) + 1; });
+    new Set(st.a || []).forEach(a => { useA[a] = (useA[a] || 0) + 1; });
+    new Set(st.i || []).forEach(x => { useI[x] = (useI[x] || 0) + 1; });
+  });
+  for (const m of Object.keys(useM)) ((learners[m] ||= { s: [], l: [] }).s.push([i, useM[m], total]));
+  new Set(d.lv.map(x => x[1])).forEach(m => { if (!useM[m]) (learners[m] ||= { s: [], l: [] }).l.push(i); });
+  for (const a of Object.keys(useA)) ((abilities[a] ||= { s: [], n: [], h: [] }).s.push([i, useA[a], total]));
+  for (const x of Object.keys(useI)) (items[x] ||= []).push([i, useI[x], total]);
+  d.ab.forEach(x => (abilities[x.id] ||= { s: [], n: [], h: [] })[x.h ? 'h' : 'n'].push(i));
 });
 fs.writeFileSync(path.join(OUT, 'learners.json'), JSON.stringify(learners));
+fs.writeFileSync(path.join(OUT, 'abilities.json'), JSON.stringify(abilities));
+fs.writeFileSync(path.join(OUT, 'items.json'), JSON.stringify(items));
 fs.writeFileSync(path.join(OUT, 'index.json'), JSON.stringify(index));
 fs.writeFileSync(path.join(OUT, 'dict.json'), JSON.stringify(dict));
 fs.writeFileSync(path.join(OUT, 'meta.json'), JSON.stringify({ generado: new Date().toISOString(), pokemon: index.length, fuente: 'Pokémon Showdown (@pkmn/dex) · Smogon (pkmn/smogon) · PokeAPI (español)' }));

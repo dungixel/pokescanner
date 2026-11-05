@@ -418,3 +418,22 @@ dialog#sheet::backdrop { background: rgba(10, 12, 18, .5); backdrop-filter: blur
 .fchips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .fchips .tpill { font-size: .8rem; }
 .team .note { color: var(--muted); font-size: .8rem; }
+
+/* ───────────── Páginas de movimiento, habilidad, objeto y rango ───────────── */
+.mhero {
+  display: grid; justify-items: center; gap: 6px; text-align: center; padding: 22px 16px 20px; border-radius: var(--r-lg);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--tc, var(--accent)) 16%, var(--surface)), var(--surface)); border: 1px solid var(--line);
+}
+.mhero .mtag { font-size: .84rem; font-weight: 700; color: var(--muted); }
+.mhero h1 { font-size: clamp(1.8rem, 8vw, 2.5rem); font-weight: 700; letter-spacing: -.025em; line-height: 1.08; }
+.mhero .en { color: var(--muted); font-size: .92rem; }
+.mhero .tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 8px; }
+.mhero img.item, .mhero .itemimg { width: 72px; height: 72px; image-rendering: pixelated; }
+.tier.big { height: 38px; font-size: 1.15rem; padding: 0 16px; }
+.tier.big .tn { font-size: .8em; }
+.desc { font-size: 1rem; line-height: 1.55; max-width: 62ch; }
+.sec > .hint { margin: -4px 0 12px; }
+.row .why { color: var(--muted); font-size: .8rem; line-height: 1.3; margin-top: 2px; }
+.sec .more { margin-top: 10px; }
+.chips.near { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.sec .list + .more { margin-right: 8px; }
