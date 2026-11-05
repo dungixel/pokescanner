@@ -752,7 +752,7 @@ function route() {
   const cm = location.hash.match(/^#\/community\/(\d+)/);
   const sh = location.hash.match(/^#\/t\/([a-z0-9,]*)(?:\?n=(.*))?$/);
   if (state.view === 'battle' && location.hash !== '#/battle') auth.unwatchFriends().catch(() => {});
-  if (sh) renderShared(sh[1], sh[2]); else if (m) renderPokemon(m[1]); else if (d) renderDetailPage(d[1], d[2]); else if (tp) renderTeamPage(tp[1]); else if (um) renderUser(um[1]); else if (cm) renderPost(cm[1]); else if (location.hash === '#/community') renderCommunity(); else if (location.hash === '#/types') renderTypes(); else if (location.hash === '#/teams') renderTeams(); else if (location.hash === '#/battle') renderBattle(); else renderHome();
+  if (sh) renderShared(sh[1], sh[2]); else if (m) renderPokemon(m[1]); else if (d) renderDetailPage(d[1], d[2]); else if (tp) renderTeamPage(tp[1]); else if (um) renderUser(um[1]); else if (cm) renderPost(cm[1]); else if (location.hash === '#/community') renderCommunity(); else if (location.hash === '#/types') renderTypes(); else if (/^#\/calc/.test(location.hash)) renderCalc((location.hash.match(/[?&]a=([a-z0-9]+)/) || [])[1]); else if (location.hash === '#/teams') renderTeams(); else if (location.hash === '#/battle') renderBattle(); else renderHome();
   updateDock();
   const tab = tabOf(location.hash), dir = tab != null && curTab != null && tab !== curTab ? (tab > curTab ? 'slide-r' : 'slide-l') : null;
   curTab = tab;
@@ -993,6 +993,7 @@ function pickRandoms(daily) {
 }
 
 const SHIC = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>';
+const CALCIC = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 12h.01M12 12h.01M16 12h.01M8 16h.01M12 16h.01M16 16h.01"/></svg>';
 const TCIC = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M3.5 9.5h17M3.5 15h17M9.5 3.5v17M15 3.5v17"/></svg>';
 
 // ───────── fecha de los datos ─────────
@@ -1045,6 +1046,7 @@ function renderResults(reset = true) {
       <div class="block-title"><h2>${t('daily')}</h2>
         <div class="btnrow"><button class="chip small" data-act="go-types">${TCIC}${t('typeChart')}</button>
         <button class="chip small" data-act="shuffle">${SHIC}${t('random')}</button></div></div>
+      <div class="btnrow" style="margin:-4px 0 14px"><button class="chip small" data-act="go-calc">${CALCIC}${t('calcTitle')}</button></div>
       <div class="cards">${state.randoms.map(id => cardHTML(BYID.get(id))).join('')}</div>`;
     return;
   }
@@ -1316,7 +1318,8 @@ function pokemonHTML() {
 
   ${d.g ? oldNote(d) : ''}
   <section class="sec"><h2>${t('baseStats')}</h2><div id="stats">${statsHTML(d.s)}</div>
-    <button class="compare-btn" data-act="compare">${I.compare}${t('compare')}</button></section>
+    <button class="compare-btn" data-act="compare">${I.compare}${t('compare')}</button>
+    <a class="compare-btn" href="#/calc?a=${d.id}">${CALCIC}${t('calcFrom')}</a></section>
 
   <section class="sec"><h2>${t('buildTitle')} <small>Smogon</small></h2><div id="build">${buildHTML()}</div></section>
 
@@ -1424,13 +1427,13 @@ const STAT_IC = [
 const statIc = i => `<svg class="edsi" viewBox="0 0 24 24" aria-hidden="true">${STAT_IC[i]}</svg>`;
 const pct = (v, max) => Math.round(v / max * 100);
 let ed = null; // { slot, k, d, base, cur, pick, q }
-async function openEditor(slot, k) {
-  const m = teams[slot]?.members[k]; if (!m) return;
+async function openEditor(slot, k, ext) {
+  const m = ext ? ext.member : teams[slot]?.members[k]; if (!m) return;
   try {
     const [d, dict, E] = await Promise.all([getPokemon(m.id), getDict(), getEditor()]);
     mergeEditor(dict, E);
     const base = baseBuild(d, m, dict, E);
-    ed = { slot, k, d, base, cur: currentBuild(base, m.b), pick: null, q: '' };
+    ed = { slot, k, ext, d, base, cur: currentBuild(base, m.b), pick: null, q: '' };
     openSheet(pname(d), '<div id="edbody"></div>', { wide: true });
     sheet.dataset.ed = '1';
     paintEditor();
@@ -1490,7 +1493,9 @@ function editorPickHTML() {
   return `${head}<div class="edlist">${opts}</div>`;
 }
 function persistEditor() {
-  const { slot, k, base, cur } = ed, m = teams[slot]?.members[k]; if (!m) return;
+  const { slot, k, base, cur, ext } = ed;
+  if (ext) { const b = diffBuild(base, cur); if (b) ext.member.b = b; else delete ext.member.b; ext.after(); return; }
+  const m = teams[slot]?.members[k]; if (!m) return;
   const b = diffBuild(base, cur);
   if (b) m.b = b; else delete m.b;
   saveSlot(slot); if (inTeams()) paintTeams();
@@ -1508,6 +1513,85 @@ function onEditorInput(e) {
   finalStats(d.s, cur.e, cur.v, cur.n, DICT.natures).forEach((x, j) => { const o = $(`#st-${j}`); if (o) o.textContent = x; });
 }
 
+
+// ───────────────────────── Calculadora de daño ─────────────────────────
+const calc = { a: { id: 'garchomp' }, d: { id: 'corviknight' }, ua: null, ud: null, boosts: { a: { atk: 0, spa: 0 }, d: { def: 0, spd: 0 } }, weather: '', terrain: '', doubles: false, reflect: false, lightScreen: false, crit: false, busy: false, err: false };
+const WEATHERS = [['', 'cNone'], ['Sun', 'cSun'], ['Rain', 'cRain'], ['Sand', 'cSand'], ['Snow', 'cSnow']];
+const TERRAINS = [['', 'cNone'], ['Electric', 'cElectric'], ['Grassy', 'cGrassy'], ['Psychic', 'cPsychic'], ['Misty', 'cMisty']];
+let calcSeq = 0;
+async function loadCalcUnits() {
+  const seq = ++calcSeq;
+  try {
+    const [dict, eng] = await Promise.all([getDict(), getEngine(), getLearners()]);
+    if ([calc.a, calc.d].some(m => m.b)) mergeEditor(dict, await getEditor());
+    const mk = async m => eng.X.makeUnit(await getPokemon(m.id), m, dict, 'singles', { learnable: learnableOf, pname });
+    const [ua, ud] = await Promise.all([mk(calc.a), mk(calc.d)]);
+    if (seq !== calcSeq) return;
+    eng.X.clearMemo(); calc.ua = ua; calc.ud = ud; calc.X = eng.X; calc.err = false;
+  } catch (e) { console.error(e); if (seq === calcSeq) calc.err = true; }
+  if (state.view === 'calc') paintCalc();
+}
+function renderCalc(a) {
+  state.view = 'calc';
+  document.title = `${t('calcTitle')} · PokeScanner`;
+  document.documentElement.style.removeProperty('--accent');
+  if (a && BYID.has(a)) { calc.a = { id: a }; calc.ua = null; }
+  window.scrollTo(0, 0);
+  $app.innerHTML = `${topbarHTML()}<header class="hero"><h1>${t('calcTitle')}</h1><p>${t('calcLead')}</p></header><div id="calc-root"><p class="boot">…</p></div>`;
+  updateDock();
+  loadCalcUnits();
+}
+const boostTxt = n => (n > 0 ? `+${n}` : String(n));
+function calcSideHTML(side) {
+  const u = side === 'a' ? calc.ua : calc.ud, m = side === 'a' ? calc.a : calc.d, p = BYID.get(m.id);
+  const keys = side === 'a' ? ['atk', 'spa'] : ['def', 'spd'];
+  const ev = Object.entries(u.evs || {}).filter(([, v]) => v).map(([k, v]) => `${v} ${statName(k)}`).join(' / ');
+  const ab = u.ab && DICT.abilities[u.ab], it = u.item && DICT.items[u.item];
+  return `<section class="sec calcside"><h2>${t(side === 'a' ? 'calcAtk' : 'calcDef')}</h2>
+    <div class="calchead"><button class="pkopt" data-act="calc-pick" data-v="${side}">${pokeImg(p, 'small')}<span><b>${esc(pname(p))}</b><small>${p.t.map(x => typeName(x)).join(' / ')}</small></span></button>
+      <button class="iconbtn" data-act="calc-edit" data-v="${side}" aria-label="${t('edTitle')}">${IC.pencil}</button></div>
+    <p class="calcsum">${[DICT.natures[u.nat] ? dn(DICT.natures[u.nat]) : u.nat, ab ? dn(ab) : '', it ? dn(it) : t('edNoItem'), ev].filter(Boolean).map(esc).join(' · ')}${m.b ? '' : ` <em>(${t('calcAuto')})</em>`}</p>
+    <div class="boosts">${keys.map(k => `<div class="bst"><span>${statName(k)}</span><button class="iconbtn sm" data-act="calc-boost" data-v="${side}:${k}:-1" aria-label="−">−</button><b>${boostTxt(calc.boosts[side][k])}</b><button class="iconbtn sm" data-act="calc-boost" data-v="${side}:${k}:1" aria-label="+">+</button></div>`).join('')}</div>
+  </section>`;
+}
+function calcResultsHTML() {
+  const { ua, ud, X } = calc, eng = X;
+  const f = { weather: calc.weather || undefined, terrain: calc.terrain || undefined, doubles: calc.doubles };
+  const ctx = { field: f, dSide: { reflect: calc.reflect, lightScreen: calc.lightScreen }, crit: calc.crit };
+  const aSt = eng.newState(ua), dSt = eng.newState(ud);
+  Object.assign(aSt.boosts, calc.boosts.a); Object.assign(dSt.boosts, calc.boosts.d);
+  const fmt = n => (Math.round(n * 1000) / 10).toLocaleString(lang() === 'en' ? 'en' : 'es', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const rows = ua.moves.filter(m => m.c !== 's').map(mv => {
+    const r = eng.damage(ua, aSt, ud, dSt, mv, ctx);
+    const lo = Math.round(r.min * ud.maxHP), hi = Math.round(r.max * ud.maxHP);
+    const ko = r.max <= 0 ? t('calcNoDmg') : r.min >= 1 ? t('calcOhko') : r.max >= 1 ? t('calcMaybeOhko') : (n1 => (n1 === Math.ceil(1 / r.min) ? t('calcHko', { n: n1 }) : t('calcHkoRange', { a: n1, b: Math.ceil(1 / r.min) })))(Math.ceil(1 / r.max));
+    const m = DICT.moves[mv.id];
+    return `<li class="cres" style="--tc:${TYPE_COLOR[mv.t]}"><div class="cmv">${typeIcon(mv.t)}<b>${esc(m ? dn(m) : mv.name)}</b>${catIcon(mv.c)}</div>
+      <div class="cbar"><i style="width:${Math.min(100, r.max * 100)}%"></i><u style="width:${Math.min(100, r.min * 100)}%"></u></div>
+      <div class="cnum"><b>${fmt(r.min)}–${fmt(r.max)} %</b><small>${lo}–${hi} / ${ud.maxHP} ${t('calcHp')}</small></div><div class="cko">${ko}</div></li>`;
+  });
+  return `<section class="sec"><h2>${t('calcResult')}</h2>${rows.length ? `<ul class="cresl">${rows.join('')}</ul>` : `<p class="hint">${t('calcNoMoves')}</p>`}</section>`;
+}
+function calcHTML() {
+  if (calc.err) return `<div class="empty"><b>${t('loadFail')}</b>${t('loadFailHint')}</div>`;
+  if (!calc.ua || !calc.ud) return '<p class="boot">…</p>';
+  const chip = (act, v, on, label) => `<button class="chip" data-act="${act}" data-v="${v}" aria-pressed="${on}">${label}</button>`;
+  return `${calcSideHTML('a')}
+    <div class="calcswap"><button class="chip" data-act="calc-swap">⇅ ${t('calcSwap')}</button></div>
+    ${calcSideHTML('d')}
+    <section class="sec"><h2>${t('calcField')}</h2>
+      <p class="lbl">${t('calcWeather')}</p><div class="chips">${WEATHERS.map(([k, l]) => chip('calc-set', `weather:${k}`, calc.weather === k, t(l))).join('')}</div>
+      <p class="lbl">${t('calcTerrain')}</p><div class="chips">${TERRAINS.map(([k, l]) => chip('calc-set', `terrain:${k}`, calc.terrain === k, t(l))).join('')}</div>
+      <p class="lbl">${t('calcOther')}</p><div class="chips">${chip('calc-tog', 'doubles', calc.doubles, t('calcDoubles'))}${chip('calc-tog', 'reflect', calc.reflect, t('calcReflect'))}${chip('calc-tog', 'lightScreen', calc.lightScreen, t('calcLightScreen'))}${chip('calc-tog', 'crit', calc.crit, t('calcCrit'))}</div>
+    </section>
+    ${calcResultsHTML()}`;
+}
+function paintCalc() {
+  const root = $('#calc-root'); if (!root) return;
+  const y = window.scrollY; root.innerHTML = calcHTML(); window.scrollTo(0, y);
+}
+const calcOpenPick = side => openPicker({ mode: 'calc', side });
+async function calcEdit(side) { await openEditor(-1, -1, { member: calc[side], after: () => { clearTimeout(calcEdit.t); calcEdit.t = setTimeout(loadCalcUnits, 250); } }); }
 
 // ───────────────────────── Comunidad ─────────────────────────
 const com = { q: '', pokes: [], sort: 'new', items: [], more: false, loading: false, err: false, post: null, comments: [], full: null, confirm: null, busy: false, msg: '' };
@@ -2330,6 +2414,13 @@ document.addEventListener('click', e => {
       Object.assign(state, { q: '', sort: 'num', dir: 1, types: [], tiers: [], gens: [], favs: false, gen9: false, dd: null });
       $('#q').value = ''; renderResults(); break;
     case 'go-types': location.hash = '#/types'; break;
+    case 'go-calc': location.hash = '#/calc'; break;
+    case 'calc-pick': calcOpenPick(v); break;
+    case 'calc-edit': calcEdit(v); break;
+    case 'calc-swap': [calc.a, calc.d] = [calc.d, calc.a]; [calc.boosts.a, calc.boosts.d] = [{ atk: 0, spa: 0 }, { def: 0, spd: 0 }]; calc.ua = calc.ud = null; paintCalc(); loadCalcUnits(); break;
+    case 'calc-boost': { const [sd, k, n] = v.split(':'); calc.boosts[sd][k] = Math.max(-6, Math.min(6, calc.boosts[sd][k] + Number(n))); paintCalc(); break; }
+    case 'calc-set': { const i = v.indexOf(':'); calc[v.slice(0, i)] = v.slice(i + 1); paintCalc(); break; }
+    case 'calc-tog': calc[v] = !calc[v]; paintCalc(); break;
     case 'tc-sel': state.tcSel = state.tcSel === v ? null : v; paintTypes(); break;
     case 'shuffle': { const pool = INDEX.filter(p => !p.g); location.hash = '#/pokemon/' + pool[Math.floor(Math.random() * pool.length)].id; break; }
     case 'tier-go': goSearch({ tiers: [v] }); break;
@@ -2374,6 +2465,7 @@ document.addEventListener('click', e => {
     case 'team-remove': if (teamsSel.open >= 0) toggleInTeam(teamsSel.open, v); break;
     case 'pk-pick':
       if (pickCtx?.mode === 'avatar') setAvatar(BYID.get(v).num);
+      else if (pickCtx?.mode === 'calc') { calc[pickCtx.side] = { id: v }; calc.ua = calc.ud = null; closeSettings(); paintCalc(); loadCalcUnits(); }
       else if (pickCtx?.mode === 'comfilter') { if (!com.pokes.includes(v) && com.pokes.length < 3) com.pokes.push(v); closeSettings(); if (state.view === 'community') loadFeed(true); }
       else if (pickCtx?.mode === 'team') {
         toggleInTeam(pickCtx.slot, v);
