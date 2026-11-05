@@ -819,3 +819,5 @@ img.mini { width: 28px; height: 28px; object-fit: contain; flex: none; }
 .result .note { margin-top: 12px; line-height: 1.5; }
 
 .fulltag { font-weight: 600; color: var(--muted); margin-right: 2px; }
+.goteams { margin-top: 14px; }
+.goteams svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }

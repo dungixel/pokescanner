@@ -879,7 +879,8 @@ function renderResults(reset = true) {
 
   const list = (state.list = compute());
   const mv = searchBlocks(fold(state.q));
-  const head = mv + `<div class="block-title tight"><h2>${t(list.length === 1 ? 'result1' : 'resultN', { n: list.length })}</h2></div>`;
+  const goTeams = state.favs ? `<a class="chip accent goteams" href="#/teams">${t('goTeams')}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>` : '';
+  const head = goTeams + mv + `<div class="block-title tight"><h2>${t(list.length === 1 ? 'result1' : 'resultN', { n: list.length })}</h2></div>`;
   if (!list.length) {
     // si no hay Pokémon pero sí movimientos, solo se muestran los movimientos
     box.innerHTML = mv || head + `<div class="empty"><b>${t(state.favs ? 'emptyTitleFavs' : 'emptyTitle')}</b>${state.favs && !favs.size ? t('emptyFavs') : t('emptyHint')}</div>`;
