@@ -356,7 +356,7 @@ async function pollNotifs() {
 }
 setInterval(pollNotifs, 45000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) pollNotifs(); });
-const notifText = n => { const u = `<b>${esc(n.username || '?')}</b>`; return t(n.kind === 'like' ? 'notifLike' : n.kind === 'comment' ? 'notifComment' : n.kind === 'reply' ? 'notifReply' : n.kind === 'clike' ? 'notifCLike' : n.kind === 'friend_request' ? 'notifReq' : 'notifAcc', { u }); };
+const notifText = n => { const u = `<b>${esc(n.username || '?')}</b>`; return t(n.kind === 'like' ? 'notifLike' : n.kind === 'comment' ? 'notifComment' : n.kind === 'reply' ? 'notifReply' : n.kind === 'mention' ? 'notifMention' : n.kind === 'clike' ? 'notifCLike' : n.kind === 'friend_request' ? 'notifReq' : 'notifAcc', { u }); };
 function notifsHTML() {
   const head = `<div class="shead"><button class="iconbtn" data-act="settings-close" aria-label="${t('close')}">${IC.x}</button><h2 class="brand">${titleIc('dock-notifs')}${t('notifTitle')}</h2></div>`;
   const body = !auth.currentUser() ? `<p class="shint">${t('notifLogin')}</p>`
@@ -379,7 +379,7 @@ async function openNotifs() {
 function goNotif(id) {
   const n = notif.items?.find(x => String(x.id) === String(id)); if (!n) return;
   closeSettings();
-  location.hash = n.kind === 'like' ? `#/community/${n.post_id}` : ['comment', 'reply', 'clike'].includes(n.kind) ? `#/community/${n.post_id}?c=1` : n.kind === 'friend_request' ? '#/battle' : `#/user/${n.actor_id}`;
+  location.hash = n.kind === 'like' ? `#/community/${n.post_id}` : ['comment', 'reply', 'clike', 'mention'].includes(n.kind) ? `#/community/${n.post_id}?c=1` : n.kind === 'friend_request' ? '#/battle' : `#/user/${n.actor_id}`;
 }
 /** Vuelve al buscador con los filtros que se indiquen (el resto se limpia) */
 function goSearch(opts = {}, focus = false) {
@@ -959,7 +959,15 @@ function teamHTML(team, shared = false) {
   if (team.length < 3) return `<section class="team need"><h4>${t('an_title')}</h4><p>${t('an_need')}</p></section>`;
   const a = analyzeTeam(team);
   const info = scoreInfo(a.score);
-  const parts = a.parts.map(p => `<div class="tpart"><span class="k">${t(`an_p_${p.k}`)}</span><span class="v">${Math.round(p.v)}/${p.max}</span>
+  const PI = {
+    def: '<path d="M12 3a12 12 0 0 0 8.5 3a12 12 0 0 1 -8.5 15a12 12 0 0 1 -8.5 -15a12 12 0 0 0 8.5 -3"/>',
+    cov: '<path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"/><path d="M7 12a5 5 0 1 0 10 0a5 5 0 1 0 -10 0"/><path d="M11 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"/>',
+    atk: '<path d="M7 20l10 0"/><path d="M6 6l6 -1l6 1"/><path d="M12 3l0 17"/><path d="M9 12l-3 -6l-3 6a3 3 0 0 0 6 0"/><path d="M21 12l-3 -6l-3 6a3 3 0 0 0 6 0"/>',
+    spe: '<path d="M13 3l0 7l6 0l-8 11l0 -7l-6 0l8 -11"/>',
+    bulk: '<path d="M19.5 12.572l-7.5 7.428l-7.5 -7.428a5 5 0 1 1 7.5 -6.566a5 5 0 1 1 7.5 6.572"/>',
+    pow: '<path d="M8 21l8 0"/><path d="M12 17l0 4"/><path d="M7 4l10 0"/><path d="M17 4v8a5 5 0 0 1 -10 0v-8"/><path d="M5 9m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M19 9m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/>',
+  };
+  const parts = a.parts.map(p => `<div class="tpart"><span class="k"><svg viewBox="0 0 24 24" class="pi" aria-hidden="true">${PI[p.k] || ''}</svg>${t(`an_p_${p.k}`)}</span><span class="v">${Math.round(p.v)}/${p.max}</span>
     <div class="bar"><i style="--w:${(p.v / p.max * 100).toFixed(1)}%;--bc:${partColor(p.v / p.max)}"></i></div></div>`).join('');
   return `<section class="team" aria-label="${t('an_title')}">
     <div class="team-head"><div class="score" style="--sc:${info.c}"><b>${a.score}</b><small>/100</small></div>
@@ -2028,7 +2036,7 @@ function buildCardHTML({ m, d, cur }) {
 }
 function commentHTML(c, reply = false) {
   const can = c.mine || com.post?.mine || auth.isAdmin();
-  const body = esc(c.body).replace(/^@([A-Za-z0-9_]{3,16})/, '<span class="ment">@$1</span>');
+  const body = esc(c.body).replace(/(^|\s)@([A-Za-z0-9_]{3,16})/g, '$1<span class="ment">@$2</span>');
   const tag = reply ? 'li' : 'div';
   return `<${tag} class="ccm ${reply ? 'rep' : ''}" id="cm-${c.id}">
     <button class="avbtn" data-act="user-open" data-v="${c.user_id}" aria-label="${esc(c.username || '')}">${avatarImg(c.avatar, 'sm')}</button>

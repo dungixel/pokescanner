@@ -1351,3 +1351,15 @@ dialog.cfm::backdrop { background: rgba(10, 12, 20, .5); }
 .cthread > .ccm { padding: 0; border: 0; background: none; border-radius: 0; }
 .cthread .creps { list-style: none; margin: 12px 0 0; padding: 0 0 0 10px; display: flex; flex-direction: column; gap: 8px; }
 .cthread .ccm.rep { padding: 10px; background: var(--soft); border: 0; border-radius: var(--r-md); }
+
+/* listas de consejos y hallazgos: cada punto en su cajita para separarlos bien */
+.finds { gap: 12px; margin-top: 14px; }
+.find { padding: 14px; border-radius: var(--r-md); background: var(--soft); border: 1px solid transparent; }
+.find.bad { background: color-mix(in srgb, var(--bad) 8%, var(--soft)); }
+.find.good { background: color-mix(in srgb, var(--ok) 8%, var(--soft)); }
+.team h4.bad, .team h4.good { margin-bottom: 0; }
+.tips { list-style: none; padding-left: 0; gap: 12px; }
+.tips > li { padding: 14px; border-radius: var(--r-md); background: var(--soft); }
+.swap .pans li { padding: 10px 12px; border-radius: var(--r-md); background: var(--soft); }
+.tpart .k { display: inline-flex; align-items: center; gap: 10px; }
+.tpart .pi { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
