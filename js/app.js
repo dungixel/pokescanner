@@ -1179,7 +1179,7 @@ const friendById = id => bt.friends.find(f => f.user_id === id);
 const frAvatar = f => avatarImg(f.avatar);
 const teamOf = sel => (sel.owner === 'me' ? teams[sel.slot] : bt.others.get(sel.owner)?.[sel.slot] || null);
 const ownerName = sel => (sel.owner === 'me' ? t('yourTeam') : t('teamOf', { name: friendById(sel.owner)?.username || '?' }));
-const sideName = sel => { const tm = teamOf(sel); return `${ownerName(sel)} · ${esc(tm?.name || t('teamN', { n: sel.slot + 1 }))}`; };
+const sideName = sel => { const tm = teamOf(sel), nm = esc(tm?.name || t('teamN', { n: sel.slot + 1 })); return sel.owner === 'me' ? nm : `${nm} (${esc(friendById(sel.owner)?.username || '?')})`; };
 
 async function refreshFriends() {
   try { bt.friends = await auth.friendsList(); } catch { bt.friends = []; toast(t('syncFail')); }
