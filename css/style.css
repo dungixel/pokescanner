@@ -1205,3 +1205,5 @@ button.slot.slothead { cursor: pointer; }
 .cnum { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .cnum small { color: var(--muted); }
 .cko { font-size: .85rem; font-weight: 700; }
+
+.sdtext { width: 100%; min-height: 220px; resize: vertical; padding: 12px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--soft); color: var(--ink); font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }

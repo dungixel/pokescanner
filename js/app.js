@@ -63,7 +63,7 @@ const I = {
 const FLAG = { es: 'icons/flags/es.svg', en: 'icons/flags/gb.svg' };
 const LANGS = { es: 'Español', en: 'English' };
 const smodal = document.getElementById('smodal');
-let modalKind = null; // 'notifs' | 'settings' | 'login' | 'teampick' | 'picker' | 'saveteam' | 'publish' | 'bans'
+let modalKind = null; // 'sd' | 'notifs' | 'settings' | 'login' | 'teampick' | 'picker' | 'saveteam' | 'publish' | 'bans'
 let pending = null;   // lo que la persona quería hacer cuando se le pidió iniciar sesión
 const themePref = () => { const v = store.get('pk.theme'); return v === 'light' || v === 'dark' ? v : 'system'; };
 const THEME_ICON = { system: 'desktop', light: 'sun', dark: 'moon' };
@@ -107,7 +107,7 @@ function loginHTML() {
       <button class="ghostbtn" data-act="settings-close">${t('notNow')}</button></div>
   </div>`;
 }
-const modalHTML = () => (modalKind === 'login' ? loginHTML() : modalKind === 'bans' ? bansModalHTML() : modalKind === 'notifs' ? notifsHTML() : modalKind === 'publish' ? publishModalHTML() : modalKind === 'saveteam' ? saveTeamHTML() : modalKind === 'teampick' ? teamPickHTML() : modalKind === 'picker' ? pickerHTML() : settingsHTML());
+const modalHTML = () => (modalKind === 'login' ? loginHTML() : modalKind === 'bans' ? bansModalHTML() : modalKind === 'sd' ? sdModalHTML() : modalKind === 'notifs' ? notifsHTML() : modalKind === 'publish' ? publishModalHTML() : modalKind === 'saveteam' ? saveTeamHTML() : modalKind === 'teampick' ? teamPickHTML() : modalKind === 'picker' ? pickerHTML() : settingsHTML());
 const refreshModal = () => { if (!smodal.hidden) smodal.innerHTML = modalHTML(); };
 function showModal(kind) {
   modalKind = kind;
@@ -1514,6 +1514,85 @@ function onEditorInput(e) {
 }
 
 
+// ───────────────────────── Showdown: exportar / importar equipos ─────────────────────────
+const SD_LBL = ['HP', 'Atk', 'Def', 'SpA', 'SpD', 'Spe'];
+const sd = { mode: 'export', slot: 0, text: '', msg: '', busy: false };
+async function teamToShowdown(i) {
+  const [dict, E] = await Promise.all([getDict(), getEditor()]); mergeEditor(dict, E);
+  const out = [];
+  for (const m of teams[i].members) {
+    const d = await getPokemon(m.id), cur = currentBuild(baseBuild(d, m, dict, E), m.b);
+    const L = [`${d.en}${cur.i && dict.items[cur.i] ? ` @ ${dict.items[cur.i].e}` : ''}`];
+    if (cur.a && dict.abilities[cur.a]) L.push(`Ability: ${dict.abilities[cur.a].e}`);
+    const ev = cur.e.map((v, k) => (v ? `${v} ${SD_LBL[k]}` : '')).filter(Boolean);
+    if (ev.length) L.push(`EVs: ${ev.join(' / ')}`);
+    if (dict.natures[cur.n]) L.push(`${dict.natures[cur.n].e} Nature`);
+    const iv = cur.v.map((v, k) => (v !== 31 ? `${v} ${SD_LBL[k]}` : '')).filter(Boolean);
+    if (iv.length) L.push(`IVs: ${iv.join(' / ')}`);
+    if (cur.sh) L.push('Shiny: Yes');
+    cur.m.filter(Boolean).forEach(id => dict.moves[id] && L.push(`- ${dict.moves[id].e}`));
+    out.push(L.join('\n'));
+  }
+  return out.join('\n\n');
+}
+/** Convierte el texto de Showdown en miembros de equipo (con su build). Devuelve { members, skipped } */
+async function showdownToTeam(text) {
+  const [dict, E] = await Promise.all([getDict(), getEditor()]); mergeEditor(dict, E);
+  const f = x => fold(String(x || '').replace(/[^A-Za-z0-9À-ſ]/g, ''));
+  const mapOf = (obj, keyFn) => { const m = new Map(); for (const [id, x] of Object.entries(obj)) for (const k of keyFn(x, id)) m.set(f(k), id); return m; };
+  const pokeMap = new Map(); for (const p of INDEX) for (const k of [p.en, p.es, p.id]) pokeMap.set(f(k), p.id);
+  const moveMap = mapOf(dict.moves, x => [x.e, x.n]), itemMap = mapOf(dict.items, x => [x.e, x.n]), abMap = mapOf(dict.abilities, x => [x.e, x.n]), natMap = mapOf(dict.natures, x => [x.e, x.n]);
+  const members = [], skipped = [];
+  for (const block of text.replace(/\r/g, '').split(/\n\s*\n/)) {
+    const lines = block.split('\n').map(l => l.trim()).filter(Boolean); if (!lines.length) continue;
+    let head = lines[0], item = '';
+    const at = head.indexOf(' @ '); if (at >= 0) { item = head.slice(at + 3).trim(); head = head.slice(0, at); }
+    head = head.replace(/\s*\((M|F)\)\s*$/i, '').trim();
+    const nick = /^(.*)\((.+)\)$/.exec(head);
+    const id = pokeMap.get(f(nick ? nick[2] : head)) || pokeMap.get(f(head));
+    if (!id) { skipped.push(head); continue; }
+    if (members.length >= MAXTEAM) { skipped.push(head); continue; }
+    const d = await getPokemon(id), base = baseBuild(d, { id }, dict, E), cur = { ...base, m: [], e: [0, 0, 0, 0, 0, 0], v: [31, 31, 31, 31, 31, 31], i: item ? (itemMap.get(f(item)) || '') : '', sh: false };
+    for (const l of lines.slice(1)) {
+      let m;
+      if ((m = /^ability:\s*(.+)$/i.exec(l))) { const a = abMap.get(f(m[1])); if (a && d.ab.some(x => x.id === a)) cur.a = a; }
+      else if ((m = /^(evs|ivs):\s*(.+)$/i.exec(l))) {
+        const arr = m[1].toLowerCase() === 'evs' ? cur.e : cur.v;
+        for (const part of m[2].split('/')) { const q = /(\d+)\s*(hp|atk|def|spa|spd|spe)/i.exec(part); if (q) arr[SD_LBL.findIndex(x => x.toLowerCase() === q[2].toLowerCase())] = Number(q[1]); }
+      }
+      else if ((m = /^(.+?)\s+nature$/i.exec(l))) { const n = natMap.get(f(m[1])); if (n) cur.n = n; }
+      else if (/^shiny:\s*yes/i.test(l)) cur.sh = true;
+      else if ((m = /^-\s*(.+)$/.exec(l))) { const mv = moveMap.get(f(m[1])) || moveMap.get(f(m[1].replace(/\s*\[.*\]$/, ''))); if (mv && cur.m.length < 4 && !cur.m.includes(mv)) cur.m.push(mv); }
+    }
+    if (!cur.m.length) cur.m = [...base.m];
+    const b = diffBuild(base, cur);
+    members.push(b ? { id, b } : { id });
+  }
+  return { members, skipped };
+}
+const sdModalHTML = () => `<div class="scard" role="dialog" aria-modal="true" aria-label="Showdown">
+  <div class="shead"><button class="iconbtn" data-act="settings-close" aria-label="${t('close')}">${IC.x}</button><h2>${t(sd.mode === 'export' ? 'sdExport' : 'sdImport')}</h2></div>
+  <p class="shint">${t(sd.mode === 'export' ? 'sdExportHint' : 'sdImportHint')}</p>
+  <textarea id="sd-text" class="sdtext" spellcheck="false" autocomplete="off" autocapitalize="off" ${sd.mode === 'export' ? 'readonly' : `placeholder="${t('sdPlaceholder')}"`}>${esc(sd.text)}</textarea>
+  ${sd.msg ? `<p class="shint">${sd.msg}</p>` : ''}
+  <div class="slotacts">${sd.mode === 'export' ? `<button class="chip" data-act="sd-copy">${IC.share}${t('sdCopy')}</button>` : `<button class="chip" data-act="sd-run" ${sd.busy ? 'disabled' : ''}>${IC.check}${t('sdRun')}</button>`}</div>
+</div>`;
+async function openShowdown(mode, slot) {
+  sd.mode = mode; sd.slot = slot; sd.msg = ''; sd.text = ''; sd.busy = false;
+  if (mode === 'export') { try { sd.text = await teamToShowdown(slot); } catch { toast(t('loadFail')); return; } }
+  showModal('sd');
+}
+async function runShowdownImport() {
+  const text = $('#sd-text')?.value || ''; if (!text.trim()) return;
+  sd.busy = true; sd.text = text;
+  try {
+    const { members, skipped } = await showdownToTeam(text);
+    if (!members.length) { sd.msg = t('sdNone'); sd.busy = false; refreshModal(); return; }
+    teams[sd.slot].members = members; saveSlot(sd.slot); afterTeamsChange();
+    closeSettings(); toast(skipped.length ? t('sdDoneSkip', { n: members.length, s: skipped.length }) : t('sdDone', { n: members.length }));
+  } catch (e) { console.error(e); sd.msg = t('loadFail'); sd.busy = false; refreshModal(); }
+}
+
 // ───────────────────────── Calculadora de daño ─────────────────────────
 const calc = { a: { id: 'garchomp' }, d: { id: 'corviknight' }, ua: null, ud: null, boosts: { a: { atk: 0, spa: 0 }, d: { def: 0, spd: 0 } }, weather: '', terrain: '', doubles: false, reflect: false, lightScreen: false, crit: false, busy: false, err: false };
 const WEATHERS = [['', 'cNone'], ['Sun', 'cSun'], ['Rain', 'cRain'], ['Sand', 'cSand'], ['Snow', 'cSnow']];
@@ -1933,7 +2012,7 @@ function teamPageHTML(i) {
       <span class="minis">${members.map((p, k) => pokeImg(p, 'small', 'mini', undefined, !!tm.members[k]?.b?.sh)).join('') || `<small>${t('teamEmpty')}</small>`}</span></header>
     <hr class="tdiv">
     ${members.length ? `<div class="list">${tm.members.map((m, k) => (BYID.get(m.id) ? memberRow(BYID.get(m.id), i, k) : '')).join('')}</div>` : `<p class="shint">${t('teamEmptyHint')}</p>`}
-    <div class="slotacts">${members.length < MAXTEAM ? `<button class="chip" data-act="slot-add">${IC.plus}${t('addPoke')}</button>` : ''}${members.length ? `<button class="chip" data-act="team-share" data-v="${i}">${IC.share}${t('shareTeam')}</button>` : ''}</div>
+    <div class="slotacts">${members.length < MAXTEAM ? `<button class="chip" data-act="slot-add">${IC.plus}${t('addPoke')}</button>` : ''}${members.length ? `<button class="chip" data-act="team-share" data-v="${i}">${IC.share}${t('shareTeam')}</button><button class="chip" data-act="sd-open" data-v="export:${i}">${t('sdExport')}</button>` : ''}<button class="chip" data-act="sd-open" data-v="import:${i}">${t('sdImport')}</button></div>
     ${members.length ? teamHTML(members) : ''}`;
 }
 function teamsHTML() {
@@ -2414,6 +2493,9 @@ document.addEventListener('click', e => {
       Object.assign(state, { q: '', sort: 'num', dir: 1, types: [], tiers: [], gens: [], favs: false, gen9: false, dd: null });
       $('#q').value = ''; renderResults(); break;
     case 'go-types': location.hash = '#/types'; break;
+    case 'sd-open': { const [m, n] = v.split(':'); openShowdown(m, Number(n)); break; }
+    case 'sd-copy': copyText($('#sd-text')?.value || sd.text); break;
+    case 'sd-run': runShowdownImport(); break;
     case 'go-calc': location.hash = '#/calc'; break;
     case 'calc-pick': calcOpenPick(v); break;
     case 'calc-edit': calcEdit(v); break;
