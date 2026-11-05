@@ -551,15 +551,18 @@ button.tpill:active { transform: scale(.96); }
 /* ───────────── Filtros del buscador: desplegables ───────────── */
 .filters { display: grid; gap: 10px; }
 .filters.pfp { margin-top: 12px; }
-.fgroup { display: grid; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line); overflow: hidden; }
-.fgroup > * + * { border-top: 1px solid var(--line); }
-.dd { background: none; }
-.ddbtn { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 52px; padding: 0 16px; text-align: left; }
+.fgroup { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; }
+.dd { display: contents; }
+/* cada filtro es una píldora; la seleccionada se pone en negro, como todo en la app */
+.ddbtn { order: 1; display: inline-flex; align-items: center; gap: 8px; max-width: 100%; min-height: 42px; padding: 0 14px 0 16px; border-radius: var(--r-pill); background: var(--surface); color: var(--ink); text-align: left; transition: background .18s, color .18s, box-shadow .18s, transform .12s; }
+.ddbtn[aria-expanded="true"] { box-shadow: 0 0 0 2px var(--ink); }
 .ddl { font-weight: 700; }
-.ddv { margin-left: auto; color: var(--muted); font-size: .92rem; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.ddbtn .chev { width: 18px; height: 18px; flex: none; fill: none; stroke: var(--muted); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; transition: transform .2s; }
+.ddv { color: inherit; opacity: .78; font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; max-width: 170px; }
+.dd:not(.has) .ddv { display: none; }
+.dd.has .ddbtn { background: var(--ink); color: var(--bg); }
+.ddbtn .chev { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; opacity: .6; transition: transform .2s; }
 .ddbtn[aria-expanded="true"] .chev { transform: rotate(180deg); }
-.ddlist { display: grid; padding: 0 8px 10px; overscroll-behavior: contain; }
+.ddlist { order: 2; flex: 0 0 100%; display: grid; padding: 8px; border-radius: var(--r-lg); background: var(--surface); overscroll-behavior: contain; }
 .ddlist[hidden] { display: none; }
 .ddhint { padding: 8px 10px 4px; color: var(--muted); font-size: .8rem; }
 .ddopt { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 0 10px; border-radius: var(--r-md); text-align: left; font-weight: 700; }
@@ -836,7 +839,7 @@ img.mini { width: 28px; height: 28px; object-fit: contain; flex: none; }
 .goteams svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 
 /* cajas blancas sobre el fondo gris de la página: sin borde (dentro de otra caja blanca sí lo llevan) */
-.row, .card, .evo-card, .build, .team, .pfpanel, .fgroup, .slot, .frow, .resbox, .reasons li, .tipbox, .stars, .favbtn, .sg-unused, .lm, .mhero { border-color: transparent; }
+.row, .evo-card, .build, .team, .pfpanel, .fgroup, .slot, .frow, .resbox, .reasons li, .tipbox, .stars, .favbtn, .sg-unused, .lm, .mhero { border-color: transparent; }
 .build .lm, .tipbox .lm { border-color: var(--line); }
 
 .evenwhy { display: grid; gap: 14px; }
@@ -883,3 +886,38 @@ table.mx { display: table; margin: 0 auto; }
 .fbrow { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
 .fbrow .unmsg { margin: 0; flex: 1; }
 .sgroup.fb { gap: 14px; } .sgroup.fb .shint { padding: 0 10px; }
+
+/* sin borde: barra de búsqueda y píldora de filtros; las tarjetas de "Pokémon del día" sí llevan borde */
+.search input { border-color: transparent; }
+.ftoggle .chip, .pfrow .chip:not(.ghost) { border-color: transparent; }
+.ftoggle .chip.has, .pfrow .chip.has { background: var(--ink); color: var(--bg); }
+.ftoggle .chip.has .badge, .pfrow .chip.has .badge { background: var(--bg); color: var(--ink); }
+.card { border-color: var(--line); }
+.search .ph { font-size: 15.5px; right: 16px; }
+.ddopt[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.ddopt[aria-pressed="true"] .sico { stroke: currentColor; }
+.ddopt[aria-pressed="true"] .ck svg { stroke: var(--bg); }
+.ddopt[aria-pressed="true"] .dir { color: inherit; opacity: .75; }
+@media (hover: hover) { .ddopt[aria-pressed="true"]:hover { background: var(--ink); } }
+
+/* animaciones sencillas de las ventanas y los desplegables */
+@media (prefers-reduced-motion: no-preference) {
+  .smodal.enter { animation: mfade .2s ease-out; }
+  .smodal.enter > .scard { animation: mpop .28s var(--ease); }
+  .smodal.ghost-out { animation: mfadeout .18s ease-in forwards; pointer-events: none; }
+  .smodal.ghost-out > .scard { animation: mpopout .18s ease-in forwards; }
+  dialog#sheet[open]::backdrop { animation: mfade .25s ease-out; }
+  .ddlist:not([hidden]) { animation: ddIn .18s ease-out; }
+  @keyframes mfade { from { opacity: 0; } }
+  @keyframes mfadeout { to { opacity: 0; } }
+  @keyframes mpop { from { opacity: 0; transform: translateY(18px) scale(.96); } }
+  @keyframes mpopout { to { opacity: 0; transform: translateY(10px) scale(.97); } }
+  @keyframes ddIn { from { opacity: 0; transform: translateY(-6px); } }
+}
+.search .ph { font-size: 14px; }
+
+/* añadir amigo y cambiar nombre: campo en píldora y botón de la misma altura */
+.frform, .unrow { align-items: center; }
+.frform .unin, .unrow .unin { border-radius: var(--r-pill); padding: 0 20px; height: 46px; }
+.frform .unin { background: var(--surface); border-color: transparent; }
+.frform .chip, .unrow .chip { height: 46px; padding: 0 20px; }

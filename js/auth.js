@@ -137,6 +137,10 @@ export async function saveTeam(slot, name, members) {
 // ───────── comentarios y errores ─────────
 export async function sendFeedback(kind, message, appInfo) {
   const c = await client();
+  // la función guarda el mensaje y lo envía por correo; si no responde, se guarda directamente en la tabla
+  const { error: fnErr } = await c.functions.invoke('send-feedback', { body: { kind, message, app_info: appInfo } });
+  if (!fnErr) return;
+  if (fnErr.context?.status === 429) throw new Error('rate_limit');
   const { error } = await c.from('feedback').insert({ kind, message, app_info: appInfo });
   if (error) throw error;
 }

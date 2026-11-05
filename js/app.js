@@ -109,7 +109,9 @@ const refreshModal = () => { if (!smodal.hidden) smodal.innerHTML = modalHTML();
 function showModal(kind) {
   modalKind = kind;
   smodal.innerHTML = modalHTML();
+  const wasHidden = smodal.hidden;
   smodal.hidden = false;
+  if (wasHidden) { smodal.classList.add('enter'); clearTimeout(showModal.t); showModal.t = setTimeout(() => smodal.classList.remove('enter'), 340); }
   document.documentElement.classList.add('locked');
   updateDock();
 }
@@ -117,6 +119,10 @@ const openSettings = () => showModal('settings');
 const openLogin = action => { pending = action; showModal('login'); };
 function closeSettings() {
   if (smodal.hidden) return;
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) { // sale con un fundido: se anima una copia mientras el original ya está cerrado
+    const g = smodal.cloneNode(true); g.removeAttribute('id'); g.classList.remove('enter'); g.classList.add('ghost-out'); g.inert = true;
+    g.querySelectorAll('[id]').forEach(n => n.removeAttribute('id')); document.body.append(g); setTimeout(() => g.remove(), 200);
+  }
   smodal.hidden = true;
   document.documentElement.classList.remove('locked');
   updateDock();
@@ -498,7 +504,7 @@ const SORT_ICON = {
  *  c = { sort: bool, tiers: bool, acts: { toggle, sort, type, tier, gen, gen9 }, on(kind, v), val(key), open(key), dir(k) } */
 function filterRowsHTML(c) {
   const opt = (act, v, inner, kind) => `<button class="ddopt" role="option" data-act="${act}" data-v="${v}" aria-pressed="${c.on(kind, v)}">${inner}<span class="ck">${I.check}</span></button>`;
-  const dd = (key, label, hint, options) => `<div class="dd ${c.open(key) ? 'open' : ''}" data-dd="${key}"><button class="ddbtn" data-act="${c.acts.toggle}" data-v="${key}" aria-expanded="${c.open(key)}"><span class="ddl">${label}</span><span class="ddv" data-dv="${key}">${c.val(key)}</span><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+  const dd = (key, label, hint, options) => `<div class="dd ${c.open(key) ? 'open' : ''} ${c.has(key) ? 'has' : ''}" data-dd="${key}"><button class="ddbtn" data-act="${c.acts.toggle}" data-v="${key}" aria-expanded="${c.open(key)}"><span class="ddl">${label}</span><span class="ddv" data-dv="${key}">${c.val(key)}</span><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
     <div class="ddlist" role="listbox" ${c.open(key) ? '' : 'hidden'}>${hint ? `<p class="ddhint">${hint}</p>` : ''}${options}</div></div>`;
   const rows = [];
   if (c.sort) rows.push(dd('sort', t('sortBy'), '', SORTS.map(k => opt(c.acts.sort, k, `${SORT_ICON[k]}${sortLabel(k)}<span class="dir">${c.dir(k)}</span>`, 'sort')).join('')));
@@ -514,11 +520,12 @@ function pfBar(withTiers = true, withSort = false) {
     sort: withSort, tiers: withTiers, acts: { toggle: 'pf-dd', sort: 'pf-sort', type: 'pf-type', tier: 'pf-tier', gen: 'pf-gen', gen9: { act: 'pf-gen9' } },
     on: (k, v) => (k === 'sort' ? pf.sort === v : k === 'type' ? pf.types.includes(v) : k === 'tier' ? pf.tiers.includes(v) : k === 'gen' ? pf.gens.includes(Number(v)) : pf.gen9),
     open: key => pf.dd === key,
+    has: key => (key === 'sort' ? !!pf.sort : key === 'type' ? pf.types.length > 0 : key === 'tier' ? pf.tiers.length > 0 : pf.gens.length > 0),
     dir: k => (pf.sort === k ? (pf.dir === -1 ? '↓' : '↑') : ''),
     val: key => (key === 'sort' ? (pf.sort ? sortLabel(pf.sort) + (pf.dir === -1 ? ' ↓' : ' ↑') : sortLabel('num')) : key === 'type' ? selText(pf.types, t('allM'), typeName) : key === 'tier' ? selText(pf.tiers, t('allM'), tierLabel) : selText(pf.gens, t('allF'), g => t('genShort', { g }))),
   });
   return `<div class="pfbar"><div class="pfrow">
-      <button class="chip" data-act="pf-toggle" aria-expanded="${pf.open}">${I.adjust}${t('filters')}${n ? ` <span class="badge on">${n}</span>` : ''}</button>
+      <button class="chip ${n ? 'has' : ''}" data-act="pf-toggle" aria-expanded="${pf.open}">${I.adjust}${t('filters')}${n ? ` <span class="badge on">${n}</span>` : ''}</button>
       ${n ? `<button class="chip small ghost" data-act="pf-clear">${t('clearFilters')}</button>` : ''}</div>
     ${pf.open ? `<div class="filters pfp">${panel}</div>` : ''}</div>`;
 }
@@ -726,7 +733,7 @@ function homeHTML() {
   <section class="filters" id="filters" aria-label="${t('filters')}">
     ${filterRowsHTML({
       sort: true, tiers: true, acts: { toggle: 'dd-toggle', sort: 'sort', type: 'type', tier: 'tier-f', gen: 'gen', gen9: { act: 'flag', v: 'gen9' } },
-      on: () => false, open: () => false, val: () => '', dir: () => '',
+      on: () => false, open: () => false, has: () => false, val: () => '', dir: () => '',
     })}
     <button class="chip ghost clearbtn" data-act="reset" hidden>${t('clearFilters')}</button>
   </section>
@@ -752,9 +759,11 @@ function syncFilters() {
     sort: sortLabel(state.sort) + (state.sort !== 'num' || state.dir !== 1 ? (state.dir === -1 ? ' ↓' : ' ↑') : ''),
     type: sel(state.types, t('allM'), typeName), tier: sel(state.tiers, t('allM'), tierLabel), gen: sel(state.gens, t('allF'), g => t('genShort', { g })),
   };
+  const hasF = { sort: state.sort !== 'num' || state.dir !== 1, type: state.types.length > 0, tier: state.tiers.length > 0, gen: state.gens.length > 0 };
   f.querySelectorAll('.dd').forEach(d => {
     const k = d.dataset.dd, open = state.dd === k;
     $('.ddv', d).textContent = dv[k];
+    d.classList.toggle('has', hasF[k]);
     $('.ddbtn', d).setAttribute('aria-expanded', open);
     $('.ddlist', d).hidden = !open;
   });
@@ -767,6 +776,7 @@ function syncFilters() {
   $('#fbadge').textContent = active || '';
   $('.clearbtn', f).hidden = !isFiltering();
   $('[data-act="filters-toggle"]').setAttribute('aria-expanded', state.filtersOpen);
+  $('[data-act="filters-toggle"]').classList.toggle('has', active > 0);
   $('#fpanel').classList.toggle('open', state.filtersOpen);
   f.inert = !state.filtersOpen;
 }
@@ -968,7 +978,7 @@ function watchSentinel() {
 function renderHome() {
   state.view = 'home';
   document.title = 'PokeScanner';
-  $app.innerHTML = backBar() + homeHTML();
+  $app.innerHTML = (isFiltering() ? backBar() : '') + homeHTML(); // la flecha solo sale en el inicio si llegaste con un filtro o una búsqueda
   document.documentElement.style.removeProperty('--accent');
   renderResults(false); // al volver desde una ficha se conserva cuántos resultados había cargados
   window.scrollTo(0, state.scroll || 0);
@@ -1244,7 +1254,7 @@ function renderTeams() {
   state.view = 'teams';
   document.title = `${t('teamsTitle')} · PokeScanner`;
   document.documentElement.style.removeProperty('--accent');
-  $app.innerHTML = backBar() + '<div id="teams-root"></div>';
+  $app.innerHTML = '<div id="teams-root"></div>';
   paintTeams();
   window.scrollTo(0, 0);
   updateDock();
@@ -1293,7 +1303,7 @@ async function renderBattle() {
   state.view = 'battle';
   document.title = `${t('battleTitle')} · PokeScanner`;
   document.documentElement.style.removeProperty('--accent');
-  $app.innerHTML = backBar() + '<div id="battle-root"></div>';
+  $app.innerHTML = '<div id="battle-root"></div>';
   window.scrollTo(0, 0);
   updateDock();
   if (!auth.currentUser()) { paintBattle(); return; }

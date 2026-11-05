@@ -13,7 +13,7 @@ export function setLang(l) {
 const STR = {
   es: {
     footer: 'Datos de {ps} y los sets de {sm}; nombres y descripciones en español de {api}. Proyecto de fans sin relación con Nintendo, Game Freak ni The Pokémon Company.',
-    searchPh: 'Pokémon o movimientos', searchLabel: 'Buscar Pokémon', clearSearch: 'Borrar búsqueda',
+    searchPh: 'Pokémon, objeto, movimiento, habilidad…', searchLabel: 'Buscar Pokémon', clearSearch: 'Borrar búsqueda',
     filters: 'Filtros', sortBy: 'Ordenar por', type: 'Tipo', tier: 'Rango', tierHint: '1 = el más fuerte', show: 'Mostrar',
     favorites: 'Favoritos', baseOnly: 'Solo formas base', gen9Only: 'Solo Gen 9', num: 'Nº',
     daily: 'Pokémon del día', random: 'Pokémon al azar', shuffle: 'Otros al azar',
@@ -153,7 +153,7 @@ const STR = {
   },
   en: {
     footer: 'Data from {ps} and {sm} sets; Spanish names and descriptions from {api}. Fan project, not affiliated with Nintendo, Game Freak or The Pokémon Company.',
-    searchPh: 'Pokémon or moves', searchLabel: 'Search Pokémon', clearSearch: 'Clear search',
+    searchPh: 'Pokémon, item, move, ability…', searchLabel: 'Search Pokémon', clearSearch: 'Clear search',
     filters: 'Filters', sortBy: 'Sort by', type: 'Type', tier: 'Tier', tierHint: '1 = strongest', show: 'Show',
     favorites: 'Favorites', baseOnly: 'Base forms only', gen9Only: 'Gen 9 only', num: 'No.',
     daily: 'Pokémon of the day', random: 'Random Pokémon', shuffle: 'Shuffle',
