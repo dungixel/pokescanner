@@ -1402,3 +1402,10 @@ dialog.cfm::backdrop { background: rgba(10, 12, 20, .5); }
 .flavor[open] summary { margin-bottom: 4px; }
 
 .flavor small { display: block; font-weight: 700; margin-bottom: 2px; opacity: .8; }
+
+.frsug { display: flex; flex-direction: column; margin-top: 6px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; }
+.frsug[hidden] { display: none; }
+.frs { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 14px; border: 0; background: none; font: inherit; color: var(--ink); text-align: left; cursor: pointer; }
+.frs + .frs { border-top: 1px solid var(--line); }
+.frs:hover, .frs:focus-visible { background: var(--soft); }
+.frs b { font-weight: 800; }

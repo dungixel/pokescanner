@@ -161,6 +161,12 @@ export async function sendFriendRequest(username) {
   if (error) throw error;
   return data; // 'sent' | 'accepted' | 'already' | 'pending' | 'not_found' | 'self' | 'limit'
 }
+export async function searchUsernames(q) {
+  const c = await client();
+  const { data, error } = await c.rpc('search_usernames', { p_q: q });
+  if (error) throw error;
+  return data || [];
+}
 export async function respondFriend(id, accept) { const c = await client(); const { error } = await c.rpc('respond_friend_request', { p_requester: id, p_accept: accept }); if (error) throw error; }
 export async function removeFriend(id) { const c = await client(); const { error } = await c.rpc('remove_friend', { p_other: id }); if (error) throw error; }
 

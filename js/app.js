@@ -99,6 +99,7 @@ function settingsHTML() {
       ${sdd === 'theme' ? `<div class="sdl" role="listbox">${['system', 'light', 'dark'].map(m => `<button class="sopt" role="radio" data-act="set-theme" data-v="${m}" aria-checked="${pref === m}">${I[THEME_ICON[m]]}${t(m === 'system' ? 'themeSystem' : m)}<span class="ck">${I.check}</span></button>`).join('')}</div>` : ''}</div></div>
     ${offlineHTML()}
     ${auth.userInfo() ? feedbackHTML() : ''}
+    ${auth.isAdmin() ? `<div class="sgroup"><button class="sopt" data-act="adm-bans"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg>${t('admBans')}</button></div>` : ''}
     ${auth.userInfo() ? `<div class="sgroup"><button class="sopt" data-act="sign-out">${I.logout}${t('signOut')}</button></div>` : ''}
   </div>`;
 }
@@ -1923,7 +1924,7 @@ function communityHTML() {
     <div class="searchbar"><div class="search ${com.q ? 'filled' : ''}">${I.search}<input id="com-q" type="search" inputmode="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${t('comSearchPh')}" value="${esc(com.q)}" aria-label="${t('comSearchPh')}"></div></div>
     <div class="comfilters"><button class="chip ${com.fopen ? 'on' : ''}" data-act="com-ftoggle" aria-expanded="${com.fopen}">${FILTIC}${t('comFilters')}${comFCount() ? ` <span class="badge on">${comFCount()}</span>` : ''}<svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button></div>
     ${com.fopen ? comPanelHTML() : ''}
-    <div class="comtools"><div class="comsort">${sortBtn('new', 'comNew')}${sortBtn('top', 'comTop')}</div><span class="comtools-r">${auth.isAdmin() ? `<button class="chip" data-act="adm-bans">${t('admBans')}</button>` : ''}<button class="chip accent" data-act="com-publish">${IC.plus}${t('comPublish')}</button></span></div>
+    <div class="comtools"><div class="comsort">${sortBtn('new', 'comNew')}${sortBtn('top', 'comTop')}</div><span class="comtools-r"><button class="chip accent" data-act="com-publish">${IC.plus}${t('comPublish')}</button></span></div>
     <div class="cfeed">${list}</div>
     ${com.more ? `<div class="ctarow"><button class="chip" data-act="com-more" ${com.loading ? 'disabled' : ''}>${t('comMore')}</button></div>` : ''}`;
 }
@@ -2430,6 +2431,7 @@ function battleHTML() {
   const inc = bt.friends.filter(f => f.direction === 'in'), fr = bt.friends.filter(f => f.direction === 'friend'), out = bt.friends.filter(f => f.direction === 'out');
   const friendsSec = `<section class="sec"><div class="block-title"><h2>${t('friends')}</h2></div>
     <div class="frform"><input id="fr-name" class="unin" placeholder="${t('friendAddPh')}" maxlength="16" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="chip accent" data-act="friend-add">${IC.userPlus}${t('friendAdd')}</button></div>
+    <div id="fr-sug" class="frsug" role="listbox" hidden></div>
     ${bt.msg ? `<small class="unmsg">${esc(bt.msg)}</small>` : ''}
     <div class="frlist">${[...inc, ...fr, ...out].map(friendRow).join('') || `<p class="shint">${t('friendNone')}</p>`}</div></section>`;
   const compare = `<section class="sec"><div class="block-title"><h2>${t('compareTitle')}</h2>${bt.res && isFriendOwner(bt.b.owner) ? `<span class="livebadge"><i></i>${t('live')}</span>` : ''}</div>
@@ -2703,6 +2705,18 @@ async function addFriend() {
   if (code === 'sent' || code === 'accepted') { if (inp) inp.value = ''; await refreshFriends(); watchBattle(); }
   paintBattle();
 }
+// sugerencias de usuarios mientras se escribe el nombre de un amigo
+let frTimer = 0, frSeq = 0;
+async function frSuggest(q) {
+  const box = $('#fr-sug'); if (!box) return;
+  const my = ++frSeq;
+  if (!q) { box.hidden = true; box.innerHTML = ''; return; }
+  let list = []; try { list = await auth.searchUsernames(q); } catch { list = []; }
+  if (my !== frSeq || !$('#fr-sug')) return;
+  box.innerHTML = list.map(u => `<button type="button" class="frs" role="option" data-act="fr-pick" data-v="${esc(u.username)}">${avatarImg(u.avatar, 'sm')}<span><b>${esc(u.username.slice(0, q.length))}</b>${esc(u.username.slice(q.length))}</span></button>`).join('');
+  box.hidden = !list.length;
+}
+document.addEventListener('input', e => { if (e.target.id !== 'fr-name') return; clearTimeout(frTimer); const q = e.target.value.trim(); frTimer = setTimeout(() => frSuggest(q), 180); });
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'fr-name') { e.preventDefault(); addFriend(); } });
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'tn') { e.preventDefault(); teamsSel.rename = false; paintTeams(); document.title = `${teamName(teamsSel.open)} · PokeScanner`; } });
 // el menú de equipos se cierra al pulsar fuera o con Escape
@@ -2839,6 +2853,7 @@ document.addEventListener('click', e => {
     case 'avatar-pick': openPicker({ mode: 'avatar' }); break;
     case 'un-save': saveUsername(); break;
     case 'friend-add': addFriend(); break;
+    case 'fr-pick': { const i = $('#fr-name'); if (i) { i.value = v; i.focus(); } frSuggest(''); break; }
     case 'friend-accept': auth.respondFriend(v, true).then(() => refreshFriends()).then(() => { paintBattle(); watchBattle(); }).catch(() => toast(t('syncFail'))); break;
     case 'friend-decline': askConfirm(t('cfmDecline'), t('decline'), () => auth.respondFriend(v, false).then(() => auth.removeFriend(v)).catch(() => {}).then(() => refreshFriends()).then(() => { paintBattle(); watchBattle(); })); break;
     case 'friend-remove': askConfirm(t('cfmFriend'), t('cfmRemove'), () => { auth.removeFriend(v).then(() => refreshFriends()).then(() => { if (bt.b.owner === v) bt.b = { owner: 'me', slot: 1 }; bt.res = null; paintBattle(); watchBattle(); }).catch(() => toast(t('syncFail')));; }); break;
