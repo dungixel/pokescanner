@@ -775,7 +775,7 @@ const sortLabel = k => (k === 'num' ? t('num') : statName(k));
 function homeHTML() {
   return `
   <header class="hero">
-    <h1>PokeScanner</h1>
+    <h1 class="brand"><img class="applogo" src="icons/icon-192.png" alt="" width="48" height="48" decoding="async">PokeScanner</h1>
     ${updHTML()}
   </header>
   <div class="searchbar"><div class="search ${state.q ? 'filled' : ''}">

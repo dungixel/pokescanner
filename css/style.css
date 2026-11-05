@@ -1248,3 +1248,6 @@ button.slot.slothead { cursor: pointer; }
 .companel .ghost { justify-self: start; margin-top: 12px; }
 .companel .chip svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .mhero { border-color: color-mix(in srgb, var(--tc, var(--accent)) 38%, var(--line)); }
+
+.hero h1.brand { display: flex; align-items: center; gap: .26em; }
+.hero h1.brand .applogo { width: 1.05em; height: 1.05em; flex: none; border-radius: 22%; box-shadow: 0 2px 8px rgba(8, 10, 18, .18); }
