@@ -192,7 +192,7 @@ button.tier { cursor: pointer; }
 
 .list { display: grid; gap: 4px; }
 .row {
-  display: grid; grid-template-columns: 48px 1fr auto; align-items: center; gap: 10px; padding: 5px 12px 5px 5px; border-radius: var(--r-md);
+  display: grid; grid-template-columns: 48px 1fr auto; align-items: center; gap: 10px; padding: 6px 12px 6px 6px; border-radius: var(--r-md);
   background: var(--surface); border: 1px solid var(--line); transition: border-color .18s, transform .12s;
 }
 .row:active { transform: scale(.985); }
@@ -436,6 +436,10 @@ dialog#sheet::backdrop { background: rgba(10, 12, 18, .5); backdrop-filter: blur
 .desc { font-size: 1rem; line-height: 1.55; max-width: 62ch; }
 .sec > .hint { margin: -4px 0 12px; }
 .row .why { color: var(--muted); font-size: .8rem; line-height: 1.3; margin-top: 2px; }
+.row .nm { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.row .nm b { min-width: 0; }
+.row .nm .types { display: flex; gap: 4px; flex: none; }
+.row:has(.why) img.poke { align-self: start; }
 .sec .more { margin-top: 10px; }
 .chips.near { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .sec .list + .more { margin-right: 8px; }

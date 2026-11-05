@@ -419,7 +419,7 @@ function moveFit(m, p, use, total) {
 function fitRow({ p, why }) {
   return `<a class="row" href="#/pokemon/${p.id}" style="--c:${TYPE_COLOR[p.t[0]]}">
     ${pokeImg(p, 'small')}
-    <span class="meta"><b>${esc(pname(p))}</b><span class="sub"><span class="types">${p.t.map(typeDot).join('')}</span></span>
+    <span class="meta"><span class="nm"><b>${esc(pname(p))}</b><span class="types">${p.t.map(typeDot).join('')}</span></span>
       <span class="why">${why.map(esc).join(' · ')}</span></span>
     <span class="side">${tierBadge(p.r, '', p.g)}</span></a>`;
 }
