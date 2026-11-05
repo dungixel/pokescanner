@@ -72,8 +72,7 @@ function accountHTML() {
       <div class="who"><b>${esc(me?.username || u.name)}</b><small>${esc(u.email)}</small></div></div>
     <div class="unrow"><input id="un" class="unin" value="${esc(me?.username || '')}" maxlength="16" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="${t('username')}">
       <button class="chip accent" data-act="un-save" disabled>${t('saveBtn')}</button></div>
-    <small id="un-msg" class="unmsg">${t('unHint')}</small>
-    <button class="sopt" data-act="sign-out">${I.logout}${t('signOut')}</button></div>`;
+    <small id="un-msg" class="unmsg">${t('unHint')}</small></div>`;
 }
 function settingsHTML() {
   const pref = themePref();
@@ -84,6 +83,7 @@ function settingsHTML() {
       ${['es', 'en'].map(l => `<button class="sopt" role="radio" data-act="set-lang" data-v="${l}" aria-checked="${lang() === l}"><img class="flag" src="${FLAG[l]}" alt="" width="24" height="18">${LANGS[l]}<span class="ck">${I.check}</span></button>`).join('')}</div>
     <div class="sgroup"><h3>${I[THEME_ICON[pref]]}${t('theme')}</h3>
       ${['system', 'light', 'dark'].map(m => `<button class="sopt" role="radio" data-act="set-theme" data-v="${m}" aria-checked="${pref === m}">${I[THEME_ICON[m]]}${t(m === 'system' ? 'themeSystem' : m)}<span class="ck">${I.check}</span></button>`).join('')}</div>
+    ${auth.userInfo() ? `<div class="sgroup"><button class="sopt" data-act="sign-out">${I.logout}${t('signOut')}</button></div>` : ''}
   </div>`;
 }
 function loginHTML() {
@@ -1150,7 +1150,7 @@ function renderTeams() {
 }
 
 // ───────────────────────── Batalla ─────────────────────────
-const bt = { friends: [], online: new Map(), others: new Map(), a: { owner: 'me', slot: 0 }, b: { owner: 'me', slot: 1 }, res: null, busy: false, msg: '', live: false, menu: null };
+const bt = { friends: [], online: new Map(), others: new Map(), a: { owner: 'me', slot: 0 }, b: { owner: 'me', slot: 1 }, res: null, busy: false, msg: '', live: false, menu: null, mode: 'singles', prog: null, planSide: 'A' };
 const friendById = id => bt.friends.find(f => f.user_id === id);
 const frAvatar = f => avatarImg(f.avatar);
 const teamOf = sel => (sel.owner === 'me' ? teams[sel.slot] : bt.others.get(sel.owner)?.[sel.slot] || null);
@@ -1244,9 +1244,12 @@ function battleHTML() {
     <div class="frlist">${[...inc, ...fr, ...out].map(friendRow).join('') || `<p class="shint">${t('friendNone')}</p>`}</div></section>`;
   const compare = `<section class="sec"><div class="block-title"><h2>${t('compareTitle')}</h2>${bt.res && bt.b.owner !== 'me' ? `<span class="livebadge"><i></i>${t('live')}</span>` : ''}</div>
     <div class="vswrap"><div class="vsgrid">${sidePreview(bt.a, 'a')}<span class="vs" aria-hidden="true"><b>${t('vs')}</b></span>${sidePreview(bt.b, 'b')}</div>${bt.menu ? teamMenuHTML(bt.menu) : ''}</div>
+    <div class="modetabs" role="tablist">${['singles', 'doubles'].map(m => `<button role="tab" data-act="bt-mode" data-v="${m}" aria-selected="${bt.mode === m}" ${bt.busy ? 'disabled' : ''}>${t(m === 'singles' ? 'bt_single' : 'bt_double')}</button>`).join('')}</div>
+    <p class="shint modehint">${t(bt.mode === 'singles' ? 'bt_modeHint_single' : 'bt_modeHint_double')}</p>
     <button class="gbtn comparebtn" data-act="compare" ${bt.busy ? 'disabled' : ''}>${IC.battle}${t(bt.busy ? 'comparing' : 'compareBtn')}</button>
+    ${bt.busy ? `<div class="progbox" role="progressbar" aria-valuemin="0" aria-valuemax="100"><div class="progtop"><span id="pg-l">${t(`pg_${bt.prog?.label || 'load'}`)}</span><b id="pg-n">${Math.round((bt.prog?.f || 0) * 100)}%</b></div><div class="progbar"><i id="pg-i" style="width:${Math.round((bt.prog?.f || 0) * 100)}%"></i></div></div>` : ''}
     ${bt.cmpMsg ? `<small class="unmsg">${esc(bt.cmpMsg)}</small>` : ''}</section>`;
-  return head + friendsSec + compare + (bt.res ? resultHTML() : '');
+  return head + friendsSec + compare + (bt.res?.[bt.mode] && !bt.busy ? resultHTML() : '');
 }
 function paintBattle() {
   const root = $('#battle-root'); if (!root) return;
@@ -1255,23 +1258,96 @@ function paintBattle() {
   const inp = $('#fr-name'); if (inp && typed) { inp.value = typed; if (focus) inp.focus(); }
   window.scrollTo(0, y);
 }
+let ENG = null;
+const getEngine = () => (ENG ??= (async () => {
+  const [X, S, D] = await Promise.all([import('./calcx.js'), import('./singles.js'), import('./doubles.js')]);
+  await X.initCalc();
+  return { X, S, D };
+})().catch(e => { ENG = null; throw e; }));
+let LMAP = null;
+const learnableOf = p => {
+  if (!LMAP) {
+    LMAP = new Map();
+    const pos = new Map(INDEX.map((q, i) => [q.id, i]));
+    const rev = new Map();
+    for (const [mv, o] of Object.entries(LEARNERS)) for (const i of o.l) { if (!rev.has(i)) rev.set(i, []); rev.get(i).push(mv); }
+    LMAP.pos = pos; LMAP.rev = rev;
+  }
+  return LMAP.rev.get(LMAP.pos.get(p.id)) || [];
+};
+function paintProgress() {
+  const p = bt.prog, bar = $('#pg-i');
+  if (!p || !bar) return;
+  const pc = Math.max(1, Math.min(100, Math.round(p.f * 100)));
+  bar.style.width = `${pc}%`; $('#pg-n').textContent = `${pc}%`; $('#pg-l').textContent = t(`pg_${p.label}`);
+  $('.progbox')?.setAttribute('aria-valuenow', pc);
+}
+const SWAP_TIERS = new Set(['OU', 'UUBL', 'UU', 'RUBL', 'RU']);
+/** Cambios legales (de OU a RU) que mejor rinden contra el equipo rival, calculados con el propio motor */
+async function suggestSwaps(own, foe, mode, eng, dict) {
+  if (own.length < 3) return null;
+  const score = u => {
+    if (mode === 'doubles') return eng.D.pairScore ? foe.reduce((n, f) => n + eng.D.pairScore(u, f), 0) / foe.length : 0;
+    return foe.reduce((n, f) => n + eng.S.duelSym(u, eng.X.newState(u), f, eng.X.newState(f), { enterA: true, enterB: true }).margin, 0) / foe.length;
+  };
+  const base = own.map(score);
+  const wi = base.indexOf(Math.min(...base));
+  const rest = own.filter((_, i) => i !== wi);
+  const weakTypes = ty => rest.filter(u => eng.X.eff(ty, u.types) >= 2).length;
+  const haveNum = new Set(own.map(u => u.p.num));
+  const pool = INDEX.filter(p => !p.g && SWAP_TIERS.has(p.r) && p.ns > 0 && !haveNum.has(p.num));
+  const full = await Promise.all(pool.map(p => getPokemon(p.id)));
+  const out = [];
+  for (let k = 0; k < pool.length; k++) {
+    let u; try { u = eng.X.makeUnit(full[k], {}, dict, mode, { learnable: learnableOf, pname }); } catch { continue; }
+    let sc = score(u);
+    // no se recomienda uno que deje al equipo con tres debilidades al mismo tipo
+    for (const ty of TYPES) if (weakTypes(ty) >= 2 && eng.X.eff(ty, u.types) >= 2) sc -= 0.25;
+    out.push({ p: pool[k], sc, wins: foe.filter(f => eng.S.duelSym(u, eng.X.newState(u), f, eng.X.newState(f), { enterA: true, enterB: true }).margin > 0.001).length });
+    if (k % 25 === 0) await eng.S.tick();
+  }
+  out.sort((a, b) => b.sc - a.sc);
+  const picks = out.filter(o => o.sc > base[wi] + 0.15).slice(0, 3);
+  return { replace: own[wi], base: base[wi], picks, n: foe.length };
+}
 async function runCompare() {
-  const A = teamOf(bt.a), B = teamOf(bt.b);
+  const A = teamOf(bt.a), B = teamOf(bt.b), mode = bt.mode;
   bt.cmpMsg = '';
   if (!A?.members.length || !B?.members.length) { bt.cmpMsg = t('compareEmpty'); paintBattle(); return; }
-  bt.busy = true; paintBattle();
+  if (mode === 'doubles' && (A.members.length < 2 || B.members.length < 2)) { bt.cmpMsg = t('dblNeed'); paintBattle(); return; }
+  bt.busy = true; bt.prog = { f: 0.01, label: 'load' }; paintBattle();
+  const names = { aName: sideName(bt.a), bName: sideName(bt.b), aMine: bt.a.owner === 'me', bMine: bt.b.owner === 'me' };
   try {
-    const dict = await getDict();
-    const load = ms => Promise.all(ms.map(async m => buildUnit(await getPokemon(m.id), m, dict)));
-    const [ua, ub] = await Promise.all([load(A.members), load(B.members)]);
-    bt.res = { r: compareTeams(ua, ub), ua, ub, aName: sideName(bt.a), bName: sideName(bt.b), aMine: bt.a.owner === 'me', bMine: bt.b.owner === 'me' };
-  } catch { bt.cmpMsg = t('loadFail'); }
-  bt.busy = false;
+    const [dict] = await Promise.all([getDict(), getLearners()]);
+    let out;
+    try {
+      const eng = await getEngine();
+      const load = ms => Promise.all(ms.map(async m => eng.X.makeUnit(await getPokemon(m.id), m, dict, mode, { learnable: learnableOf, pname })));
+      const [ua, ub] = await Promise.all([load(A.members), load(B.members)]);
+      eng.X.clearMemo(); eng.S.clearDuelMemo();
+      const onProgress = (f, label) => { bt.prog = { f: Math.min(0.97, f), label }; paintProgress(); };
+      const comp = mode === 'doubles' ? await eng.D.compareDoubles(ua, ub, { onProgress, budgetMs: 22000 }) : await eng.S.compareSingles(ua, ub, { onProgress, budgetMs: 22000, dict });
+      const r = mode === 'doubles' ? eng.D.analyzeDoubles(ua, ub, comp) : eng.S.analyzeSingles(ua, ub, comp);
+      onProgress(0.95, 'swaps');
+      let swaps = { A: null, B: null };
+      try { swaps = { A: await suggestSwaps(ua, ub, mode, eng, dict), B: await suggestSwaps(ub, ua, mode, eng, dict) }; } catch (e) { console.warn('swaps', e); }
+      out = { r, ua, ub, swaps, ...names };
+    } catch (e) {
+      // si la calculadora no carga, se usa el comparador sencillo
+      console.error(e);
+      if (mode === 'doubles') throw e;
+      const load = ms => Promise.all(ms.map(async m => buildUnit(await getPokemon(m.id), m, dict)));
+      const [ua, ub] = await Promise.all([load(A.members), load(B.members)]);
+      out = { r: compareTeams(ua, ub), ua, ub, swaps: { A: null, B: null }, ...names };
+    }
+    bt.res = { ...(bt.res || {}), [mode]: out };
+  } catch (e) { console.error(e); bt.cmpMsg = t('loadFail'); }
+  bt.busy = false; bt.prog = null;
   if (state.view === 'battle') paintBattle();
 }
 
 // ───── resultado ─────
-const fmtVars = v => Object.fromEntries(Object.entries(v || {}).map(([k, x]) => [k, k === 'type' ? typeName(x) : k === 'name' ? esc(pname(x)) : k === 'list' ? x.map(p => esc(pname(p))).join(', ') : x]));
+const fmtVars = v => Object.fromEntries(Object.entries(v || {}).map(([k, x]) => [k, k === 'type' ? typeName(x) : k === 'name' ? (typeof x === 'string' ? esc(x) : esc(pname(x))) : k === 'list' ? x.map(p => (typeof p === 'string' ? esc(p) : esc(pname(p)))).join(', ') : x]));
 // solo se recomiendan Pokémon legales en los formatos normales: nada de Ubers ni de Pokémon que solo se usan en juego libre (AG)
 const legalPick = p => !p.g && tierNum(p.r) >= 3;
 const resistSuggestions = type => INDEX.filter(p => legalPick(p) && strength(p) <= 6 && eff(type, p.t) < 1).sort((a, b) => strength(a) - strength(b) || bst(b.s) - bst(a.s)).slice(0, 4);
@@ -1280,14 +1356,60 @@ function tipHTML(tp) {
   return `<li>${t(`tp_${tp.key}`, fmtVars(tp.vars))}${sug.length ? `<div class="sugs"><small>${t('tpSuggest')}</small>${sug.map(chipPoke).join('')}</div>` : ''}</li>`;
 }
 const cellColor = s => (s > 0 ? `color-mix(in srgb, #2FAE5F ${Math.round(18 + Math.abs(s) * 72)}%, var(--surface))` : s < 0 ? `color-mix(in srgb, #E5484D ${Math.round(18 + Math.abs(s) * 72)}%, var(--surface))` : 'var(--soft)');
+// ───── plan de juego ─────
+const uChip = u => chipPoke(u.p);
+const mvLabel = m => esc(m ? (lang() === 'es' ? m.es || m.name : m.name) : '');
+const hitsText = x => (x.ohko || x.hits <= 1 ? t('pl_ohko') : t('pl_hko', { n: x.hits }));
+const pctText = x => `${Math.min(100, x.pct)}%`;
+function actionText(a, Mine, Foe) {
+  const name = `<b>${esc(pname(Mine[a.mine].p))}</b>`, mv = a.move ? `<b>${mvLabel(a.move)}</b>` : '';
+  const tg = a.target != null && Foe[a.target] ? `<b>${esc(pname(Foe[a.target].p))}</b>` : '';
+  const k = { atk: a.spread ? 'act_spread' : 'act_atk', protect: 'act_protect', help: 'act_help', redirect: 'act_redirect', speed: 'act_speed', trick: 'act_trick', wide: 'act_wide', setup: 'act_setup', recover: 'act_recover', status: 'act_status', screen: 'act_screen', pass: 'act_pass' }[a.type] || 'act_pass';
+  return t(k, { name, move: mv, target: tg });
+}
+function focusHTML(plan, Mine, Foe, only) {
+  const rows = plan.focus.filter(f => !only || only.includes(f.mine)).map(f => {
+    const u = Mine[f.mine];
+    const tg = f.targets.map(x => `<li>${uChip(Foe[x.foe])}<span><b>${mvLabel(x.move)}</b> <small>${pctText(x)} · ${hitsText(x)}</small></span></li>`).join('');
+    const none = f.useless.length ? `<p class="shint">${t('pl_nothing', { list: f.useless.slice(0, 3).map(j => esc(pname(Foe[j].p))).join(', ') })}</p>` : '';
+    return `<div class="pfoc"><div class="pfh">${uChip(u)}${f.main ? `<span class="mvp" style="--tc:${TYPE_COLOR[f.main.t]}">${typeIcon(f.main.t)}${mvLabel(f.main)}</span>` : ''}</div>${tg ? `<ul class="pans">${tg}</ul>` : ''}${none}</div>`;
+  }).join('');
+  return rows;
+}
+function planHTML(res, side) {
+  const { r, ua, ub, aName, bName } = res;
+  if (!r.plan) return '';
+  const mine = side === 'A' ? ua : ub, foe = side === 'A' ? ub : ua, plan = r.plan[side], name = side === 'A' ? aName : bName, foeName = side === 'A' ? bName : aName;
+  const tabs = `<div class="modetabs small" role="tablist">${['A', 'B'].map(sd => `<button role="tab" data-act="bt-plan" data-v="${sd}" aria-selected="${side === sd}">${sd === 'A' ? aName : bName}</button>`).join('')}</div>`;
+  let body = '';
+  if (r.mode === 'doubles') {
+    const pairs = plan.leads.map((l, k) => `<div class="pairrow ${k ? 'alt' : 'main'}"><span class="pairlab">${k ? t('pl_leadAlt') : t('pl_lead')}</span>${l.i.map(i => uChip(mine[i])).join('<span class="plus">+</span>')}</div>`).join('');
+    const t1 = plan.turn1.length ? `<h4>${t('pl_t1')}</h4><ul class="acts">${plan.turn1.map(a => `<li>${actionText(a, mine, foe)}</li>`).join('')}</ul>` : '';
+    const fl = plan.foeLeads.length ? `<h4>${t('pl_foeLead')}</h4>${plan.foeLeads.slice(0, 2).map(l => `<div class="pairrow alt">${l.j.map(j => uChip(foe[j])).join('<span class="plus">+</span>')}</div>`).join('')}` : '';
+    body = `<h4>${t('pl_bring')}</h4><div class="chipline">${plan.bring.map(i => uChip(mine[i])).join('')}</div><p class="shint">${t('pl_bringHint')}</p>
+      ${pairs}${t1}${fl}
+      <h4>${t('pl_focus')}</h4>${focusHTML(plan, mine, foe, plan.bring)}`;
+  } else {
+    const leads = plan.leads.map((l, k) => `<div class="pairrow ${k ? 'alt' : 'main'}"><span class="pairlab">${k ? t('pl_leadAlt') : t('pl_lead')}</span>${uChip(mine[l.i])}</div>`).join('');
+    const fl = plan.foeLeads.length ? `<h4>${t('pl_foeLead')}</h4><div class="chipline">${plan.foeLeads.map(l => uChip(foe[l.j])).join('')}</div>` : '';
+    const ans = plan.answers.map(x => `<li>${uChip(foe[x.foe])}<span class="arrow">→</span>${uChip(mine[x.mine])}<span>${x.move ? `<b>${mvLabel(x.move)}</b> <small>${pctText(x)} · ${hitsText(x)}</small>` : ''}</span></li>`).join('');
+    body = `${leads}${fl}<h4>${t('pl_answers')}</h4><ul class="pans">${ans}</ul><h4>${t('pl_focus')}</h4>${focusHTML(plan, mine, foe)}`;
+  }
+  return `<div class="block-title"><h2>${t('planTitle')}</h2></div><div class="plan">${tabs}<p class="shint">${t('planHint')}</p>${body}</div>`;
+}
+const swapHTML = (sw, side) => {
+  if (!sw) return '';
+  if (!sw.picks.length) return `<p class="shint">${t('swapNone')}</p>`;
+  return `<div class="swap"><h4>${t('swapTitle')}</h4><p>${t('swapText', { name: `<b>${esc(pname(sw.replace.p))}</b>` })}</p><ul class="pans">${sw.picks.map(x => `<li>${chipPoke(x.p)}<small>${t('swapGain', { k: x.wins, n: sw.n })}</small></li>`).join('')}</ul></div>`;
+};
 function resultHTML() {
-  const { r, ua, ub, aName, bName } = bt.res;
+  const { r, ua, ub, aName, bName, swaps } = bt.res[bt.mode];
   const pa = Math.round(r.pA * 100), pb = 100 - pa;
   const winName = r.win === 'A' ? aName : bName;
   const rs = r.reasons.length ? `<ol class="reasons">${r.reasons.map(x => `<li>${t(`br_${x.key}${x.key === 'hazards' && !x.vars.noRemoval ? '_b' : ''}`, fmtVars(x.vars))}</li>`).join('')}</ol>` : `<p class="shint">${t('noReasons')}</p>`;
-  const tipBlock = (name, tips, mine) => `<div class="tipbox"><h3>${t('tipsTitle', { name })}</h3>${tips.length ? `<ul class="tips">${tips.map(tipHTML).join('')}</ul>` : `<p class="shint">${t('tipsNone')}</p>`}</div>`;
-  const loserTips = r.win === 'A' ? tipBlock(bName, r.tipsB) : tipBlock(aName, r.tipsA);
-  const winnerTips = r.close ? (r.win === 'A' ? tipBlock(aName, r.tipsA) : tipBlock(bName, r.tipsB)) : '';
+  const tipBlock = (name, tips, side) => `<div class="tipbox"><h3>${t('tipsTitle', { name })}</h3>${tips.length ? `<ul class="tips">${tips.map(tipHTML).join('')}</ul>` : `<p class="shint">${t('tipsNone')}</p>`}${swapHTML(swaps?.[side], side)}</div>`;
+  const loserTips = r.win === 'A' ? tipBlock(bName, r.tipsB, 'B') : tipBlock(aName, r.tipsA, 'A');
+  const winnerTips = r.close ? (r.win === 'A' ? tipBlock(aName, r.tipsA, 'A') : tipBlock(bName, r.tipsB, 'B')) : '';
   const matrix = `<div class="mxwrap"><table class="mx"><thead><tr><th></th>${ub.map(u => `<th><a href="#/pokemon/${u.p.id}" aria-label="${esc(pname(u.p))}">${pokeImg(u.p, 'small', 'mini')}</a></th>`).join('')}</tr></thead><tbody>${ua.map((a, i) => `<tr><th><a href="#/pokemon/${a.p.id}" aria-label="${esc(pname(a.p))}">${pokeImg(a.p, 'small', 'mini')}</a></th>${ub.map((b, j) => {
     const s = r.matrix[i][j].s;
     return `<td style="background:${cellColor(s)}" title="${esc(pname(a.p))} ${s > 0 ? '>' : s < 0 ? '<' : '='} ${esc(pname(b.p))}">${s > 0.001 ? '✓' : s < -0.001 ? '✕' : '–'}</td>`;
@@ -1299,6 +1421,7 @@ function resultHTML() {
     const best = sorted[0], worst = sorted[sorted.length - 1];
     return `<div class="stars"><b>${label}</b><div class="starrow"><span class="stag good">${t('mvp')}</span>${chipPoke(best.u.p)}</div>${rows.length > 1 ? `<div class="starrow"><span class="stag bad">${t('weakestLink')}</span>${chipPoke(worst.u.p)}</div>` : ''}</div>`;
   };
+  const est = [...ua, ...ub].filter(u => u.estimated);
   const f = r.factors;
   const FACT = [['duels', f.duels], ['speed', f.speed], ['hazards', f.hazards], ['support', f.support]];
   const fmax = Math.max(0.6, ...FACT.map(([, v]) => Math.abs(v)));
@@ -1310,12 +1433,14 @@ function resultHTML() {
       <h3 class="winline">${r.close ? t('resEven') : t('resWin', { name: winName })}</h3>
       <p class="shint">${t('resChance', { p: r.pct, name: winName })}</p></div>
     <div class="block-title"><h2>${t('whyTitle')}</h2></div>${rs}
+    ${planHTML(bt.res[bt.mode], bt.planSide)}
     <div class="block-title"><h2>${t('improveTitle')}</h2></div>${loserTips}${winnerTips}
     <div class="block-title"><h2>${t('extraMatrix')}</h2></div><p class="shint">${t('extraMatrixHint')}</p>${matrix}
     <div class="block-title"><h2>${t('extraStars')}</h2></div><div class="starsgrid">${star(r.rowA, aName)}${star(r.rowB, bName)}</div>
     <div class="block-title"><h2>${t('extraSpeed')}</h2></div><div class="spdlist">${speed}</div>
     <div class="block-title"><h2>${t('extraFactors')}</h2></div><div class="factors">${factors}</div><p class="shint facthint"><span>← ${aName}</span><span>${bName} →</span></p>
-    <p class="note">${t('resNote')}</p></section>`;
+    ${est.length ? `<p class="shint">${t('estNote', { list: est.map(u => esc(pname(u.p))).join(', ') })}</p>` : ''}
+    <p class="note">${r.trials ? t('resNote2', { n: r.trials.toLocaleString(lang()) }) : t('resNote')}</p></section>`;
 }
 
 // ───────────────────────── Eventos ─────────────────────────
@@ -1444,6 +1569,8 @@ document.addEventListener('click', e => {
     case 'friend-decline': auth.respondFriend(v, false).then(() => auth.removeFriend(v)).catch(() => {}).then(() => refreshFriends()).then(() => { paintBattle(); watchBattle(); }); break;
     case 'friend-remove': auth.removeFriend(v).then(() => refreshFriends()).then(() => { if (bt.b.owner === v) bt.b = { owner: 'me', slot: 1 }; bt.res = null; paintBattle(); watchBattle(); }).catch(() => toast(t('syncFail'))); break;
     case 'compare': runCompare(); break;
+    case 'bt-mode': if (!bt.busy && bt.mode !== v) { bt.mode = v; bt.cmpMsg = ''; paintBattle(); } break;
+    case 'bt-plan': bt.planSide = v; paintBattle(); break;
     case 'sign-in': startLogin(); break;
     case 'sign-out': auth.signOut().catch(() => {}); closeSettings(); break;
     case 'type-go': goSearch({ types: [v] }); break;
