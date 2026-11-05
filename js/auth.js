@@ -195,3 +195,36 @@ export async function unwatchFriends() {
   const list = watchers; watchers = [];
   await Promise.all(list.map(ch => sb.removeChannel(ch)));
 }
+
+// ───────── Comunidad ─────────
+const comErr = error => { const m = String(error?.message || ''); return Object.assign(new Error(/rate_limit/.test(m) ? 'rate_limit' : /text_banned/.test(m) ? 'text_banned' : m || 'fail'), { code: error?.code }); };
+export async function communityFeed(sort = 'new', offset = 0, limit = 20, post = null) {
+  const c = await client();
+  const { data, error } = await c.rpc('community_feed', { p_sort: sort, p_offset: offset, p_limit: limit, p_post: post });
+  if (error) throw comErr(error);
+  return data || [];
+}
+export async function communityComments(postId) {
+  const c = await client();
+  const { data, error } = await c.rpc('community_comments', { p_post: postId });
+  if (error) throw comErr(error);
+  return data || [];
+}
+export async function publishPost(name, description, members) {
+  const c = await client();
+  const { data, error } = await c.from('posts').insert({ name, description, members }).select('id').single();
+  if (error) throw comErr(error);
+  return data.id;
+}
+export async function deletePost(id) { const c = await client(); const { error } = await c.from('posts').delete().eq('id', id); if (error) throw comErr(error); }
+export async function addComment(postId, body) {
+  const c = await client();
+  const { error } = await c.from('post_comments').insert({ post_id: postId, body });
+  if (error) throw comErr(error);
+}
+export async function deleteComment(id) { const c = await client(); const { error } = await c.from('post_comments').delete().eq('id', id); if (error) throw comErr(error); }
+export async function setLike(postId, on) {
+  const c = await client();
+  const { error } = on ? await c.from('post_likes').insert({ post_id: postId }) : await c.from('post_likes').delete().eq('post_id', postId).eq('user_id', currentUser().id);
+  if (error && error.code !== '23505') throw comErr(error);
+}

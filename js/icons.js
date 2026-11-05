@@ -67,7 +67,10 @@ const battleF = svg(`<defs><mask id="bm" maskUnits="userSpaceOnUse" x="0" y="0" 
   <circle cx="${AX}" cy="${Y}" r="1.3" fill="#fff"/><circle cx="${BX}" cy="${Y}" r="1.3" fill="#fff"/></mask></defs>
   <g mask="url(#bm)" fill="currentColor" stroke="none"><circle cx="${AX}" cy="${Y}" r="${R}"/><circle cx="${BX}" cy="${Y}" r="${R}"/></g>${SPARK_F}`, 'f');
 
+const USERS_O = '<circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><path d="M21 21v-2a4 4 0 0 0-3-3.85"/>';
+const USERS_F = '<circle cx="9" cy="7" r="4"/><path d="M3 20v-1a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v1a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M16.5 3.2a4 4 0 0 1 0 7.6a4 4 0 0 0 0-7.6z"/><path d="M17.5 14.2a4 4 0 0 1 3.5 3.95V19a2 2 0 0 1-2 2h-1.4c.3-.6.4-1.2.4-1.9v-1.1a5.5 5.5 0 0 0-1.4-3.4z"/>';
 export const DOCK = {
+  'dock-community': { o: svg(USERS_O, 'o'), f: svg(USERS_F, 'f') },
   'dock-home': pair('home'), 'dock-battle': { o: battleO, f: battleF }, 'dock-favs': pair('star'), 'dock-settings': pair('settings'),
 };
 export const IC = {

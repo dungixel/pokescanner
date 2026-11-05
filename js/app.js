@@ -10,6 +10,7 @@ import { META_TEAMS } from './meta.js';
 import * as auth from './auth.js';
 import { DOCK, IC } from './icons.js';
 import { buildUnit, compareTeams, eff } from './battle.js';
+import { baseBuild, currentBuild, diffBuild, finalStats, evTotal, KEYS as EDK, EV_MAX, EV_TOTAL } from './editor.js';
 
 const $app = document.getElementById('app');
 const sheet = document.getElementById('sheet');
@@ -226,7 +227,9 @@ async function onAuth(event, s) {
   if (state.view === 'home') renderResults(); else if (state.view === 'teams') paintTeams(); else if (state.view === 'battle') renderBattle();
   paintFavBtn();
   refreshModal();
+  if (state.view === 'community') paintCom(); else if (state.view === 'post') renderPost(com.post?.id || curPostId);
   if (wanted?.type === 'favs') location.hash = '#/teams';
+  else if (wanted?.type === 'community') location.hash = wanted.hash || '#/community';
   else if (wanted?.type === 'fav' && BYID.has(wanted.id)) openTeamPick(wanted.id);
   else if (wanted?.type === 'saveteam' && wanted.ids?.length) openSaveTeam({ name: wanted.name, ids: wanted.ids });
 }
@@ -244,8 +247,8 @@ const openTeamPick = id => { pickId = id; showModal('teampick'); };
 let saveCtx = null;
 const openSaveTeam = ctx => {
   const ids = ctx.ids.filter(id => BYID.has(id)).slice(0, MAXTEAM);
-  if (!ids.length || !requireLogin({ type: 'saveteam', ids, name: ctx.name })) return;
-  saveCtx = { name: String(ctx.name || '').slice(0, 24), ids };
+  if (!ids.length || !requireLogin(ctx.members ? { type: 'community', hash: location.hash } : { type: 'saveteam', ids, name: ctx.name })) return;
+  saveCtx = { name: String(ctx.name || '').slice(0, 24), ids, members: ctx.members ? ctx.members.filter(m => BYID.has(m.id)).slice(0, MAXTEAM).map(m => ({ ...m })) : null };
   showModal('saveteam');
 };
 function saveTeamHTML() {
@@ -310,12 +313,12 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSetting
 const dockEl = document.getElementById('dock');
 function renderDock() {
   const it = (act, label) => `<button class="dk" data-act="${act}" aria-label="${label}" title="${label}"><span class="ic">${DOCK[act].o}${DOCK[act].f}</span><span class="lb">${label}</span></button>`;
-  dockEl.innerHTML = it('dock-home', t('dockHome')) + it('dock-battle', t('dockBattle')) + it('dock-favs', t('dockFavs')) + it('dock-settings', t('settings'));
+  dockEl.innerHTML = it('dock-home', t('dockHome')) + it('dock-community', t('dockCommunity')) + it('dock-battle', t('dockBattle')) + it('dock-favs', t('dockFavs')) + it('dock-settings', t('settings'));
   updateDock();
 }
 function updateDock() {
   const home = state.view === 'home';
-  const on = { 'dock-home': home, 'dock-battle': state.view === 'battle', 'dock-favs': state.view === 'teams', 'dock-settings': !smodal.hidden };
+  const on = { 'dock-home': home, 'dock-community': state.view === 'community' || state.view === 'post', 'dock-battle': state.view === 'battle', 'dock-favs': state.view === 'teams', 'dock-settings': !smodal.hidden };
   dockEl.querySelectorAll('.dk').forEach(b => b.classList.toggle('on', !!on[b.dataset.act]));
 }
 /** Vuelve al buscador con los filtros que se indiquen (el resto se limpia) */
@@ -439,7 +442,7 @@ function openSheet(title, body, { wide = false } = {}) {
   $('.sheet-body', sheet).scrollTop = 0;
 }
 function closeSheet() { if (sheet.open) sheet.close(); }
-sheet.addEventListener('close', () => document.documentElement.classList.remove('locked'));
+sheet.addEventListener('close', () => { document.documentElement.classList.remove('locked'); ed = null; delete sheet.dataset.ed; });
 sheet.addEventListener('click', e => { if (e.target === sheet) sheet.close(); });
 
 const otherName = x => (dn2(x) && dn2(x) !== dn(x) ? `<p class="dim">${t('otherName', { n: esc(dn2(x)) })}</p>` : '');
@@ -698,9 +701,10 @@ function route() {
   if (back) { copyKeys(back, state); state.scroll = back.y; state.restoreY = back.y; } // se vuelve a una página ya vista: se recupera tal cual
   const m = location.hash.match(/^#\/pokemon\/([a-z0-9]+)/);
   const d = location.hash.match(/^#\/(move|ability|item|tier)\/([A-Za-z0-9]+)/);
+  const cm = location.hash.match(/^#\/community\/([0-9a-f-]{36})/);
   const sh = location.hash.match(/^#\/t\/([a-z0-9,]*)(?:\?n=(.*))?$/);
   if (state.view === 'battle' && location.hash !== '#/battle') auth.unwatchFriends().catch(() => {});
-  if (sh) renderShared(sh[1], sh[2]); else if (m) renderPokemon(m[1]); else if (d) renderDetailPage(d[1], d[2]); else if (location.hash === '#/types') renderTypes(); else if (location.hash === '#/teams') renderTeams(); else if (location.hash === '#/battle') renderBattle(); else renderHome();
+  if (sh) renderShared(sh[1], sh[2]); else if (m) renderPokemon(m[1]); else if (d) renderDetailPage(d[1], d[2]); else if (cm) renderPost(cm[1]); else if (location.hash === '#/community') renderCommunity(); else if (location.hash === '#/types') renderTypes(); else if (location.hash === '#/teams') renderTeams(); else if (location.hash === '#/battle') renderBattle(); else renderHome();
   updateDock();
   if (wentBack) { $app.classList.remove('goback'); void $app.offsetWidth; $app.classList.add('goback'); setTimeout(() => $app.classList.remove('goback'), 260); }
 }
@@ -898,10 +902,10 @@ function teamHTML(team, shared = false) {
 
 function tierBadge(r, extra = '', g = 0) { return `<span class="tier" style="--tier:${tierColor(r)}" ${extra}${g ? ` title="${t('tierInGen', { g })}"` : ''}>${tierNumHTML(r)}${esc(tierLabel(r))}${g ? `<small>G${g}</small>` : ''}</span>`; }
 
-function rowCore(p) {
+function rowCore(p, shiny = false) {
   const showStat = state.sort !== 'num' && state.view === 'home';
   return `<a class="row" href="#/pokemon/${p.id}" style="--c:${TYPE_COLOR[p.t[0]]}">
-    ${pokeImg(p, 'small')}
+    ${pokeImg(p, 'small', '', undefined, shiny)}
     <span class="meta"><b>${esc(pname(p))}</b><span class="sub"><small>${dexNum(p.num)}${p.fm && p.es !== p.en && lang() === 'es' ? ` · ${esc(p.en)}` : ''}</small><span class="types">${p.t.map(typeDot).join('')}</span></span></span>
     <span class="side">
       ${showStat ? `<span class="statval">${sortVal(p, state.sort)}<small>${statName(state.sort)}</small></span>` : tierBadge(p.r, '', p.g)}
@@ -1304,18 +1308,305 @@ function renderSuggest() {
 }
 sheet.addEventListener('input', e => { if (e.target.id === 'cmp-q') renderSuggest(); });
 
+// ───────────────────────── Editor de builds ─────────────────────────
+let EDP = null, ED = null;
+const getEditor = () => (EDP ??= getJSON('data/editor.json').then(d => (ED = d)).catch(e => { EDP = null; throw e; }));
+/** Añade al diccionario los movimientos, objetos y naturalezas que solo trae el editor (así los comparadores y las fichas los entienden) */
+function mergeEditor(dict, E) {
+  for (const [id, m] of Object.entries(E.moves)) if (!dict.moves[id]) dict.moves[id] = { n: m[0], e: m[1], t: m[2], c: m[3], p: m[4], a: m[5], pp: 0, pr: m[6], d: '', de: '' };
+  for (const [id, x] of Object.entries(E.items)) if (!dict.items[id]) dict.items[id] = { n: x[0], e: x[1], d: '', de: '', i: x[2] };
+  for (const [id, x] of Object.entries(E.natures)) if (!dict.natures[id]) dict.natures[id] = { n: x[0], e: x[1], plus: x[2], minus: x[3] };
+}
+let ed = null; // { slot, k, d, base, cur, pick, q }
+async function openEditor(slot, k) {
+  const m = teams[slot]?.members[k]; if (!m) return;
+  try {
+    const [d, dict, E] = await Promise.all([getPokemon(m.id), getDict(), getEditor()]);
+    mergeEditor(dict, E);
+    const base = baseBuild(d, m, dict, E);
+    ed = { slot, k, d, base, cur: currentBuild(base, m.b), pick: null, q: '' };
+    openSheet(pname(d), '<div id="edbody"></div>', { wide: true });
+    sheet.dataset.ed = '1';
+    paintEditor();
+  } catch { toast(t('loadFail')); }
+}
+const natLabel = id => { const n = DICT.natures[id]; return n ? `${dn(n)}${n.plus ? ` <small>+${statName(n.plus)} −${statName(n.minus)}</small>` : ` <small>${t('edNeutral')}</small>`}` : esc(id); };
+function paintEditor(keepScroll = true) {
+  const box = $('#edbody'); if (!box || !ed) return;
+  const sb = $('.sheet-body', sheet), y = sb.scrollTop;
+  box.innerHTML = ed.pick ? editorPickHTML() : editorHTML();
+  sb.scrollTop = keepScroll ? y : 0;
+  if (ed.pick) $('#ed-q')?.focus({ preventScroll: true });
+}
+function editorHTML() {
+  const { d, cur, base } = ed;
+  const abil = d.ab.find(a => a.id === cur.a);
+  const mvBtn = i => {
+    const id = cur.m[i], m = id && DICT.moves[id];
+    return `<button class="edmove ${m ? '' : 'empty'}" data-act="ed-pick" data-v="m${i}" style="--tc:${m ? TYPE_COLOR[m.t] : 'var(--line)'}">${m ? `${typeIcon(m.t)}<span class="mn">${esc(dn(m))}</span><small>${m.p ? m.p : '—'}</small>` : `<span class="mn">${t('edEmptyMove')}</span>`}</button>`;
+  };
+  const stats = finalStats(d.s, cur.e, cur.v, cur.n, DICT.natures), tot = evTotal(cur.e);
+  const row = (kind, i) => kind === 'e'
+    ? `<div class="edrow"><span class="edl">${statName(EDK[i])}</span><input class="edr" type="range" data-ed="e" data-k="${i}" min="0" max="${EV_MAX}" step="4" value="${cur.e[i]}" aria-label="EV ${statName(EDK[i])}"><output id="ev-${i}">${cur.e[i]}</output><b class="edst" id="st-${i}">${stats[i]}</b></div>`
+    : `<div class="edrow"><span class="edl">${statName(EDK[i])}</span><input class="edr" type="range" data-ed="v" data-k="${i}" min="0" max="31" step="1" value="${cur.v[i]}" aria-label="IV ${statName(EDK[i])}"><output id="iv-${i}">${cur.v[i]}</output></div>`;
+  const item = cur.i && DICT.items[cur.i];
+  return `<div class="ed">
+    <div class="edtop">${pokeImg(d, 'art', 'edart', 96, cur.sh)}<div class="edtx"><b>${esc(pname(d))}</b><span class="types">${d.t.map(typeDot).join('')}</span></div></div>
+    <div class="edbtns"><button class="chip ${cur.sh ? 'accent' : ''}" data-act="ed-shiny" aria-pressed="${cur.sh}">${SPARK_I}Shiny</button><button class="chip" data-act="ed-opt">${t('edOpt')}</button></div>
+    <p class="shint">${t('edOptHint')}</p>
+    <div class="edpills">
+      <button class="ddbtn" data-act="ed-pick" data-v="ability"><span class="ddl">${t('edAbility')}</span><span class="ddv">${abil ? esc(dn(DICT.abilities[abil.id])) : esc(cur.a)}</span></button>
+      <button class="ddbtn" data-act="ed-pick" data-v="item"><span class="ddl">${t('edItem')}</span><span class="ddv">${item ? esc(dn(item)) : t('edNoItem')}</span></button>
+      <button class="ddbtn" data-act="ed-pick" data-v="nature"><span class="ddl">${t('edNature')}</span><span class="ddv">${DICT.natures[cur.n] ? esc(dn(DICT.natures[cur.n])) : esc(cur.n)}</span></button>
+    </div>
+    <h3>${t('edMoves')}</h3><div class="edmoves">${[0, 1, 2, 3].map(mvBtn).join('')}</div>
+    <h3>${t('edEvs')} <small id="ev-tot" class="${tot > EV_TOTAL ? 'bad' : ''}">${t('edTotal')} ${tot}/${EV_TOTAL}</small></h3>${[0, 1, 2, 3, 4, 5].map(i => row('e', i)).join('')}
+    <h3>${t('edIvs')}</h3>${[0, 1, 2, 3, 4, 5].map(i => row('v', i)).join('')}
+  </div>`;
+}
+const SPARK_I = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M10 4l1.7 4.6L16.3 10l-4.6 1.7L10 16.3 8.3 11.7 3.7 10l4.6-1.4L10 4zM18 13l.9 2.1L21 16l-2.1.9L18 19l-.9-2.1L15 16l2.1-.9L18 13z"/></svg>';
+function editorPickHTML() {
+  const { d, cur, pick, q } = ed, f = fold(q || '');
+  const head = `<div class="edph"><button class="iconbtn" data-act="ed-back" aria-label="${t('backShort')}">${I.back}</button>${/^(m\d|item)$/.test(pick) ? `<input id="ed-q" class="unin" value="${esc(q || '')}" placeholder="${t('edSearch')}" autocomplete="off" autocapitalize="off" spellcheck="false">` : `<b>${t(pick === 'ability' ? 'edAbility' : 'edNature')}</b>`}</div>`;
+  let opts = '';
+  if (pick === 'ability') opts = d.ab.map(a => { const x = DICT.abilities[a.id]; return `<button class="edopt ${cur.a === a.id ? 'on' : ''}" data-act="ed-set" data-v="${a.id}"><b>${esc(dn(x))}${a.h ? ` <small>${t('hidden')}</small>` : ''}</b><small>${esc(dd(x))}</small></button>`; }).join('');
+  else if (pick === 'nature') opts = Object.keys(DICT.natures).sort((a, b) => dn(DICT.natures[a]).localeCompare(dn(DICT.natures[b]))).map(id => `<button class="edopt ${cur.n === id ? 'on' : ''}" data-act="ed-set" data-v="${id}"><b>${natLabel(id)}</b></button>`).join('');
+  else if (pick === 'item') {
+    const ids = Object.keys(ED.items).filter(id => !f || fold(dn(DICT.items[id])).includes(f) || fold(DICT.items[id].e).includes(f)).sort((a, b) => dn(DICT.items[a]).localeCompare(dn(DICT.items[b]))).slice(0, 80);
+    opts = `<button class="edopt ${cur.i === '' ? 'on' : ''}" data-act="ed-set" data-v=""><b>${t('edNoItem')}</b></button>` + ids.map(id => `<button class="edopt ${cur.i === id ? 'on' : ''}" data-act="ed-set" data-v="${id}">${itemImg(DICT.items[id])}<b>${esc(dn(DICT.items[id]))}</b></button>`).join('');
+  } else {
+    const slot = Number(pick.slice(1));
+    const ids = (ED.learn[d.id] || []).filter(id => DICT.moves[id] && (!f || fold(dn(DICT.moves[id])).includes(f) || fold(DICT.moves[id].e).includes(f))).sort((a, b) => dn(DICT.moves[a]).localeCompare(dn(DICT.moves[b])));
+    opts = (cur.m[slot] ? `<button class="edopt rm" data-act="ed-set" data-v="-">${IC.trash}<b>${t('edRemove')}</b></button>` : '')
+      + ids.map(id => { const m = DICT.moves[id], used = cur.m.includes(id) && cur.m[slot] !== id; return `<button class="edopt ${cur.m[slot] === id ? 'on' : ''}" ${used ? 'disabled' : ''} data-act="ed-set" data-v="${id}">${typeIcon(m.t)}<b>${esc(dn(m))}</b><small>${catName(m.c)}${m.p ? ` · ${m.p}` : ''}</small></button>`; }).join('')
+      || `<p class="shint">${t('edNone')}</p>`;
+  }
+  return `${head}<div class="edlist">${opts}</div>`;
+}
+function persistEditor() {
+  const { slot, k, base, cur } = ed, m = teams[slot]?.members[k]; if (!m) return;
+  const b = diffBuild(base, cur);
+  if (b) m.b = b; else delete m.b;
+  saveSlot(slot); if (state.view === 'teams') paintTeams();
+}
+function onEditorInput(e) {
+  const el = e.target, kind = el.dataset.ed, i = Number(el.dataset.k), { cur, d } = ed;
+  let v = Number(el.value);
+  if (kind === 'e') {
+    const others = evTotal(cur.e) - cur.e[i];
+    const room = Math.max(0, Math.floor((EV_TOTAL - others) / 4) * 4);
+    if (v > room) { v = room; el.value = v; }
+    cur.e[i] = v; $(`#ev-${i}`).textContent = v;
+    $('#ev-tot').textContent = `${t('edTotal')} ${evTotal(cur.e)}/${EV_TOTAL}`;
+  } else { cur.v[i] = v; $(`#iv-${i}`).textContent = v; }
+  finalStats(d.s, cur.e, cur.v, cur.n, DICT.natures).forEach((x, j) => { const o = $(`#st-${j}`); if (o) o.textContent = x; });
+}
+
+
+// ───────────────────────── Comunidad ─────────────────────────
+const com = { sort: 'new', items: [], more: false, loading: false, err: false, post: null, comments: [], full: null, confirm: null, busy: false, msg: '' };
+let curPostId = null, pubCtx = null;
+const PAGE = 20;
+const ago = iso => {
+  const s = (new Date(iso).getTime() - Date.now()) / 1000, a = Math.abs(s);
+  const [v, u] = a < 60 ? [0, 'second'] : a < 3600 ? [s / 60, 'minute'] : a < 86400 ? [s / 3600, 'hour'] : a < 2592000 ? [s / 86400, 'day'] : a < 31536000 ? [s / 2592000, 'month'] : [s / 31536000, 'year'];
+  try { return new Intl.RelativeTimeFormat(lang(), { numeric: 'auto', style: 'short' }).format(Math.round(v), u); } catch { return ''; }
+};
+const heart = on => `<svg viewBox="0 0 24 24" class="hrt ${on ? 'on' : ''}" aria-hidden="true"><path d="M19.5 12.572l-7.5 7.428l-7.5 -7.428a5 5 0 1 1 7.5 -6.566a5 5 0 1 1 7.5 6.572"/></svg>`;
+const bubble = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20l1.3 -3.9a9 8 0 1 1 3.4 2.9l-4.7 1"/></svg>';
+const postMinis = ms => `<span class="minis">${ms.map(m => { const p = BYID.get(m.id); return p ? pokeImg(p, 'small', 'mini', undefined, !!m.b?.sh) : ''; }).join('')}</span>`;
+function postCardHTML(x) {
+  const del = x.mine ? (com.confirm === x.id
+    ? `<button class="cact danger" data-act="com-del-yes" data-v="${x.id}">${t('comDeleteSure')}</button><button class="cact" data-act="com-del-no">${t('comCancel')}</button>`
+    : `<button class="cact" data-act="com-del" data-v="${x.id}" aria-label="${t('comDelete')}">${IC.trash}</button>`) : '';
+  return `<article class="cpost">
+    <button class="cmain" data-act="com-open" data-v="${x.id}">
+      <span class="chead">${avatarImg(x.avatar, 'sm')}<b>${esc(x.username || '?')}</b><small>${ago(x.created_at)}</small></span>
+      <span class="cname">${esc(x.name)}</span>
+      ${x.description ? `<span class="cdesc">${esc(x.description)}</span>` : ''}
+      ${postMinis(x.members || [])}
+    </button>
+    <div class="cacts"><button class="cact like ${x.liked ? 'on' : ''}" data-act="com-like" data-v="${x.id}" aria-pressed="${!!x.liked}" aria-label="${t('comLike')}">${heart(x.liked)}<span>${x.likes}</span></button>
+      <button class="cact" data-act="com-open" data-v="${x.id}" aria-label="${t('comComments')}">${bubble}<span>${x.comments}</span></button><span class="grow"></span>${del}</div>
+  </article>`;
+}
+function communityHTML() {
+  const sortBtn = (k, lbl) => `<button class="chip" data-act="com-sort" data-v="${k}" aria-pressed="${com.sort === k}">${t(lbl)}</button>`;
+  const list = com.items.length ? com.items.map(postCardHTML).join('')
+    : com.loading ? '' : com.err ? `<div class="empty"><b>${t('comLoadFail')}</b></div>` : `<div class="empty"><b>${t('comEmpty')}</b>${t('comEmptyHint')}</div>`;
+  return `<header class="hero"><h1>${t('comTitle')}</h1><p>${t('comLead')}</p></header>
+    <div class="comtools"><div class="comsort">${sortBtn('new', 'comNew')}${sortBtn('top', 'comTop')}</div><button class="chip accent" data-act="com-publish">${IC.plus}${t('comPublish')}</button></div>
+    <div class="cfeed">${list}</div>
+    ${com.more ? `<div class="ctarow"><button class="chip" data-act="com-more" ${com.loading ? 'disabled' : ''}>${t('comMore')}</button></div>` : ''}`;
+}
+function paintCom() {
+  const root = $('#com-root'); if (!root) return;
+  const y = window.scrollY;
+  root.innerHTML = communityHTML();
+  window.scrollTo(0, y);
+}
+async function loadFeed(reset) {
+  if (com.loading) return;
+  com.loading = true; com.err = false;
+  if (reset) { com.items = []; com.more = false; }
+  paintCom();
+  try {
+    const rows = await auth.communityFeed(com.sort, com.items.length, PAGE);
+    com.items = com.items.concat(rows.filter(r => !com.items.some(x => x.id === r.id)));
+    com.more = rows.length === PAGE;
+  } catch { com.err = true; if (com.items.length) toast(t('comLoadFail')); }
+  com.loading = false;
+  if (state.view === 'community') paintCom();
+}
+function renderCommunity() {
+  state.view = 'community';
+  document.title = `${t('comTitle')} · PokeScanner`;
+  document.documentElement.style.removeProperty('--accent');
+  com.confirm = null;
+  $app.innerHTML = '<div id="com-root"></div>';
+  window.scrollTo(0, 0);
+  updateDock();
+  loadFeed(true);
+}
+async function likePost(id) {
+  if (!requireLogin({ type: 'community', hash: location.hash })) return;
+  const x = com.items.find(i => i.id === id) || (com.post?.id === id ? com.post : null); if (!x) return;
+  const on = !x.liked, sync = () => { for (const y of [com.items.find(i => i.id === id), com.post?.id === id ? com.post : null]) if (y) { y.liked = on; y.likes = Math.max(0, y.likes + (on ? 1 : -1)); } };
+  sync(); state.view === 'post' ? paintPost() : paintCom();
+  try { await auth.setLike(id, on); } catch { on ? (x.liked = true) : (x.liked = false); const bk = !on; for (const y of [com.items.find(i => i.id === id), com.post?.id === id ? com.post : null]) if (y) { y.liked = bk; y.likes = Math.max(0, y.likes + (bk ? 1 : -1)); } state.view === 'post' ? paintPost() : paintCom(); toast(t('syncFail')); }
+}
+async function removePost(id) {
+  try {
+    await auth.deletePost(id);
+    com.items = com.items.filter(i => i.id !== id); com.confirm = null;
+    toast(t('comDeleted'));
+    if (state.view === 'post') location.hash = '#/community'; else paintCom();
+  } catch { toast(t('syncFail')); }
+}
+// publicar
+function publishHTML() {
+  const c = pubCtx, filled = teams.map((tm, i) => ({ tm, i })).filter(x => x.tm.members.length);
+  if (!filled.length) return `<p class="shint">${t('comPubNoTeams')}</p>`;
+  return `<p class="shint">${t('comPubPick')}</p>
+    <div class="slotlist">${filled.map(({ tm, i }) => `<button class="slotopt ${c.slot === i ? 'on' : ''}" data-act="pub-pick" data-v="${i}" aria-pressed="${c.slot === i}">
+      <span class="sn">${i + 1}</span><span class="sname"><b>${esc(teamName(i))}</b>${postMinis(tm.members)}</span><span class="scount">${tm.members.length}/${MAXTEAM}</span><span class="sck">${IC.check}</span></button>`).join('')}</div>
+    <label class="tname"><span>${t('comPubName')}</span><input class="unin" id="pub-name" maxlength="30" value="${esc(c.name)}" autocomplete="off"></label>
+    <label class="tname"><span>${t('comPubDesc')} <small id="pub-cnt">${c.desc.length}/280</small></span><textarea class="unin" id="pub-desc" rows="4" maxlength="280" placeholder="${t('comPubDescPh')}">${esc(c.desc)}</textarea></label>
+    <p class="shint">${t('comPubNote')}</p><p class="shint err" id="pub-msg" role="alert"></p>
+    <div class="ctarow"><button class="chip accent" data-act="pub-go" id="pub-go">${t('comPubGo')}</button></div>`;
+}
+function openPublish() {
+  if (!requireLogin({ type: 'community', hash: location.hash })) return;
+  const first = teams.findIndex(tm => tm.members.length);
+  pubCtx = { slot: first, name: first >= 0 ? teams[first].name.slice(0, 30) : '', nameTouched: false, desc: '' };
+  openSheet(t('comPubTitle'), publishHTML());
+}
+sheet.addEventListener('input', e => {
+  if (!pubCtx) return;
+  if (e.target.id === 'pub-name') { pubCtx.name = e.target.value; pubCtx.nameTouched = true; }
+  if (e.target.id === 'pub-desc') { pubCtx.desc = e.target.value; const c = $('#pub-cnt', sheet); if (c) c.textContent = `${e.target.value.length}/280`; }
+});
+async function doPublish() {
+  const c = pubCtx, msg = $('#pub-msg', sheet), btn = $('#pub-go', sheet);
+  const members = (teams[c.slot]?.members || []).map(m => { const o = { id: m.id }; if (m.s != null) o.s = m.s; if (m.b) o.b = m.b; return o; });
+  const name = c.name.trim() || teamName(c.slot);
+  if (!members.length) return;
+  btn.disabled = true; msg.textContent = '';
+  try {
+    await auth.publishPost(name.slice(0, 30), c.desc.trim().slice(0, 280), members);
+    pubCtx = null; closeSheet(); toast(t('comPublished'));
+    if (state.view === 'community') { com.sort = 'new'; loadFeed(true); } else location.hash = '#/community';
+  } catch (err) {
+    msg.textContent = err.message === 'text_banned' ? t('comPubBanned') : t('comPubFail');
+    btn.disabled = false;
+  }
+}
+// detalle
+const nowMs = () => Date.now();
+async function renderPost(id) {
+  state.view = 'post'; curPostId = id;
+  document.title = `${t('comTitle')} · PokeScanner`;
+  document.documentElement.style.removeProperty('--accent');
+  com.post = null; com.comments = []; com.full = null; com.confirm = null; com.msg = '';
+  $app.innerHTML = topbarHTML() + '<div id="post-root"><div class="empty"><b>…</b></div></div>';
+  window.scrollTo(0, 0); updateDock();
+  try {
+    const [rows, cms] = await Promise.all([auth.communityFeed('new', 0, 1, id), auth.communityComments(id)]);
+    if (curPostId !== id || state.view !== 'post') return;
+    com.post = rows[0] || null; com.comments = cms;
+    if (com.post) {
+      document.title = `${com.post.name} · PokeScanner`;
+      const [dict, E] = await Promise.all([getDict(), getEditor()]);
+      mergeEditor(dict, E);
+      com.full = await Promise.all((com.post.members || []).filter(m => BYID.has(m.id)).map(async m => { const d = await getPokemon(m.id); return { m, d, cur: currentBuild(baseBuild(d, m, dict, E), m.b) }; }));
+    }
+  } catch { com.post = null; com.err = true; }
+  if (curPostId === id && state.view === 'post') paintPost();
+}
+function buildCardHTML({ m, d, cur }) {
+  const it = DICT.items[cur.i], ab = d.ab.find(a => a.id === cur.a), nat = DICT.natures[cur.n];
+  const evs = cur.e.map((v, i) => (v ? `${v} ${statName(EDK[i])}` : '')).filter(Boolean).join(' / ');
+  const ivs = cur.v.some(v => v !== 31) ? cur.v.map((v, i) => (v !== 31 ? `${v} ${statName(EDK[i])}` : '')).filter(Boolean).join(' / ') : '';
+  return `<div class="cbuild"><a class="cb-poke" href="#/pokemon/${d.id}">${pokeImg(d, 'small', 'thumb', undefined, cur.sh)}<b>${esc(pname(d))}</b></a>
+    <div class="cb-info">
+      <div class="cb-line">${it ? `<span class="cb-item">${itemImg(it)}${esc(dn(it))}</span>` : ''}${ab ? `<span>${esc(dn(ab))}</span>` : ''}${nat ? `<span>${esc(dn(nat))}${nat.plus ? ` <small>+${statName(nat.plus)} −${statName(nat.minus)}</small>` : ''}</span>` : ''}</div>
+      <div class="cb-moves">${cur.m.map(id => { const mv = DICT.moves[id]; return mv ? `<span class="cb-mv" style="--tc:${TYPE_COLOR[mv.t]}">${typeIcon(mv.t)}${esc(dn(mv))}</span>` : ''; }).join('')}</div>
+      <small class="cb-ev">${evs ? `EVs ${evs}` : ''}${ivs ? ` · IVs ${ivs}` : ''}</small>
+    </div></div>`;
+}
+function commentHTML(c) {
+  const can = c.mine || com.post?.mine;
+  return `<li class="ccm"><span class="ccav">${avatarImg(c.avatar, 'sm')}</span><div><div class="chead"><b>${esc(c.username || '?')}</b><small>${ago(c.created_at)}</small>${can ? `<button class="iconbtn sm" data-act="com-cdel" data-v="${c.id}" aria-label="${t('comDelete')}">${IC.trash}</button>` : ''}</div><p>${esc(c.body)}</p></div></li>`;
+}
+function postHTML() {
+  const x = com.post;
+  if (!x) return `<div class="empty"><b>${t(com.err ? 'comLoadFail' : 'comGone')}</b><div class="ctarow"><a class="chip" href="#/community">${t('comBack')}</a></div></div>`;
+  const del = x.mine ? (com.confirm === x.id
+    ? `<button class="cact danger" data-act="com-del-yes" data-v="${x.id}">${t('comDeleteSure')}</button><button class="cact" data-act="com-del-no">${t('comCancel')}</button>`
+    : `<button class="cact" data-act="com-del" data-v="${x.id}" aria-label="${t('comDelete')}">${IC.trash}</button>`) : '';
+  const form = auth.currentUser()
+    ? `<div class="cform"><textarea id="cm-body" rows="2" maxlength="300" placeholder="${t('comCommentPh')}"></textarea><button class="chip accent" data-act="com-send">${t('comSend')}</button></div><p class="shint err" id="cm-msg" role="alert">${esc(com.msg)}</p>`
+    : `<div class="ctarow"><button class="chip accent" data-act="com-login">${IC.user}${t('comLoginAct')}</button></div>`;
+  return `<header class="chero"><div class="chead">${avatarImg(x.avatar, 'sm')}<b>${esc(x.username || '?')}</b><small>${ago(x.created_at)}</small></div>
+      <h1>${esc(x.name)}</h1>${x.description ? `<p class="cdesc full">${esc(x.description)}</p>` : ''}</header>
+    <div class="cacts"><button class="cact like ${x.liked ? 'on' : ''}" data-act="com-like" data-v="${x.id}" aria-pressed="${!!x.liked}" aria-label="${t('comLike')}">${heart(x.liked)}<span>${x.likes}</span></button><span class="grow"></span>${del}</div>
+    <div class="sharedacts"><button class="chip accent" data-act="com-save">${IC.star}${t('comSave')}</button><button class="chip" data-act="com-compare">${IC.battle}${t('comCompare')}</button></div>
+    <div class="cbuilds">${(com.full || []).map(buildCardHTML).join('')}</div>
+    <section class="sec"><h2>${t('comComments')} <small>${com.comments.length}</small></h2>
+      ${form}
+      <ul class="ccms">${com.comments.length ? com.comments.map(commentHTML).join('') : `<li class="dim">${t('comNoComments')}</li>`}</ul></section>`;
+}
+function paintPost() {
+  const root = $('#post-root'); if (!root) return;
+  const y = window.scrollY, draft = $('#cm-body')?.value || '';
+  root.innerHTML = postHTML();
+  const b = $('#cm-body'); if (b && draft) b.value = draft;
+  window.scrollTo(0, y);
+}
+async function sendComment() {
+  const box = $('#cm-body'); const body = box?.value.trim(); if (!body) return;
+  const btn = $('[data-act="com-send"]'); btn.disabled = true;
+  try {
+    await auth.addComment(com.post.id, body);
+    box.value = '';
+    com.comments = await auth.communityComments(com.post.id); com.post.comments = com.comments.length; com.msg = '';
+  } catch (err) { com.msg = t(err.message === 'rate_limit' ? 'comCommentLimit' : err.message === 'text_banned' ? 'comCommentBanned' : 'comCommentFail'); }
+  paintPost();
+}
+
 // ───────────────────────── Favoritos: 9 equipos ─────────────────────────
 const teamsSel = { open: 0 };
 const loginCta = (title, action) => `<div class="empty"><b>${t(title)}</b>${t('loginText')}<div class="ctarow"><button class="chip accent" data-act="login-open" data-v="${action}">${IC.user}${t('loginGoogle')}</button></div></div>`;
-function memberRow(p) {
-  return `<div class="mrow">${rowCore(p)}<button class="iconbtn" data-act="team-remove" data-v="${p.id}" aria-label="${t('removePoke')}">${IC.trash}</button></div>`;
+function memberRow(p, slot, k) {
+  const m = teams[slot]?.members[k];
+  return `<div class="mrow">${rowCore(p, m?.b?.sh)}<button class="iconbtn ${m?.b ? 'on' : ''}" data-act="ed-open" data-v="${slot}:${k}" aria-label="${t('edTitle')}">${IC.pencil}</button><button class="iconbtn" data-act="team-remove" data-v="${p.id}" aria-label="${t('removePoke')}">${IC.trash}</button></div>`;
 }
 function slotHTML(i) {
   const tm = teams[i], open = teamsSel.open === i;
   const members = tm.members.map(m => BYID.get(m.id)).filter(Boolean);
   const body = !open ? '' : `<div class="slotbody">
     <label class="tname"><span>${t('teamName')}</span><input class="unin" id="tn" data-slot="${i}" value="${esc(tm.name)}" placeholder="${t('teamN', { n: i + 1 })}" maxlength="24" autocomplete="off" autocapitalize="sentences"></label>
-    ${members.length ? `<div class="list">${members.map(memberRow).join('')}</div>` : `<p class="shint">${t('teamEmptyHint')}</p>`}
+    ${members.length ? `<div class="list">${tm.members.map((m, k) => (BYID.get(m.id) ? memberRow(BYID.get(m.id), i, k) : '')).join('')}</div>` : `<p class="shint">${t('teamEmptyHint')}</p>`}
     <div class="slotacts">${members.length < MAXTEAM ? `<button class="chip" data-act="slot-add">${IC.plus}${t('addPoke')}</button>` : ''}${members.length ? `<button class="chip" data-act="team-share" data-v="${i}">${IC.share}${t('shareTeam')}</button>` : ''}</div>
     ${members.length ? teamHTML(members) : ''}</div>`;
   return `<section class="slot ${open ? 'open' : ''}">
@@ -1539,6 +1830,7 @@ async function runCompare() {
   const names = { aName: sideName(bt.a), bName: sideName(bt.b), aMine: bt.a.owner === 'me', bMine: bt.b.owner === 'me' };
   try {
     const [dict] = await Promise.all([getDict(), getLearners()]);
+    if ([...A.members, ...B.members].some(m => m.b)) mergeEditor(dict, await getEditor());
     let out;
     try {
       const eng = await getEngine();
@@ -1680,6 +1972,8 @@ function resultHTML() {
 // ───────────────────────── Eventos ─────────────────────────
 document.addEventListener('input', e => {
   const id = e.target.id;
+  if (ed && e.target.classList?.contains('edr')) { onEditorInput(e); return; }
+  if (id === 'ed-q' && ed) { ed.q = e.target.value; const l = $('.edlist'); if (l) { const tmp = document.createElement('div'); tmp.innerHTML = editorPickHTML(); l.innerHTML = tmp.querySelector('.edlist').innerHTML; } return; }
   if (id === 'pk-q') { const l = $('.pklist'); if (l) l.innerHTML = pickerListHTML(e.target.value); return; }
   if (id === 'un') { onUsernameInput(e.target); return; }
   if (id === 'tn') {
@@ -1735,11 +2029,23 @@ document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id
 // el menú de equipos se cierra al pulsar fuera o con Escape
 document.addEventListener('pointerdown', e => { if (bt.menu && !e.target.closest('.tmenu, [data-act="team-menu"]')) { bt.menu = null; paintBattle(); } });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && bt.menu) { bt.menu = null; paintBattle(); } });
+document.addEventListener('change', e => { if (ed && e.target.classList?.contains('edr')) persistEditor(); });
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-act]');
   if (!el) return;
   const v = el.dataset.v;
   switch (el.dataset.act) {
+    case 'ed-open': { const [a, b] = v.split(':').map(Number); openEditor(a, b); break; }
+    case 'ed-pick': ed.pick = v; ed.q = ''; paintEditor(false); break;
+    case 'ed-back': ed.pick = null; paintEditor(false); break;
+    case 'ed-set': {
+      const { pick, cur } = ed;
+      if (pick === 'ability') cur.a = v; else if (pick === 'nature') cur.n = v; else if (pick === 'item') cur.i = v;
+      else { const s = Number(pick.slice(1)); if (v === '-') cur.m.splice(s, 1); else if (cur.m.length > s) cur.m[s] = v; else cur.m.push(v); }
+      ed.pick = null; persistEditor(); paintEditor(false); break;
+    }
+    case 'ed-shiny': ed.cur.sh = !ed.cur.sh; persistEditor(); paintEditor(); break;
+    case 'ed-opt': { const keep = ed.cur.sh; ed.cur = { ...currentBuild(ed.base, null), sh: keep }; persistEditor(); paintEditor(); toast(t('edReset')); break; }
     case 'team-menu': bt.menu = bt.menu === v ? null : v; paintBattle(); if (bt.menu) $('.tmenu')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); break;
     case 'team-pick': { const k = v.lastIndexOf(':'), side = el.dataset.side; bt[side] = { owner: v.slice(0, k), slot: Number(v.slice(k + 1)) }; { const mt = bt[side].owner === 'meta' ? metaTeam(bt[side].slot) : null; if (mt) bt.mode = mt.fmt; } bt.menu = null; bt.res = null; bt.cmpMsg = ''; paintBattle(); break; }
     case 'settings': { const p = el.parentElement.querySelector('.spanel'), open = p.hidden; closeSettings(); p.hidden = !open; el.setAttribute('aria-expanded', String(open)); break; }
@@ -1812,7 +2118,7 @@ document.addEventListener('click', e => {
       break;
     }
     case 'team-share': { const tm = teams[Number(v)]; if (tm?.members.length) shareTeam(tm.members.map(m => m.id), tm.name); break; }
-    case 'save-into': { const i = Number(v); if (!saveCtx) break; teams[i].members = saveCtx.ids.map(id => ({ id })); if (saveCtx.name) teams[i].name = saveCtx.name; saveSlot(i); afterTeamsChange(); closeSettings(); toast(t('teamSaved', { team: teamName(i) })); break; }
+    case 'save-into': { const i = Number(v); if (!saveCtx) break; teams[i].members = saveCtx.members || saveCtx.ids.map(id => ({ id })); if (saveCtx.name) teams[i].name = saveCtx.name; saveSlot(i); afterTeamsChange(); closeSettings(); toast(t('teamSaved', { team: teamName(i) })); break; }
     case 'shared-save': openSaveTeam({ name: bt.link?.name, ids: (bt.link?.members || []).map(m => m.id) }); break;
     case 'shared-share': if (bt.link) shareTeam(bt.link.members.map(m => m.id), bt.link.custom ? bt.link.name : ''); break;
     case 'shared-compare': bt.b = { owner: 'link', slot: 0 }; bt.res = null; bt.cmpMsg = ''; location.hash = '#/battle'; break;
@@ -1841,6 +2147,22 @@ document.addEventListener('click', e => {
     case 'size-go': goSearch({ sort: v, dir: -1 }); break;
     case 'dock-home': goSearch(); window.scrollTo(0, 0); break;
     case 'dock-favs': if (requireLogin({ type: 'favs' })) location.hash = '#/teams'; break;
+    case 'com-sort': if (com.sort !== v) { com.sort = v; loadFeed(true); } break;
+    case 'com-more': loadFeed(false); break;
+    case 'com-open': location.hash = `#/community/${v}`; break;
+    case 'com-like': likePost(v); break;
+    case 'com-del': com.confirm = v; state.view === 'post' ? paintPost() : paintCom(); break;
+    case 'com-del-no': com.confirm = null; state.view === 'post' ? paintPost() : paintCom(); break;
+    case 'com-del-yes': removePost(v); break;
+    case 'com-publish': openPublish(); break;
+    case 'pub-pick': { const i = Number(v); if (!pubCtx) break; pubCtx.slot = i; if (!pubCtx.nameTouched) pubCtx.name = teams[i].name.slice(0, 30); const body = $('.sheet-body', sheet); body.innerHTML = publishHTML(); break; }
+    case 'pub-go': doPublish(); break;
+    case 'com-login': openLogin({ type: 'community', hash: location.hash }); break;
+    case 'com-send': sendComment(); break;
+    case 'com-cdel': auth.deleteComment(v).then(() => auth.communityComments(com.post.id)).then(c => { com.comments = c; com.post.comments = c.length; paintPost(); }).catch(() => toast(t('syncFail'))); break;
+    case 'com-save': if (com.post) openSaveTeam({ name: com.post.name, ids: com.post.members.map(m => m.id), members: com.post.members }); break;
+    case 'com-compare': if (com.post) { bt.link = { name: com.post.name, custom: true, members: com.post.members.filter(m => BYID.has(m.id)) }; bt.b = { owner: 'link', slot: 0 }; bt.res = null; bt.cmpMsg = ''; location.hash = '#/battle'; } break;
+    case 'dock-community': location.hash = '#/community'; break;
     case 'dock-battle': location.hash = '#/battle'; break;
     case 'dock-settings': if (smodal.hidden) openSettings(); else closeSettings(); break;
     case 'settings-close': closeSettings(); break;

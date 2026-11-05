@@ -1,6 +1,7 @@
 // Base común de los comparadores: carga la calculadora de daño oficial de Smogon (@smogon/calc, Gen 9), construye cada Pokémon con
 // su build real (naturaleza, EVs, habilidad, objeto, movimientos) y da el daño exacto de cada movimiento con memoria (cache).
 import { matchups, formatRank } from './util.js';
+import { applyBuild } from './build.js';
 
 let C = null, G = null;
 export async function initCalc() {
@@ -116,15 +117,16 @@ export function makeUnit(p, member, dict, mode, { learnable, pname } = {}) {
   const spec = G.species.get(toID(p.id)) || G.species.get(toID(p.en));
   const physical = p.s[1] >= p.s[3];
   const est = set ? null : estimateBuild(p, dict, learnable);
-  const abId = set?.a?.[0] || p.ab?.[0]?.id || '';
-  const item = set ? (set.i?.[0] || '') : est.item;
-  const nat = set ? (set.na?.[0] || (physical ? 'adamant' : 'modest')) : est.nat;
-  const evs = set?.ev || est?.evs || (physical ? { hp: 4, atk: 252, spe: 252 } : { hp: 4, spa: 252, spe: 252 });
-  const ivs = {};
+  let abId = set?.a?.[0] || p.ab?.[0]?.id || '';
+  let item = set ? (set.i?.[0] || '') : est.item;
+  let nat = set ? (set.na?.[0] || (physical ? 'adamant' : 'modest')) : est.nat;
+  let evs = set?.ev || est?.evs || (physical ? { hp: 4, atk: 252, spe: 252 } : { hp: 4, spa: 252, spe: 252 });
+  let ivs = {};
   // sin Velocidad invertida en Trick Room: naturaleza que la baja y 0 EVs → IV 0
   if (!evs.spe && ['brave', 'quiet', 'relaxed', 'sassy'].includes(nat)) ivs.spe = 0;
-  const moveIds = set ? [...new Set(set.m.map(a => a[0]).filter(Boolean))] : est.moves;
-  const estimated = !set;
+  let moveIds = set ? [...new Set(set.m.map(a => a[0]).filter(Boolean))] : est.moves;
+  ({ nat, item, abId, evs, ivs, moveIds } = applyBuild(member, { nat, item, abId, evs, ivs, moveIds }));
+  const estimated = !set && !member?.b;
   const moves = moveIds.map(id => {
     const dm = dict.moves[id];
     const cm = dm && G.moves.get(toID(dm.e));

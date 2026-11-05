@@ -2,6 +2,7 @@
 // naturaleza), el mejor movimiento, la habilidad y el objeto, y de ahí saca un porcentaje de victoria, las razones y los consejos.
 // No simula un combate completo: es una estimación basada en daño, velocidad y rol del equipo.
 import { TYPES, matchups, formatRank } from './util.js';
+import { applyBuild } from './build.js';
 
 const FIXED = { seismictoss: 100, nightshade: 100 };
 const HITS = { iciclespear: 3, rockblast: 3, bulletseed: 3, tailslap: 3, scaleshot: 3.5, watershuriken: 3, bonemerang: 2, doublekick: 2, dualwingbeat: 2, doublehit: 2, surgingstrikes: 3, tripledive: 3, tripleaxel: 6, triplekick: 6, populationbomb: 6, armthrust: 3, furyattack: 3, pinmissile: 3, dragondarts: 2, twinbeam: 2, geargrind: 2, gigatonhammer: 1 };
@@ -34,15 +35,15 @@ export function bestSetIndex(p) {
   return best;
 }
 
-function calcStats(base, evs, nat, natures) {
+function calcStats(base, evs, nat, natures, ivs) {
   const n = natures?.[nat] || {};
   const ev = k => (evs && evs[k] != null ? evs[k] : (evs ? 0 : 84));
   const keys = ['hp', 'atk', 'def', 'spa', 'spd', 'spe'];
   const out = {};
   keys.forEach((k, i) => {
-    if (k === 'hp') { out.hp = base[0] === 1 ? 1 : Math.floor((2 * base[0] + 31 + Math.floor(ev('hp') / 4))) + 110; return; }
+    if (k === 'hp') { out.hp = base[0] === 1 ? 1 : Math.floor((2 * base[0] + (ivs?.hp ?? 31) + Math.floor(ev('hp') / 4))) + 110; return; }
     const m = n.plus === k ? 1.1 : n.minus === k ? 0.9 : 1;
-    out[k] = Math.floor((Math.floor(2 * base[i] + 31 + Math.floor(ev(k) / 4)) + 5) * m);
+    out[k] = Math.floor((Math.floor(2 * base[i] + (ivs?.[k] ?? 31) + Math.floor(ev(k) / 4)) + 5) * m);
   });
   return out;
 }
@@ -51,13 +52,15 @@ function calcStats(base, evs, nat, natures) {
 export function buildUnit(p, member, dict) {
   const idx = member?.s != null && p.sets?.[member.s] ? member.s : bestSetIndex(p);
   const set = idx >= 0 ? p.sets[idx] : null;
-  const ab = set?.a?.[0] || p.ab?.[0]?.id || '';
-  const item = set?.i?.[0] || '';
-  const nat = set?.na?.[0] || (p.s[1] >= p.s[3] ? 'adamant' : 'modest');
-  const evs = set?.ev || null;
+  let ab = set?.a?.[0] || p.ab?.[0]?.id || '';
+  let item = set?.i?.[0] || '';
+  let nat = set?.na?.[0] || (p.s[1] >= p.s[3] ? 'adamant' : 'modest');
+  let evs = set?.ev || null;
   // sin build de Smogon: se supone el ataque más fuerte y velocidad máxima
-  const moves = set ? set.m.map(a => a[0]).filter(Boolean) : [];
-  const st = calcStats(p.s, evs || (p.s[1] >= p.s[3] ? { atk: 252, spe: 252, hp: 4 } : { spa: 252, spe: 252, hp: 4 }), nat, dict.natures);
+  let moves = set ? set.m.map(a => a[0]).filter(Boolean) : [];
+  let ivs = null;
+  ({ nat, item, abId: ab, evs, ivs, moveIds: moves } = applyBuild(member, { nat, item, abId: ab, evs, ivs, moveIds: moves }));
+  const st = calcStats(p.s, evs || (p.s[1] >= p.s[3] ? { atk: 252, spe: 252, hp: 4 } : { spa: 252, spe: 252, hp: 4 }), nat, dict.natures, ivs);
   const mv = moves.map(id => ({ id, ...(dict.moves[id] || {}) })).filter(m => m.t);
   const has = list => mv.some(m => list.includes(m.id));
   return {

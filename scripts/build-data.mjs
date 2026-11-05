@@ -342,6 +342,7 @@ const index = [];
 const noSprite = [];
 let withSets = 0, withLevelMoves = 0;
 
+const editorLearn = new Map();
 for (const s of allSpecies) {
   const sid = spriteId(s);
   if (s.forme && sid === s.num) noSprite.push(s.name);
@@ -370,6 +371,16 @@ for (const s of allSpecies) {
   const levelMoves = lv.filter(([l, mv]) => (seen.has(`${l}-${mv}`) ? false : seen.add(`${l}-${mv}`))).map(([l, mv]) => [l, addMove(mv)]);
   if (levelMoves.length) withLevelMoves++;
 
+  // todo lo que puede llevar (con lo de sus preevoluciones): sirve para el editor de builds
+  {
+    const all = new Set();
+    for (let sp = s, n = 0; sp?.exists && n < 4; sp = sp.prevo ? gen.species.get(sp.prevo) : null, n++) {
+      let l = await gen.learnsets.get(sp.id);
+      if (!l?.learnset) l = await gen.learnsets.get(toID(sp.baseSpecies));
+      for (const [mv, src] of Object.entries(l?.learnset || {})) if (src.some(c => c[0] === String(lg))) all.add(mv);
+    }
+    editorLearn.set(s.id, [...all]);
+  }
   // habilidades
   const abilities = Object.entries(s.abilities).map(([slot, name]) => ({ id: addAbility(name), ...(slot === 'H' ? { h: 1 } : {}) }));
 
@@ -438,6 +449,26 @@ index.forEach((e, i) => {
   for (const x of Object.keys(useI)) (items[x] ||= []).push([i, useI[x], total]);
   d.ab.forEach(x => (abilities[x.id] ||= { s: [], n: [], h: [] })[x.h ? 'h' : 'n'].push(i));
 });
+// editor de builds: todos los movimientos aprendibles por Pokémon, objetos y naturalezas (se carga solo al abrir el editor)
+{
+  const slimMove = id => {
+    const m = gen.moves.get(id); if (!m?.exists) return null;
+    const key = MOVE_ALIAS[m.id] || m.id;
+    return [moveES.names.get(key) || m.name, m.name, m.type.toLowerCase(), m.category === 'Physical' ? 'f' : m.category === 'Special' ? 'e' : 's', m.basePower || 0, m.accuracy === true ? 0 : (m.accuracy ?? 0), m.priority || 0];
+  };
+  const ed = { moves: {}, items: {}, natures: {}, learn: {} };
+  for (const [id, list] of editorLearn) {
+    const ok = [];
+    for (const mv of list) { if (!ed.moves[mv]) { const e = slimMove(mv); if (!e) continue; ed.moves[mv] = e; } ok.push(mv); }
+    ed.learn[id] = ok.sort();
+  }
+  for (const it of gen.items) {
+    if (!it.exists || it.isNonstandard || it.isPokeball || /^(tr\d|tm\d|mail)/.test(it.id)) continue;
+    ed.items[it.id] = [itemES.names.get(it.id) || it.name, it.name, itemES.ident.get(it.id) || null];
+  }
+  for (const n of gen.natures) ed.natures[n.id] = [NATURES_ES[n.id] || n.name, n.name, n.plus || null, n.minus || null];
+  fs.writeFileSync(path.join(OUT, 'editor.json'), JSON.stringify(ed));
+}
 fs.writeFileSync(path.join(OUT, 'learners.json'), JSON.stringify(learners));
 fs.writeFileSync(path.join(OUT, 'abilities.json'), JSON.stringify(abilities));
 fs.writeFileSync(path.join(OUT, 'items.json'), JSON.stringify(items));

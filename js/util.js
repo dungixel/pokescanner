@@ -159,7 +159,11 @@ export const store = {
 export const smallSprite = p => `${SPR}/pokemon/${p.sp}.png`;
 export const artSprite = p => `${SPR}/pokemon/other/official-artwork/${p.sp}.png`;
 const showdownSprite = p => `https://play.pokemonshowdown.com/sprites/gen5/${p.ss}.png`;
-export const spriteChain = (p, kind) => (kind === 'art'
+export const spriteChain = (p, kind, shiny = false) => (shiny
+  ? (kind === 'art'
+    ? [`${SPR}/pokemon/other/official-artwork/shiny/${p.sp}.png`, `${SPR}/pokemon/other/home/shiny/${p.sp}.png`, `https://play.pokemonshowdown.com/sprites/gen5-shiny/${p.ss}.png`]
+    : [`${SPR}/pokemon/shiny/${p.sp}.png`, `${SPR}/pokemon/other/official-artwork/shiny/${p.sp}.png`, `https://play.pokemonshowdown.com/sprites/gen5-shiny/${p.ss}.png`])
+  : kind === 'art'
   ? [artSprite(p), `${SPR}/pokemon/other/home/${p.sp}.png`, showdownSprite(p)]
   : [smallSprite(p), artSprite(p), showdownSprite(p)]);
 
@@ -169,7 +173,7 @@ export function img(srcs, { cls = '', alt = '', lazy = true, w, h } = {}) {
   return `<img class="${cls}" src="${esc(first)}" ${rest.length ? `data-fb="${esc(rest.join('|'))}"` : ''} alt="${esc(alt)}"` +
     `${lazy ? ' loading="lazy"' : ''} decoding="async"${w ? ` width="${w}"` : ''}${h ? ` height="${h}"` : ''}>`;
 }
-export const pokeImg = (p, kind = 'small', cls = '', size) => img(spriteChain(p, kind), { cls: `poke ${cls}`, alt: '', w: size, h: size });
+export const pokeImg = (p, kind = 'small', cls = '', size, shiny = false) => img(spriteChain(p, kind, shiny), { cls: `poke ${cls}`, alt: '', w: size, h: size });
 export const itemImg = (it, cls = '') => (it?.i ? img([`${SPR}/items/${it.i}.png`], { cls: `item ${cls}`, alt: '', w: 32, h: 32 }) : '');
 
 export const typeIcon = (t, cls = '') =>
