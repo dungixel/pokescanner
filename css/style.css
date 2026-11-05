@@ -524,8 +524,11 @@ body::before { content: ""; position: fixed; inset: 0 0 auto 0; height: var(--st
 /* estrella amarilla en un círculo, a la derecha de los Pokémon que están en algún equipo */
 .rw { display: block; }
 .rw.hasfav { display: grid; grid-template-columns: minmax(0, 1fr) 34px; align-items: center; gap: 8px; }
-.favdot { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: color-mix(in srgb, #F2B322 22%, var(--surface)); border: 1px solid color-mix(in srgb, #F2B322 55%, var(--line)); }
-.favdot svg { width: 19px; height: 19px; fill: #F2B322; stroke: none; }
+.favdot { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border-radius: 50%; color: var(--ink); background: var(--surface); border: 1.5px solid var(--ink); cursor: pointer; transition: transform .12s, background .18s, border-color .18s; }
+.favdot svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; }
+.favdot:active { transform: scale(.9); }
+.favdot.on { background: color-mix(in srgb, #F2B322 22%, var(--surface)); border-color: color-mix(in srgb, #F2B322 70%, var(--line)); }
+.favdot.on svg { fill: #F2B322; stroke: none; }
 
 /* al ir hacia atrás la página entra deslizándose un poco desde la izquierda */
 #app.goback { animation: goback .22s cubic-bezier(.2, .8, .3, 1); }

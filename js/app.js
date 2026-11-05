@@ -141,6 +141,7 @@ function saveSlot(i) {
 }
 function afterTeamsChange() {
   rebuildFavs(); paintFavBtn(); refreshModal();
+  document.querySelectorAll('.favdot[data-v]').forEach(b => { const on = favs.has(b.dataset.v); b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); b.innerHTML = on ? IC.starF : IC.star; });
   if (state.view === 'teams') paintTeams();
   document.querySelectorAll('.favn').forEach(n => { n.textContent = favs.size ? `(${favs.size})` : ''; });
 }
@@ -680,9 +681,6 @@ function homeHTML() {
       ${t('filters')} <span class="badge" id="fbadge"></span>
       <svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
     </button>
-    <button class="chip" data-act="flag" data-v="favs" aria-pressed="false">
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 3.5l2.6 5.5 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.8l6-.8z"/></svg>${t('favorites')} <small class="favn"></small>
-    </button>
   </div>
   <div class="fpanel" id="fpanel"><div class="fpanel-in">
   <section class="filters" id="filters" aria-label="${t('filters')}">
@@ -834,10 +832,10 @@ function rowCore(p) {
       ${showStat ? `<span class="statval">${sortVal(p, state.sort)}<small>${statName(state.sort)}</small></span>` : tierBadge(p.r, '', p.g)}
     </span></a>`;
 }
+const favStar = (id, on) => `<button class="favdot ${on ? 'on' : ''}" data-act="row-fav" data-v="${id}" aria-pressed="${on}" aria-label="${t(on ? 'favAddedBtn' : 'favAddBtn')}">${on ? IC.starF : IC.star}</button>`;
+// cada fila lleva a la derecha una estrella para añadir el Pokémon a un equipo (amarilla si ya está en alguno)
 function rowHTML(p) {
-  const row = rowCore(p);
-  // con algún favorito, todas las filas dejan un hueco a la derecha: la estrella amarilla marca los que están en un equipo
-  return favs.size ? `<div class="rw hasfav">${row}${favs.has(p.id) ? `<span class="favdot" title="${t('favAddedBtn')}">${IC.starF}</span>` : '<span></span>'}</div>` : row;
+  return `<div class="rw hasfav">${rowCore(p)}${favStar(p.id, favs.has(p.id))}</div>`;
 }
 function cardHTML(p) {
   return `<a class="card" href="#/pokemon/${p.id}" style="--c:${TYPE_COLOR[p.t[0]]}">
@@ -881,7 +879,7 @@ function renderResults(reset = true) {
 
   const list = (state.list = compute());
   const mv = searchBlocks(fold(state.q));
-  const goTeams = state.favs ? `<a class="chip accent goteams" href="#/teams">${t('goTeams')}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>` : '';
+  const goTeams = '';
   const head = goTeams + mv + `<div class="block-title tight"><h2>${t(list.length === 1 ? 'result1' : 'resultN', { n: list.length })}</h2></div>`;
   if (!list.length) {
     // si no hay Pokémon pero sí movimientos, solo se muestran los movimientos
@@ -1581,6 +1579,7 @@ document.addEventListener('click', e => {
     case 'tier-go': goSearch({ tiers: [v] }); break;
 
     // ficha
+    case 'row-fav': if (requireLogin({ type: 'fav', id: v })) openTeamPick(v); break;
     case 'fav': if (requireLogin({ type: 'fav', id: page.d.id })) openTeamPick(page.d.id); break;
     case 'login-open': openLogin({ type: v }); break;
     case 'team-toggle': {
