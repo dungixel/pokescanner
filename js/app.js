@@ -13,6 +13,9 @@ import { buildUnit, compareTeams, eff } from './battle.js';
 import { baseBuild, currentBuild, diffBuild, finalStats, evTotal, KEYS as EDK, EV_MAX, EV_TOTAL } from './editor.js';
 
 const $app = document.getElementById('app');
+/** Icono relleno del menú (con su color) para ponerlo a la izquierda del título de cada página */
+const TITLE_COLOR = { 'dock-community': '#3B82F6', 'dock-battle': '#E5484D', 'dock-favs': '#F2B322', 'dock-notifs': '#30A46C', 'dock-settings': 'var(--ink)' };
+const titleIc = act => `<span class="ticn" style="--tic:${TITLE_COLOR[act]}">${DOCK[act].f}</span>`;
 const sheet = document.getElementById('sheet');
 const toastEl = document.getElementById('toast');
 
@@ -87,7 +90,7 @@ const feedbackHTML = () => `<div class="sgroup fb"><h3>${IC.mail}${t('feedbackTi
 function settingsHTML() {
   const pref = themePref();
   return `<div class="scard" role="dialog" aria-modal="true" aria-label="${t('settings')}">
-    <div class="shead"><button class="iconbtn" data-act="settings-close" aria-label="${t('close')}">${I.x}</button><h2>${t('settings')}</h2></div>
+    <div class="shead"><button class="iconbtn" data-act="settings-close" aria-label="${t('close')}">${I.x}</button><h2 class="brand">${titleIc('dock-settings')}${t('settings')}</h2></div>
     ${accountHTML()}
     <div class="sgroup"><div class="spills">
       <button class="ddbtn spill" data-act="sdd" data-v="lang" aria-expanded="${sdd === 'lang'}" aria-haspopup="listbox"><span class="ddl">${t('language')}</span><span class="ddv"><img class="flag" src="${FLAG[lang()]}" alt="" width="18" height="14">${LANGS[lang()]}</span><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
@@ -342,7 +345,7 @@ setInterval(pollNotifs, 45000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) pollNotifs(); });
 const notifText = n => { const u = `<b>${esc(n.username || '?')}</b>`; return t(n.kind === 'like' ? 'notifLike' : n.kind === 'comment' ? 'notifComment' : n.kind === 'friend_request' ? 'notifReq' : 'notifAcc', { u }); };
 function notifsHTML() {
-  const head = `<div class="shead"><button class="iconbtn" data-act="settings-close" aria-label="${t('close')}">${IC.x}</button><h2>${t('notifTitle')}</h2></div>`;
+  const head = `<div class="shead"><button class="iconbtn" data-act="settings-close" aria-label="${t('close')}">${IC.x}</button><h2 class="brand">${titleIc('dock-notifs')}${t('notifTitle')}</h2></div>`;
   const body = !auth.currentUser() ? `<p class="shint">${t('notifLogin')}</p>`
     : notif.items == null ? `<p class="shint">…</p>`
     : !notif.items.length ? `<p class="shint">${t('notifEmpty')}</p>`
@@ -1849,7 +1852,7 @@ function communityHTML() {
   const list = vis.length ? vis.map(postCardHTML).join('')
     : com.loading ? '' : com.err ? `<div class="empty"><b>${t('comLoadFail')}</b></div>` : (com.q.trim() || comFCount()) ? `<div class="empty"><b>${t('comNoMatch')}</b></div>` : `<div class="empty"><b>${t('comEmpty')}</b>${t('comEmptyHint')}</div>`;
   const pkChips = com.pokes.map(id => BYID.get(id)).filter(Boolean).map(p => `<button class="chip pkf" data-act="com-pk-del" data-v="${p.id}" aria-label="${t('edRemove')}">${pokeImg(p, 'small', 'thumb')}${esc(pname(p))}<span class="x">${IC.x}</span></button>`).join('');
-  return `<header class="hero"><h1>${t('comTitle')}</h1><p>${t('comLead')}</p></header>
+  return `<header class="hero"><h1 class="brand">${titleIc('dock-community')}${t('comTitle')}</h1><p>${t('comLead')}</p></header>
     <div class="searchbar"><div class="search ${com.q ? 'filled' : ''}">${I.search}<input id="com-q" type="search" inputmode="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${t('comSearchPh')}" value="${esc(com.q)}" aria-label="${t('comSearchPh')}"></div></div>
     <div class="comfilters"><button class="chip ${com.fopen ? 'on' : ''}" data-act="com-ftoggle" aria-expanded="${com.fopen}">${FILTIC}${t('comFilters')}${comFCount() ? ` <span class="badge on">${comFCount()}</span>` : ''}<svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button></div>
     ${com.fopen ? comPanelHTML() : ''}
@@ -2162,9 +2165,9 @@ function teamPageHTML(i) {
     ${members.length ? teamHTML(members) : ''}`;
 }
 function teamsHTML() {
-  if (!auth.currentUser()) return `<header class="hero"><h1>${t('teamsTitle')}</h1><p>${t('teamsLead')}</p></header>${loginCta('loginTitle', 'favs')}`;
+  if (!auth.currentUser()) return `<header class="hero"><h1 class="brand">${titleIc('dock-favs')}${t('teamsTitle')}</h1><p>${t('teamsLead')}</p></header>${loginCta('loginTitle', 'favs')}`;
   if (state.view === 'team') return teamPageHTML(teamsSel.open);
-  return `<header class="hero"><h1>${t('teamsTitle')}</h1><p>${t('teamsLead')}</p></header><div class="slots">${teams.map((_, i) => slotHTML(i)).join('')}</div>`;
+  return `<header class="hero"><h1 class="brand">${titleIc('dock-favs')}${t('teamsTitle')}</h1><p>${t('teamsLead')}</p></header><div class="slots">${teams.map((_, i) => slotHTML(i)).join('')}</div>`;
 }
 function paintTeams() {
   const root = $('#teams-root'); if (!root) return;
@@ -2302,7 +2305,7 @@ function friendRow(f) {
     <button class="iconbtn" data-act="friend-remove" data-v="${f.user_id}" aria-label="${t('friendRemove')}">${IC.trash}</button></div>`;
 }
 function battleHTML() {
-  const head = `<header class="hero"><h1>${t('battleTitle')}</h1><p>${t('battleLead')}</p></header>`;
+  const head = `<header class="hero"><h1 class="brand">${titleIc('dock-battle')}${t('battleTitle')}</h1><p>${t('battleLead')}</p></header>`;
   if (!auth.currentUser()) return head + loginCta('loginTitle', 'battle');
   const inc = bt.friends.filter(f => f.direction === 'in'), fr = bt.friends.filter(f => f.direction === 'friend'), out = bt.friends.filter(f => f.direction === 'out');
   const friendsSec = `<section class="sec"><div class="block-title"><h2>${t('friends')}</h2></div>
