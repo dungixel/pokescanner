@@ -1194,7 +1194,7 @@ button.slot.slothead { cursor: pointer; }
 .cresl { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .cres { display: grid; gap: 6px; padding: 12px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line); }
 .cmv { display: flex; align-items: center; gap: 8px; }
-.cmv b { flex: 1; }
+.cmv b { flex: 0 1 auto; min-width: 0; }
 .cbar { position: relative; height: 10px; border-radius: 5px; background: var(--soft); overflow: hidden; }
 .cbar i, .cbar u { position: absolute; left: 0; top: 0; bottom: 0; text-decoration: none; }
 .cbar i { background: color-mix(in srgb, var(--tc) 40%, var(--soft)); }
