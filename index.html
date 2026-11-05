@@ -18,12 +18,14 @@
   <link rel="preload" href="fonts/lexend-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="fonts/lexend-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="css/style.css">
-  <script>try{var t=localStorage.getItem('pk.theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+  <script>try{var t=localStorage.getItem('pk.theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
 </head>
 <body>
   <main id="app" aria-live="polite">
     <p class="boot">Cargando PokeScanner…</p>
   </main>
+  <nav id="dock" aria-label="PokeScanner"></nav>
+  <div id="smodal" class="smodal" hidden></div>
   <dialog id="sheet" aria-label="Detalle"></dialog>
   <div id="toast" role="status" aria-live="polite"></div>
   <noscript><p class="boot">Esta web necesita JavaScript para funcionar. / This site needs JavaScript.</p></noscript>

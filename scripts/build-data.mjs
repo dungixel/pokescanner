@@ -406,6 +406,8 @@ for (const s of allSpecies) {
     s: entry.s, h: pokeapiInfo.get(sid)?.h ?? pokeapiInfo.get(s.num)?.h ?? null, w: s.weightkg || pokeapiInfo.get(sid)?.w || null, sp: sid, ss: entry.ss,
     ab: abilities, lv: levelMoves, sets, evo: evoTree(s),
   };
+  if (detail.h != null) entry.h = detail.h; // altura y peso también en el índice: sirven para ordenar la lista
+  if (detail.w != null) entry.w = detail.w;
   details.set(s.id, detail);
 }
 

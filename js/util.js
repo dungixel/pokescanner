@@ -127,6 +127,9 @@ export const tierLabel = r => String(r).replace('Uber', 'Ubers').replace(/^\((.*
 
 const FORMAT_NAME = { ou: 'OU', ubers: 'Ubers', ubersuu: 'Ubers UU', anythinggoes: 'AG', uu: 'UU', ru: 'RU', nu: 'NU', pu: 'PU', zu: 'ZU',
   lc: 'LC', nfe: 'NFE', vgc2025: 'VGC 2025', monotype: 'Monotype' };
+// orden de los formatos de Smogon, del más fuerte al más débil (igual que la escala de rangos); los de dobles y especiales, al final
+const FORMAT_ORDER = ['anythinggoes', 'ubers', 'ubersuu', 'ou', 'uu', 'ru', 'nu', 'pu', 'zu', 'lc', 'nfe', 'doublesou', 'vgc2025', 'monotype'];
+export const formatRank = f => { const i = FORMAT_ORDER.indexOf(f); return i < 0 ? FORMAT_ORDER.length : i; };
 export const formatName = f => (f === 'doublesou' ? t('fmt_doublesou') : FORMAT_NAME[f] || f);
 
 // ───────── nombres según el idioma ─────────
@@ -171,7 +174,7 @@ export const itemImg = (it, cls = '') => (it?.i ? img([`${SPR}/items/${it.i}.png
 
 export const typeIcon = (t, cls = '') =>
   `<img class="ticon ${cls}" src="${SPR}/types/generation-ix/scarlet-violet/small/${TYPE_ID[t] || 1}.png" alt="" width="24" height="24" decoding="async">`;
-export const typePill = t => `<span class="tpill" style="--tc:${TYPE_COLOR[t]}">${typeIcon(t)}<span>${typeName(t)}</span></span>`;
+export const typePill = t => `<button class="tpill" data-act="type-go" data-v="${t}" style="--tc:${TYPE_COLOR[t]}">${typeIcon(t)}<span>${typeName(t)}</span></button>`;
 export const typeDot = t => `<span class="tdot" style="--tc:${TYPE_COLOR[t]}" title="${typeName(t)}" aria-label="${typeName(t)}">${typeIcon(t)}</span>`;
 
 const CAT_SVG = {

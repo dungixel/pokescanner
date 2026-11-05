@@ -1,11 +1,12 @@
 import {
   TYPES, TYPE_ES, TYPE_EN, TYPE_COLOR, STATS, typeName, statName, catName, tierInfo, TIER_ORDER, formatName,
-  esc, fold, dexNum, fmtNum, store, matchups, bst, statColor, tierLabel, tierColor, tierNum, tierNumHTML, TIER_MAX,
+  esc, fold, dexNum, fmtNum, store, matchups, bst, statColor, tierLabel, tierColor, tierNum, tierNumHTML, TIER_MAX, formatRank,
   pname, pname2, dn, dn2, dd, how,
   pokeImg, itemImg, typeIcon, typePill, typeDot, catIcon,
 } from './util.js';
 import { t, lang, setLang } from './i18n.js';
 import { analyzeTeam, scoreInfo } from './team.js';
+import * as auth from './auth.js';
 
 const $app = document.getElementById('app');
 const sheet = document.getElementById('sheet');
@@ -16,11 +17,14 @@ let BYID = new Map();
 let DICT = null;
 const cache = new Map();
 
-const favs = new Set(JSON.parse(store.get('pk.favs') || '[]'));
-const saveFavs = () => store.set('pk.favs', JSON.stringify([...favs]));
+// Los favoritos viven en la cuenta del usuario. Los que se guardaron en este dispositivo antes de existir las cuentas
+// (legacyFavs) se suben a la cuenta la primera vez que se inicia sesión.
+const favs = new Set();
+const legacyFavs = (() => { try { const v = JSON.parse(store.get('pk.favs') || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } })();
+const cacheFavs = () => { const u = auth.userInfo(); if (u) store.set(`pk.favs.${u.id}`, JSON.stringify([...favs])); };
 
 const state = {
-  view: 'home', q: '', sort: 'num', dir: 1, types: [], tiers: [], favs: false, base: false, gen9: false,
+  view: 'home', q: '', sort: 'num', dir: 1, types: [], tiers: [], gens: [], favs: false, gen9: false, dd: null,
   shown: 40, scroll: 0, randomMode: 'daily', randoms: null, filtersOpen: false,
 };
 let page = null; // estado de la ficha abierta
@@ -29,7 +33,15 @@ let io = null;   // IntersectionObserver de la lista
 
 // ───────────────────────── Iconos ─────────────────────────
 const I = {
-  back: '<svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>',
+  back: '<svg viewBox="0 0 24 24"><path d="M15 6l-6 6l6 6"/></svg>',
+  home: '<svg viewBox="0 0 24 24"><path d="M5 12l-2 0l9 -9l9 9l-2 0"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7"/><path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6"/></svg>',
+  tsearch: '<svg viewBox="0 0 24 24"><path d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0"/><path d="M21 21l-6 -6"/></svg>',
+  tstar: '<svg viewBox="0 0 24 24"><path d="M12 17.75l-6.172 3.245l1.179 -6.873l-5 -4.867l6.9 -1l3.086 -6.253l3.086 6.253l6.9 1l-5 4.867l1.179 6.873l-6.158 -3.245"/></svg>',
+  adjust: '<svg viewBox="0 0 24 24"><path d="M12 6a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M4 6l8 0"/><path d="M16 6l4 0"/><path d="M6 12a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M4 12l2 0"/><path d="M10 12l10 0"/><path d="M15 18a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M4 18l11 0"/><path d="M19 18l1 0"/></svg>',
+  google: '<svg viewBox="0 0 24 24"><path d="M20.945 11a9 9 0 1 1 -3.284 -5.997l-2.655 2.392a5.5 5.5 0 1 0 2.119 6.605h-4.125v-3h7.945"/></svg>',
+  logout: '<svg viewBox="0 0 24 24"><path d="M14 8v-2a2 2 0 0 0 -2 -2h-7a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2 -2v-2"/><path d="M9 12h12l-3 -3"/><path d="M18 15l3 -3"/></svg>',
+  desktop: '<svg viewBox="0 0 24 24"><path d="M3 5a1 1 0 0 1 1 -1h16a1 1 0 0 1 1 1v10a1 1 0 0 1 -1 1h-16a1 1 0 0 1 -1 -1v-10"/><path d="M7 20h10"/><path d="M9 16v4"/><path d="M15 16v4"/></svg>',
+  x: '<svg viewBox="0 0 24 24"><path d="M18 6l-12 12"/><path d="M6 6l12 12"/></svg>',
   search: '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>',
   close: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   star: '<svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.5 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.8l6-.8z"/></svg>',
@@ -43,40 +55,166 @@ const I = {
   down: '<svg viewBox="0 0 24 24"><path d="M12 4v15M6 13l6 6 6-6"/></svg>',
   copy: '<svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>',
 };
-/** Botón de ajustes: idioma (con bandera) y tema claro/oscuro en un menú desplegable */
+/** Ajustes: ventana en medio de la pantalla (idioma con bandera y tema claro/oscuro) */
 const FLAG = { es: 'icons/flags/es.svg', en: 'icons/flags/gb.svg' };
 const LANGS = { es: 'Español', en: 'English' };
-const settingsBtn = () => `<div class="settings">
-  <button class="iconbtn" data-act="settings" aria-haspopup="true" aria-expanded="false" aria-label="${t('settings')}">${I.settings}</button>
-  <div class="spanel" role="menu" hidden>
-    <div class="sgroup"><h3>${I.language}${t('language')}</h3>
-      ${['es', 'en'].map(l => `<button class="sopt" role="menuitemradio" data-act="set-lang" data-v="${l}" aria-checked="${lang() === l}"><img class="flag" src="${FLAG[l]}" alt="" width="24" height="18">${LANGS[l]}<span class="ck">${I.check}</span></button>`).join('')}</div>
-    <div class="sgroup"><h3>${currentTheme() === 'dark' ? I.moon : I.sun}${t('theme')}</h3>
-      ${['light', 'dark'].map(m => `<button class="sopt" role="menuitemradio" data-act="set-theme" data-v="${m}" aria-checked="${currentTheme() === m}">${m === 'light' ? I.sun : I.moon}${t(m)}<span class="ck">${I.check}</span></button>`).join('')}</div>
-  </div></div>`;
-function closeSettings() {
-  document.querySelectorAll('.spanel').forEach(p => { p.hidden = true; });
-  document.querySelectorAll('[data-act="settings"]').forEach(b => b.setAttribute('aria-expanded', 'false'));
+const smodal = document.getElementById('smodal');
+let modalKind = null; // 'settings' | 'login'
+let pending = null;   // lo que la persona quería hacer cuando se le pidió iniciar sesión
+const themePref = () => { const v = store.get('pk.theme'); return v === 'light' || v === 'dark' ? v : 'system'; };
+const THEME_ICON = { system: 'desktop', light: 'sun', dark: 'moon' };
+function accountHTML() {
+  const u = auth.userInfo();
+  if (!u) return `<div class="sgroup"><button class="gbtn" data-act="sign-in">${I.google}${t('loginGoogle')}</button><p class="shint">${t('loginHint')}</p></div>`;
+  return `<div class="sgroup"><div class="acc">${u.avatar ? `<img class="avatar" src="${esc(u.avatar)}" alt="" referrerpolicy="no-referrer" width="42" height="42">` : `<span class="avatar">${esc((u.name || '?')[0].toUpperCase())}</span>`}
+      <div class="who"><b>${esc(u.name)}</b><small>${esc(u.email)}</small></div></div>
+    <button class="sopt" data-act="sign-out">${I.logout}${t('signOut')}</button></div>`;
 }
-document.addEventListener('click', e => { if (!e.target.closest('.settings')) closeSettings(); }, true);
+function settingsHTML() {
+  const pref = themePref();
+  return `<div class="scard" role="dialog" aria-modal="true" aria-label="${t('settings')}">
+    <div class="shead"><button class="iconbtn" data-act="settings-close" aria-label="${t('close')}">${I.x}</button><h2>${t('settings')}</h2></div>
+    ${accountHTML()}
+    <div class="sgroup"><h3>${I.language}${t('language')}</h3>
+      ${['es', 'en'].map(l => `<button class="sopt" role="radio" data-act="set-lang" data-v="${l}" aria-checked="${lang() === l}"><img class="flag" src="${FLAG[l]}" alt="" width="24" height="18">${LANGS[l]}<span class="ck">${I.check}</span></button>`).join('')}</div>
+    <div class="sgroup"><h3>${I[THEME_ICON[pref]]}${t('theme')}</h3>
+      ${['system', 'light', 'dark'].map(m => `<button class="sopt" role="radio" data-act="set-theme" data-v="${m}" aria-checked="${pref === m}">${I[THEME_ICON[m]]}${t(m === 'system' ? 'themeSystem' : m)}<span class="ck">${I.check}</span></button>`).join('')}</div>
+  </div>`;
+}
+function loginHTML() {
+  return `<div class="scard login" role="dialog" aria-modal="true" aria-label="${t('loginTitle')}">
+    <div class="shead"><button class="iconbtn" data-act="settings-close" aria-label="${t('close')}">${I.x}</button></div>
+    <div class="lbody"><span class="lbadge">${I.tstar}</span><h2>${t('loginTitle')}</h2><p>${t('loginText')}</p>
+      ${legacyFavs.length ? `<p class="shint">${t('loginLegacy', { n: legacyFavs.length })}</p>` : ''}
+      <button class="gbtn" data-act="sign-in">${I.google}${t('loginGoogle')}</button>
+      <button class="ghostbtn" data-act="settings-close">${t('notNow')}</button></div>
+  </div>`;
+}
+const modalHTML = () => (modalKind === 'login' ? loginHTML() : settingsHTML());
+const refreshModal = () => { if (!smodal.hidden) smodal.innerHTML = modalHTML(); };
+function showModal(kind) {
+  modalKind = kind;
+  smodal.innerHTML = modalHTML();
+  smodal.hidden = false;
+  document.documentElement.classList.add('locked');
+  updateDock();
+}
+const openSettings = () => showModal('settings');
+const openLogin = action => { pending = action; showModal('login'); };
+function closeSettings() {
+  if (smodal.hidden) return;
+  smodal.hidden = true;
+  document.documentElement.classList.remove('locked');
+  updateDock();
+}
+/** true si hay sesión; si no, enseña el aviso para iniciarla y recuerda qué se quería hacer */
+const requireLogin = action => { if (auth.currentUser()) return true; openLogin(action); return false; };
+
+// ───────────────────────── Cuenta ─────────────────────────
+const PENDING_KEY = 'pk.pending';
+function paintFavBtn() {
+  const b = $('.favbtn'); if (!b || !page?.d) return;
+  const on = favs.has(page.d.id);
+  b.setAttribute('aria-pressed', on); b.innerHTML = favBtnInner(on);
+}
+/** Añade o quita un favorito en la cuenta; se ve al instante y se deshace si el servidor falla */
+async function toggleFav(id) {
+  const had = favs.has(id);
+  if (had) favs.delete(id); else favs.add(id);
+  cacheFavs(); paintFavBtn();
+  try { if (had) await auth.removeFavorite(id); else await auth.addFavorites([id]); }
+  catch { if (had) favs.add(id); else favs.delete(id); cacheFavs(); paintFavBtn(); toast(t('favFail')); }
+}
+async function startLogin() {
+  try {
+    if (pending) store.set(PENDING_KEY, JSON.stringify({ ...pending, exp: Date.now() + 15 * 60 * 1000 }));
+    await auth.signInGoogle();
+  } catch (err) {
+    try { localStorage.removeItem(PENDING_KEY); } catch { /* sin almacenamiento */ }
+    toast(t(err?.code === 'google_off' ? 'loginOff' : 'loginFail'));
+  }
+}
+const takePending = () => {
+  try { const v = JSON.parse(store.get(PENDING_KEY) || 'null'); localStorage.removeItem(PENDING_KEY); return v && v.exp > Date.now() ? v : null; } catch { return null; }
+};
+/** Se llama cuando cambia la sesión (inicio, vuelta de Google o cierre) */
+async function onAuth(event, s) {
+  if (!s) { // sesión cerrada
+    favs.clear(); pending = null;
+    refreshModal(); paintFavBtn();
+    if (state.view === 'home') renderResults();
+    return;
+  }
+  const u = auth.userInfo();
+  try { JSON.parse(store.get(`pk.favs.${u.id}`) || '[]').forEach(id => favs.add(id)); } catch { /* caché ilegible */ }
+  const wanted = takePending();
+  try {
+    const server = await auth.loadFavorites();
+    const extra = [...legacyFavs, ...(wanted?.type === 'fav' ? [wanted.id] : [])].filter(id => BYID.has(id) && !server.includes(id));
+    if (extra.length) await auth.addFavorites([...new Set(extra)]);
+    favs.clear(); [...server, ...extra].forEach(id => favs.add(id));
+    if (legacyFavs.length) { store.set('pk.favs', '[]'); legacyFavs.length = 0; }
+    cacheFavs();
+  } catch { toast(t('syncFail')); }
+  try {
+    const prof = await auth.loadProfile();
+    if (!prof) { // cuenta recién creada: tema "Sistema" por defecto
+      setTheme('system', { save: false });
+      await auth.saveProfile({ theme: 'system', lang: lang() });
+    } else {
+      if (['system', 'light', 'dark'].includes(prof.theme)) setTheme(prof.theme, { save: false });
+      if ((prof.lang === 'es' || prof.lang === 'en') && prof.lang !== lang()) switchLang(prof.lang, { save: false });
+    }
+  } catch { /* se queda con lo local */ }
+  if (!smodal.hidden) closeSettings();
+  if (wanted?.type === 'favs') goSearch({ favs: true });
+  else if (state.view === 'home') renderResults();
+  paintFavBtn();
+  refreshModal();
+}
+smodal.addEventListener('click', e => { if (e.target === smodal) closeSettings(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSettings(); });
 
-// ───────────────────────── Tema ─────────────────────────
-function currentTheme() {
-  return document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+/** Dock inferior, como en una app móvil */
+const dockEl = document.getElementById('dock');
+function renderDock() {
+  const it = (act, icon, label) => `<button class="dk" data-act="${act}" aria-label="${label}">${icon}</button>`;
+  dockEl.innerHTML = it('dock-home', I.home, t('dockHome')) + it('dock-search', I.tsearch, t('dockSearch')) + it('dock-favs', I.tstar, t('dockFavs')) + it('dock-settings', I.settings, t('settings'));
+  updateDock();
 }
-function setTheme(mode) {
-  document.documentElement.dataset.theme = mode;
-  store.set('pk.theme', mode);
-  document.querySelectorAll('[data-act="set-theme"]').forEach(b => b.setAttribute('aria-checked', b.dataset.v === mode));
-  document.querySelectorAll('.sgroup:last-child h3').forEach(h => { h.innerHTML = `${mode === 'dark' ? I.moon : I.sun}${t('theme')}`; });
+function updateDock() {
+  const on = { 'dock-home': state.view === 'home' && !state.favs, 'dock-favs': state.view === 'home' && state.favs, 'dock-settings': !smodal.hidden };
+  dockEl.querySelectorAll('.dk').forEach(b => b.classList.toggle('on', !!on[b.dataset.act]));
+}
+/** Vuelve al buscador con los filtros que se indiquen (el resto se limpia) */
+function goSearch(opts = {}, focus = false) {
+  Object.assign(state, { q: '', sort: 'num', dir: 1, types: [], tiers: [], gens: [], favs: false, gen9: false, dd: null, scroll: 0, shown: 40 }, opts);
+  state.focusSearch = focus;
+  if (location.hash === '#/' || location.hash === '') renderHome(); else location.hash = '#/';
+}
+// con el teclado abierto el dock se esconde
+document.addEventListener('focusin', e => { if (e.target.matches?.('input, textarea')) document.documentElement.classList.add('kb'); });
+document.addEventListener('focusout', () => document.documentElement.classList.remove('kb'));
+
+// ───────────────────────── Tema ─────────────────────────
+/** 'system' sigue el modo claro/oscuro del dispositivo (es lo que se usa por defecto) */
+function applyTheme(pref) {
+  if (pref === 'light' || pref === 'dark') document.documentElement.dataset.theme = pref; else delete document.documentElement.dataset.theme;
+}
+function setTheme(pref, { save = true } = {}) {
+  store.set('pk.theme', pref);
+  applyTheme(pref);
+  refreshModal();
+  if (save) syncProfile();
+}
+/** Las preferencias (tema e idioma) se guardan en la cuenta */
+function syncProfile() {
+  if (auth.currentUser()) auth.saveProfile({ theme: themePref(), lang: lang() }).catch(() => {});
 }
 
 // ───────────────────────── Idioma ─────────────────────────
-/** Cambia el idioma y vuelve a dibujar la página en la que estás, sin moverte de ella ni de donde ibas del scroll. */
-function switchLang(to) {
-  if (to === lang()) return;
-  setLang(to);
+/** Vuelve a dibujar la página en la que estás sin moverte de ella ni del scroll */
+function repaintCurrent() {
   const y = window.scrollY;
   closeSheet();
   if (state.view === 'pokemon' && page && location.hash.endsWith(page.d.id)) {
@@ -91,6 +229,17 @@ function switchLang(to) {
     state.scroll = y;
     renderHome();
   } else route();
+  updateDock();
+}
+/** Cambia el idioma de toda la web sin sacarte de la página */
+function switchLang(to, { save = true } = {}) {
+  if (to === lang()) return;
+  setLang(to);
+  document.documentElement.lang = to;
+  renderDock();
+  refreshModal();
+  repaintCurrent();
+  if (save) syncProfile();
 }
 
 // ───────────────────────── Datos ─────────────────────────
@@ -125,7 +274,8 @@ function animate(el) {
   el.classList.remove('go');
   requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('go')));
 }
-const statOf = (p, k) => (k === 'bst' ? bst(p.s) : p.s[STATS.indexOf(k)]);
+const statOf = (p, k) => (k === 'bst' ? bst(p.s) : k === 'h' || k === 'w' ? p[k] ?? 0 : p.s[STATS.indexOf(k)]);
+const sortVal = (p, k) => (k === 'h' ? `${fmtNum(p.h ?? 0)} m` : k === 'w' ? `${fmtNum(p.w ?? 0)} kg` : statOf(p, k));
 const footerHTML = () => `<footer class="sitefoot">${t('footer', {
   ps: '<a href="https://pokemonshowdown.com" target="_blank" rel="noopener">Pokémon Showdown</a>',
   sm: '<a href="https://www.smogon.com/dex/sv/pokemon/" target="_blank" rel="noopener">Smogon</a>',
@@ -162,10 +312,7 @@ sheet.addEventListener('click', e => { if (e.target === sheet) sheet.close(); })
 const otherName = x => (dn2(x) && dn2(x) !== dn(x) ? `<p class="dim">${t('otherName', { n: esc(dn2(x)) })}</p>` : '');
 
 // ───────────────────────── Páginas de movimiento y habilidad ─────────────────────────
-let navDepth = 0; // cuántas navegaciones se han hecho dentro de la web (para que "volver" no mande siempre al inicio)
-const topbarHTML = () => `<div class="topbar">
-    <button class="iconbtn" data-act="back" aria-label="${t('backShort')}">${I.back}</button>
-    <div class="right">${settingsBtn()}</div></div>`;
+const topbarHTML = () => `<button class="backfab" data-act="back" aria-label="${t('backShort')}">${I.back}</button><div class="topgap"></div>`;
 const FIRST = 12; // Pokémon que se enseñan antes de "Ver todos"
 const strength = p => tierNum(p.r) || 14; // 1 = más fuerte; LC y NFE cuentan como lo más débil
 
@@ -203,6 +350,21 @@ function listSection(key, title, hint, items, render, wrap) {
     ${!all && items.length > shown.length ? `<button class="chip accent more" data-act="more-list" data-v="${key}">${t('showAllN', { n: items.length })}</button>` : ''}</section>`;
 }
 let pageExpand = new Set(), pageData = null;
+let pf = { types: [], tiers: [], open: false }; // filtros de las listas de Pokémon de estas páginas
+const pfActive = () => pf.types.length + pf.tiers.length;
+const pfPass = p => (!pf.types.length || pf.types.every(ty => p.t.includes(ty))) && (!pf.tiers.length || pf.tiers.includes(p.r));
+function pfBar(withTiers = true) {
+  const n = pfActive();
+  const chip = (act, v, on, inner) => `<button class="chip small" data-act="${act}" data-v="${v}" aria-pressed="${on}">${inner}</button>`;
+  return `<div class="pfbar"><div class="pfrow">
+      <button class="chip" data-act="pf-toggle" aria-expanded="${pf.open}">${I.adjust}${t('filters')}${n ? ` <span class="badge on">${n}</span>` : ''}</button>
+      ${n ? `<button class="chip small ghost" data-act="pf-clear">${t('clearFilters')}</button>` : ''}</div>
+    ${pf.open ? `<div class="pfpanel">
+      <div class="frow"><span>${t('type')}</span><div class="scroller">${TYPES.map(ty => chip('pf-type', ty, pf.types.includes(ty), `${typeIcon(ty)}${typeName(ty)}`)).join('')}</div></div>
+      ${withTiers ? `<div class="frow"><span>${t('tier')} <small>${t('tierHint')}</small></span><div class="scroller">${TIER_ORDER.map(r => chip('pf-tier', esc(r), pf.tiers.includes(r), `${tierNumHTML(r)}${tierLabel(r)}`)).join('')}</div></div>` : ''}
+    </div>` : ''}</div>`;
+}
+const pfEmpty = () => `<section class="sec"><div class="empty"><b>${t('emptyTitle')}</b>${t('emptyHint')}</div></section>`;
 const SRC = { move: 'moves', ability: 'abilities', item: 'items', tier: null };
 const HTML = { move: moveHTML, ability: abilityHTML, item: itemHTML, tier: tierHTML };
 
@@ -211,8 +373,8 @@ function moveHTML(id) {
   const fit = [
     ...L.s.map(([i, k, n]) => moveFit(m, INDEX[i], k, n)),
     ...L.l.map(i => moveFit(m, INDEX[i], 0, 0)),
-  ].sort((x, y) => y.sc - x.sc || byStrength(x.p, y.p));
-  const best = fit.filter(f => f.sc >= 0).slice(0, FIRST);
+  ].filter(f => pfPass(f.p)).sort((x, y) => y.sc - x.sc || byStrength(x.p, y.p));
+  const best = fit.slice(0, FIRST);
   const rest = fit.slice(FIRST);
   const all = pageExpand.has('rest');
   const body = fit.length
@@ -221,7 +383,7 @@ function moveHTML(id) {
        ${rest.length ? `<section class="sec"><h2>${t('mv_rest')} <small>${rest.length}</small></h2>
          <div class="list">${(all ? rest : rest.slice(0, 0)).map(fitRow).join('')}</div>
          ${all ? '' : `<button class="chip accent more" data-act="more-list" data-v="rest">${t('showAllN', { n: rest.length })}</button>`}</section>` : ''}`
-    : `<section class="sec"><p class="hint">${t('noLearners')}</p></section>`;
+    : pfActive() ? pfEmpty() : `<section class="sec"><p class="hint">${t('noLearners')}</p></section>`;
   return `${topbarHTML()}
   <section class="mhero" style="--tc:${TYPE_COLOR[m.t]}">
     <span class="mtag">${t('move')}</span>
@@ -236,16 +398,18 @@ function moveHTML(id) {
     <div><b>${m.pr > 0 ? '+' + m.pr : m.pr}</b><small>${t('priority')}</small></div>
   </div></section>
   <section class="sec"><h2>${t('description')}</h2><p class="desc">${esc(dd(m)) || `<span class="dim">${t('noDesc')}</span>`}</p></section>
+  ${(L.s.length + L.l.length) ? pfBar() : ''}
   ${body}${footerHTML()}`;
 }
 function abilityHTML(id) {
   const a = DICT.abilities[id], L = ABIL[id] || { s: [], n: [], h: [] };
-  const users = L.s.map(([i, k, n]) => ({ p: INDEX[i], r: k / n, why: [fitSets(k, n)] }))
+  const users = L.s.map(([i, k, n]) => ({ p: INDEX[i], r: k / n, why: [fitSets(k, n)] })).filter(x => pfPass(x.p))
     .sort((x, y) => y.r - x.r || byStrength(x.p, y.p));
   const inSets = new Set(L.s.map(x => x[0]));
-  const plain = list => list.filter(i => !inSets.has(i)).map(i => INDEX[i]).sort(byStrength);
+  const plain = list => list.filter(i => !inSets.has(i)).map(i => INDEX[i]).filter(pfPass).sort(byStrength);
   const normal = plain(L.n), hidden = plain(L.h);
   const none = !users.length && !normal.length && !hidden.length;
+  const any = L.s.length + L.n.length + L.h.length > 0;
   return `${topbarHTML()}
   <section class="mhero" style="--tc:var(--accent)">
     <span class="mtag">${t('ability')}</span>
@@ -253,16 +417,17 @@ function abilityHTML(id) {
     ${dn2(a) && dn2(a) !== dn(a) ? `<span class="en">${esc(dn2(a))}</span>` : ''}
   </section>
   <section class="sec"><h2>${t('description')}</h2><p class="desc">${esc(dd(a)) || `<span class="dim">${t('noDesc')}</span>`}</p></section>
+  ${any ? pfBar() : ''}
   ${listSection('users', t('ab_best'), t('ab_bestNote'), users, fitRow, 'list')}
   ${listSection('normal', t('ab_normal'), '', normal, chipPoke, 'chips')}
   ${listSection('hidden', t('ab_hidden'), '', hidden, chipPoke, 'chips')}
-  ${none ? `<section class="sec"><p class="hint">${t('ab_none')}</p></section>` : ''}
+  ${none ? (pfActive() ? pfEmpty() : `<section class="sec"><p class="hint">${t('ab_none')}</p></section>`) : ''}
   ${footerHTML()}`;
 }
 
 function itemHTML(id) {
   const it = DICT.items[id], L = ITEMS[id] || [];
-  const users = L.map(([i, k, n]) => ({ p: INDEX[i], r: k / n, why: [fitSets(k, n)] }))
+  const users = L.map(([i, k, n]) => ({ p: INDEX[i], r: k / n, why: [fitSets(k, n)] })).filter(x => pfPass(x.p))
     .sort((x, y) => y.r - x.r || byStrength(x.p, y.p));
   return `${topbarHTML()}
   <section class="mhero" style="--tc:var(--accent)">
@@ -272,13 +437,14 @@ function itemHTML(id) {
     ${dn2(it) && dn2(it) !== dn(it) ? `<span class="en">${esc(dn2(it))}</span>` : ''}
   </section>
   <section class="sec"><h2>${t('description')}</h2><p class="desc">${esc(dd(it)) || `<span class="dim">${t('noDesc')}</span>`}</p></section>
-  ${users.length ? listSection('users', t('it_best'), t('it_bestNote'), users, fitRow, 'list') : `<section class="sec"><p class="hint">${t('it_none')}</p></section>`}
+  ${L.length ? pfBar() : ''}
+  ${users.length ? listSection('users', t('it_best'), t('it_bestNote'), users, fitRow, 'list') : pfActive() ? pfEmpty() : `<section class="sec"><p class="hint">${t('it_none')}</p></section>`}
   ${footerHTML()}`;
 }
 function tierHTML(r) {
   const info = tierInfo(r), n = tierNum(r);
   const power = p => bst(p.s) + (p.ns ? 50 : 0); // primero los que tienen build en Smogon; después, por estadísticas totales
-  const inTier = INDEX.filter(p => p.r === r).sort((x, y) => power(y) - power(x) || x.num - y.num)
+  const inTier = INDEX.filter(p => p.r === r && (!pf.types.length || pf.types.every(ty => p.t.includes(ty)))).sort((x, y) => power(y) - power(x) || x.num - y.num)
     .map(p => ({ p, why: [`${t('total')} ${bst(p.s)}`, ...(p.ns ? [t(p.ns === 1 ? 'nBuild1' : 'nBuilds', { n: p.ns })] : [])] }));
   const near = n ? [TIER_ORDER[TIER_ORDER.indexOf(r) - 1], TIER_ORDER[TIER_ORDER.indexOf(r) + 1]].filter(x => x && tierNum(x)) : [];
   const nearChip = x => `<a class="chip" href="#/tier/${x}"><span class="tier" style="--tier:${tierColor(x)}">${tierNumHTML(x)}${esc(tierLabel(x))}</span></a>`;
@@ -292,7 +458,9 @@ function tierHTML(r) {
   <section class="sec"><h2>${t('meaning')}</h2><p class="desc">${esc(info?.d || t('tierDefault'))}</p>
     <p class="hint">${n ? t('tierPos', { n, m: TIER_MAX }) : t('tierNoScale')}</p>
     ${near.length ? `<div class="chips near">${near.map(nearChip).join('')}</div>` : ''}</section>
+  ${pfBar(false)}
   <section class="sec"><h2>${t('tr_best')} <small>${inTier.length}</small></h2><p class="hint">${t('tr_bestNote')}</p>
+    ${inTier.length ? '' : `<div class="empty"><b>${t('emptyTitle')}</b>${t('emptyHint')}</div>`}
     <div class="list">${shown.map(fitRow).join('')}</div>
     ${!all && inTier.length > shown.length ? `<button class="chip accent more" data-act="more-list" data-v="mons">${t('showAllN', { n: inTier.length })}</button>` : ''}
     <button class="chip more" data-act="tier-go" data-v="${esc(r)}">${t('tierGo')}</button></section>
@@ -303,6 +471,7 @@ async function renderDetailPage(kind, id) {
   const src = SRC[kind];
   window.scrollTo(0, 0);
   pageExpand = new Set();
+  pf = { types: [], tiers: [], open: false };
   pageData = { kind, id };
   $app.innerHTML = `<p class="boot">${t('loading', { n: '…' })}</p>`;
   try { await Promise.all([getDict(), kind === 'move' ? getLearners() : kind === 'ability' ? getAbil() : kind === 'item' ? getItems() : null]); }
@@ -312,6 +481,14 @@ async function renderDetailPage(kind, id) {
   if (!x) { $app.innerHTML = `${topbarHTML()}<div class="empty"><b>${t('notFound')}</b>${t('notFoundHint')}</div>`; return; }
   document.documentElement.style.removeProperty('--accent');
   paintDetailPage();
+  applyRestore();
+}
+/** Vuelve a dibujar la página sin mover el scroll ni la posición de las filas de filtros */
+function repaintKeep() {
+  const y = window.scrollY, rows = [...document.querySelectorAll('.pfpanel .scroller')].map(s => s.scrollLeft);
+  paintDetailPage();
+  window.scrollTo(0, y);
+  document.querySelectorAll('.pfpanel .scroller').forEach((s, i) => { s.scrollLeft = rows[i] || 0; });
 }
 function paintDetailPage() {
   if (!pageData) return;
@@ -330,24 +507,48 @@ function natureSheet(id) {
   openSheet(dn(n), body + otherName(n));
 }
 // ───────────────────────── Router ─────────────────────────
+// Historial: se recuerdan las últimas 10 páginas (búsqueda, filtros y scroll), así "atrás" te devuelve justo a donde estabas
+const snaps = new Map(), SNAP_MAX = 10;
+const KEEP = ['q', 'sort', 'dir', 'types', 'tiers', 'gens', 'favs', 'gen9', 'shown', 'filtersOpen'];
+let curPid = null, pidSeq = 0, navIdx = 0;
+const copyKeys = (from, to) => KEEP.forEach(k => { to[k] = Array.isArray(from[k]) ? [...from[k]] : from[k]; });
+function remember(pid) {
+  const s = { y: window.scrollY };
+  copyKeys(state, s);
+  snaps.delete(pid); snaps.set(pid, s);
+  while (snaps.size > SNAP_MAX) snaps.delete(snaps.keys().next().value);
+}
+function applyRestore() { if (state.restoreY != null) { window.scrollTo(0, state.restoreY); state.restoreY = null; } }
 function route() {
   closeSheet();
   closeSettings();
-  navDepth++;
-  if (state.view === 'home') state.scroll = window.scrollY;
+  if (curPid != null) remember(curPid); // se guarda cómo estaba la página que se deja
+  let { pid, idx } = history.state || {};
+  if (pid == null) { pid = ++pidSeq; idx = curPid == null ? 0 : navIdx + 1; history.replaceState({ pid, idx }, ''); } // página nueva
+  pidSeq = Math.max(pidSeq, pid);
+  const back = snaps.get(pid);
+  navIdx = idx || 0; curPid = pid; state.restoreY = null;
+  if (back) { copyKeys(back, state); state.scroll = back.y; state.restoreY = back.y; } // se vuelve a una página ya vista: se recupera tal cual
   const m = location.hash.match(/^#\/pokemon\/([a-z0-9]+)/);
   const d = location.hash.match(/^#\/(move|ability|item|tier)\/([A-Za-z0-9]+)/);
   if (m) renderPokemon(m[1]); else if (d) renderDetailPage(d[1], d[2]); else renderHome();
+  updateDock();
 }
 
 // ───────────────────────── Inicio ─────────────────────────
-const SORTS = ['num', 'hp', 'atk', 'def', 'spa', 'spd', 'spe', 'bst'];
+const GEN_END = [151, 251, 386, 493, 649, 721, 809, 905, 1025]; // último número de Pokédex de cada generación
+const genOf = num => { const i = GEN_END.findIndex(e => num <= e); return i < 0 ? 9 : i + 1; };
+const REGION = { es: ['Kanto', 'Johto', 'Hoenn', 'Sinnoh', 'Teselia', 'Kalos', 'Alola', 'Galar', 'Paldea'], en: ['Kanto', 'Johto', 'Hoenn', 'Sinnoh', 'Unova', 'Kalos', 'Alola', 'Galar', 'Paldea'] };
+const genLabel = g => `${t('genShort', { g })} · ${REGION[lang()][g - 1]}`;
+const SORTS = ['num', 'hp', 'atk', 'def', 'spa', 'spd', 'spe', 'bst', 'h', 'w'];
 const sortLabel = k => (k === 'num' ? t('num') : statName(k));
 
 function homeHTML() {
   const chip = (attrs, inner, extra = '') => `<button class="chip ${extra}" ${attrs} aria-pressed="false">${inner}</button>`;
+  const opt = (act, v, inner) => `<button class="ddopt" role="option" data-act="${act}" data-v="${v}" aria-pressed="false">${inner}<span class="ck">${I.check}</span></button>`;
+  const dd = (key, label, hint, options) => `<div class="dd" data-dd="${key}"><button class="ddbtn" data-act="dd-toggle" data-v="${key}" aria-expanded="false"><span class="ddl">${label}</span><span class="ddv" data-dv="${key}"></span><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+    <div class="ddlist" role="listbox" hidden>${hint ? `<p class="ddhint">${hint}</p>` : ''}${options}</div></div>`;
   return `
-  <div class="topline">${settingsBtn()}</div>
   <header class="hero">
     <h1>PokeScanner</h1>
   </header>
@@ -370,13 +571,12 @@ function homeHTML() {
   </div>
   <div class="fpanel" id="fpanel"><div class="fpanel-in">
   <section class="filters" id="filters" aria-label="${t('filters')}">
-    <div class="frow"><span>${t('sortBy')}</span><div class="scroller">${SORTS.map(k => chip(`data-act="sort" data-v="${k}"`, `${sortLabel(k)}<span class="dir"></span>`)).join('')}</div></div>
-    <div class="frow"><span>${t('type')}</span><div class="scroller">${TYPES.map(ty => chip(`data-act="type" data-v="${ty}"`, `${typeIcon(ty)}${typeName(ty)}`)).join('')}</div></div>
-    <div class="frow"><span>${t('tier')} <small>${t('tierHint')}</small></span><div class="scroller">${TIER_ORDER.map(r => chip(`data-act="tier-f" data-v="${r}"`, `${tierNumHTML(r)}${tierLabel(r)}`)).join('')}</div></div>
-    <div class="frow"><span>${t('show')}</span><div class="scroller">
-      ${chip('data-act="flag" data-v="base"', t('baseOnly'))}
-      ${chip('data-act="flag" data-v="gen9"', t('gen9Only'))}
-    </div></div>
+    ${dd('sort', t('sortBy'), '', SORTS.map(k => opt('sort', k, sortLabel(k) + '<span class="dir"></span>')).join(''))}
+    ${dd('type', t('type'), '', TYPES.map(ty => opt('type', ty, `${typeIcon(ty)}${typeName(ty)}`)).join(''))}
+    ${dd('tier', t('tier'), t('tierHint'), TIER_ORDER.map(r => opt('tier-f', r, `${tierNumHTML(r)}${tierLabel(r)}`)).join(''))}
+    ${dd('gen', t('generation'), '', [1, 2, 3, 4, 5, 6, 7, 8, 9].map(g => opt('gen', g, genLabel(g))).join(''))}
+    <div class="frow"><div class="scroller">${chip('data-act="flag" data-v="gen9"', t('gen9Only'))}</div></div>
+    <button class="chip ghost clearbtn" data-act="reset" hidden>${t('clearFilters')}</button>
   </section>
   </div></div>
   <div id="results"></div>
@@ -393,28 +593,42 @@ function syncFilters() {
   });
   f.querySelectorAll('[data-act="type"]').forEach(b => b.setAttribute('aria-pressed', state.types.includes(b.dataset.v)));
   f.querySelectorAll('[data-act="tier-f"]').forEach(b => b.setAttribute('aria-pressed', state.tiers.includes(b.dataset.v)));
+  f.querySelectorAll('[data-act="gen"]').forEach(b => b.setAttribute('aria-pressed', state.gens.includes(Number(b.dataset.v))));
+  // texto de cada desplegable y cuál está abierto
+  const sel = (list, none, name) => (!list.length ? none : list.length <= 2 ? list.map(name).join(', ') : t('nSelected', { n: list.length }));
+  const dv = {
+    sort: sortLabel(state.sort) + (state.sort !== 'num' || state.dir !== 1 ? (state.dir === -1 ? ' ↓' : ' ↑') : ''),
+    type: sel(state.types, t('allM'), typeName), tier: sel(state.tiers, t('allM'), tierLabel), gen: sel(state.gens, t('allF'), g => t('genShort', { g })),
+  };
+  f.querySelectorAll('.dd').forEach(d => {
+    const k = d.dataset.dd, open = state.dd === k;
+    $('.ddv', d).textContent = dv[k];
+    $('.ddbtn', d).setAttribute('aria-expanded', open);
+    $('.ddlist', d).hidden = !open;
+  });
   document.querySelectorAll('[data-act="flag"]').forEach(b => b.setAttribute('aria-pressed', !!state[b.dataset.v]));
   document.querySelectorAll('.favn').forEach(n => { n.textContent = favs.size ? `(${favs.size})` : ''; });
   $('.search .clear')?.classList.toggle('on', !!state.q);
   $('.search')?.classList.toggle('filled', !!state.q);
   // el botón "Filtros" muestra cuántos hay activos y abre/cierra el panel
-  const active = state.types.length + state.tiers.length + (state.base ? 1 : 0) + (state.gen9 ? 1 : 0) + (state.sort !== 'num' || state.dir !== 1 ? 1 : 0);
+  const active = state.types.length + state.tiers.length + state.gens.length + (state.gen9 ? 1 : 0) + (state.sort !== 'num' || state.dir !== 1 ? 1 : 0);
   $('#fbadge').textContent = active || '';
+  $('.clearbtn', f).hidden = !isFiltering();
   $('[data-act="filters-toggle"]').setAttribute('aria-expanded', state.filtersOpen);
   $('#fpanel').classList.toggle('open', state.filtersOpen);
   f.inert = !state.filtersOpen;
 }
 
-const isFiltering = () => !!fold(state.q) || state.types.length || state.tiers.length || state.favs || state.base || state.gen9 || state.sort !== 'num' || state.dir !== 1;
+const isFiltering = () => !!fold(state.q) || state.types.length || state.tiers.length || state.gens.length || state.favs || state.gen9 || state.sort !== 'num' || state.dir !== 1;
 
 function compute() {
   const q = fold(state.q);
   let list = INDEX;
   if (state.favs) list = list.filter(p => favs.has(p.id));
-  if (state.base) list = list.filter(p => !p.fm);
   if (state.gen9) list = list.filter(p => !p.g);
   if (state.types.length) list = list.filter(p => state.types.every(t => p.t.includes(t)));
   if (state.tiers.length) list = list.filter(p => state.tiers.includes(p.r));
+  if (state.gens.length) list = list.filter(p => state.gens.includes(genOf(p.num)));
   let scored = list.map(p => ({ p, sc: 0 }));
   if (q) scored = searchScored(q, list);
   const byStat = state.sort !== 'num';
@@ -493,7 +707,7 @@ function rowHTML(p) {
     ${pokeImg(p, 'small')}
     <span class="meta"><b>${esc(pname(p))}</b><span class="sub"><small>${dexNum(p.num)}${p.fm && p.es !== p.en && lang() === 'es' ? ` · ${esc(p.en)}` : ''}</small><span class="types">${p.t.map(typeDot).join('')}</span></span></span>
     <span class="side">
-      ${showStat ? `<span class="statval">${statOf(p, state.sort)}<small>${statName(state.sort)}</small></span>` : tierBadge(p.r, '', p.g)}
+      ${showStat ? `<span class="statval">${sortVal(p, state.sort)}<small>${statName(state.sort)}</small></span>` : tierBadge(p.r, '', p.g)}
     </span></a>`;
 }
 function cardHTML(p) {
@@ -538,15 +752,14 @@ function renderResults(reset = true) {
 
   const list = (state.list = compute());
   const mv = movesBlock(searchMoves(fold(state.q)));
-  const head = mv + `<div class="block-title tight"><h2>${t(list.length === 1 ? 'result1' : 'resultN', { n: list.length })}</h2>
-    <button class="chip small ghost" data-act="reset">${t('clearFilters')}</button></div>`;
+  const head = mv + `<div class="block-title tight"><h2>${t(list.length === 1 ? 'result1' : 'resultN', { n: list.length })}</h2></div>`;
   if (!list.length) {
     // si no hay Pokémon pero sí movimientos, solo se muestran los movimientos
-    box.innerHTML = mv || head + `<div class="empty"><b>${t('emptyTitle')}</b>${state.favs && !favs.size ? t('emptyFavs') : t('emptyHint')}</div>`;
+    box.innerHTML = mv || head + `<div class="empty"><b>${t(state.favs ? 'emptyTitleFavs' : 'emptyTitle')}</b>${state.favs && !favs.size ? t('emptyFavs') : t('emptyHint')}</div>`;
     return;
   }
   // en la vista de favoritos (sin otros filtros) se analiza el equipo
-  const analysis = state.favs && !fold(state.q) && !state.types.length && !state.tiers.length && !state.gen9 && !state.base ? teamHTML() : '';
+  const analysis = state.favs && !fold(state.q) && !state.types.length && !state.tiers.length && !state.gens.length && !state.gen9 ? teamHTML() : '';
   box.innerHTML = head + `<div class="list">${list.slice(0, state.shown).map(rowHTML).join('')}</div><div class="sentinel"></div>` + analysis;
   watchSentinel();
 }
@@ -570,6 +783,8 @@ function renderHome() {
   document.documentElement.style.removeProperty('--accent');
   renderResults(false); // al volver desde una ficha se conserva cuántos resultados había cargados
   window.scrollTo(0, state.scroll || 0);
+  if (state.focusSearch) { state.focusSearch = false; window.scrollTo(0, 0); $('#q')?.focus(); }
+  updateDock();
 }
 
 // ───────────────────────── Ficha ─────────────────────────
@@ -601,7 +816,7 @@ function oldNote(d) {
 function buildHTML() {
   const { d, fmt, idx } = page;
   if (!d.sets.length) return `<p class="hint">${t(d.g ? 'noSetsOld' : 'noSets')}</p>`;
-  const formats = [...new Set(d.sets.map(s => s.f))];
+  const formats = [...new Set(d.sets.map(s => s.f))].sort((x, y) => formatRank(x) - formatRank(y));
   const sets = d.sets.filter(s => s.f === fmt);
   const set = sets[idx] || sets[0];
   const tabs = (items, attr, active) => `<div class="scroller" role="tablist">${items.map(([v, l]) =>
@@ -683,19 +898,14 @@ function levelMovesHTML(expanded) {
   return `<ul class="lvl">${rows}</ul>${!expanded && lv.length > LIMIT ? `<button class="chip more" data-act="more">${t('showAllMoves', { n: lv.length })}</button>` : ''}`;
 }
 
+const favBtnInner = on => (on ? `<span class="tick">${I.check}</span>${t('favAddedBtn')}` : `${I.tstar}${t('favAddBtn')}`);
 function pokemonHTML() {
   const { d } = page;
   const isFav = favs.has(d.id);
   const same = d.es === d.en;
   const abilities = d.ab.map(a => `<button class="chip" data-act="ability" data-v="${a.id}">${esc(dn(DICT.abilities[a.id]))}${a.h ? ` <small>${t('hidden')}</small>` : ''}</button>`).join('');
   return `
-  <div class="topbar">
-    <a class="iconbtn" href="#/" aria-label="${t('back')}">${I.back}</a>
-    <div class="right">
-      <button class="iconbtn" data-act="fav" aria-pressed="${isFav}" aria-label="${isFav ? t('favRemove') : t('favAdd')}">${I.star}</button>
-      ${settingsBtn()}
-    </div>
-  </div>
+  ${topbarHTML()}
   <section class="phero" aria-label="${esc(pname(d))}">
     ${pokeImg({ sp: d.sp, ss: d.ss }, 'art', 'art', 300).replace('loading="lazy"', 'fetchpriority="high"')}
     <span class="num">${dexNum(d.num)}</span>
@@ -704,8 +914,9 @@ function pokemonHTML() {
     <div class="tags">${d.t.map(typePill).join('')}</div>
     <div class="rank"><small>${t('rank')}</small><button class="tier" style="--tier:${tierColor(d.r)}" data-act="tier" data-v="${esc(d.r)}" aria-label="${t('rankAria', { r: esc(tierLabel(d.r)) })}">${tierNumHTML(d.r)}${esc(tierLabel(d.r))}</button>
       ${d.g ? `<small>· ${t('gen', { g: d.g })}</small>` : ''}${d.dr ? `<small>· ${t('doubles', { r: esc(tierLabel(d.dr)) })}</small>` : ''}</div>
-    <div class="facts">${d.h != null ? `<span>${t('height')} <b>${fmtNum(d.h)} m</b></span>` : ''}${d.w != null ? `<span>${t('weight')} <b>${fmtNum(d.w)} kg</b></span>` : ''}</div>
+    <div class="facts">${d.h != null ? `<button data-act="size-go" data-v="h">${t('height')} <b>${fmtNum(d.h)} m</b></button>` : ''}${d.w != null ? `<button data-act="size-go" data-v="w">${t('weight')} <b>${fmtNum(d.w)} kg</b></button>` : ''}</div>
   </section>
+  <button class="favbtn" data-act="fav" aria-pressed="${isFav}">${favBtnInner(isFav)}</button>
 
   ${d.g ? oldNote(d) : ''}
   <section class="sec"><h2>${t('baseStats')}</h2><div id="stats">${statsHTML(d.s)}</div>
@@ -727,7 +938,7 @@ async function renderPokemon(id) {
   state.view = 'pokemon';
   const p = BYID.get(id);
   if (!p) {
-    $app.innerHTML = `<div class="topbar"><a class="iconbtn" href="#/" aria-label="${t('backShort')}">${I.back}</a><div class="right">${settingsBtn()}</div></div>
+    $app.innerHTML = `${topbarHTML()}
       <div class="empty"><b>${t('notFound')}</b>${t('notFoundHint')}</div>`;
     return;
   }
@@ -742,6 +953,7 @@ async function renderPokemon(id) {
   $app.innerHTML = pokemonHTML();
   document.documentElement.style.setProperty('--accent', TYPE_COLOR[d.t[0]]);
   animate($('#stats'));
+  applyRestore();
 }
 
 // ───────────────────────── Comparador ─────────────────────────
@@ -812,39 +1024,44 @@ document.addEventListener('click', e => {
     case 'set-lang': switchLang(v); break;
     case 'filters-toggle': state.filtersOpen = !state.filtersOpen; syncFilters(); break;
     case 'close': closeSheet(); break;
-    case 'back': if (navDepth > 1) history.back(); else location.hash = '#/'; break;
+    case 'back': if (navIdx > 0) history.back(); else location.hash = '#/'; break;
+    case 'pf-toggle': pf.open = !pf.open; repaintKeep(); break;
+    case 'pf-clear': pf.types = []; pf.tiers = []; pageExpand = new Set(); repaintKeep(); break;
+    case 'pf-type': pf.types = pf.types.includes(v) ? pf.types.filter(x => x !== v) : [...pf.types, v]; pageExpand = new Set(); repaintKeep(); break;
+    case 'pf-tier': pf.tiers = pf.tiers.includes(v) ? pf.tiers.filter(x => x !== v) : [...pf.tiers, v]; pageExpand = new Set(); repaintKeep(); break;
     case 'more-list': { const y = window.scrollY; pageExpand.add(v); paintDetailPage(); window.scrollTo(0, y); break; }
 
     // inicio
+    case 'dd-toggle': state.dd = state.dd === v ? null : v; syncFilters(); break;
+    case 'gen': { const g = Number(v); state.gens = (state.gens.includes(g) ? state.gens.filter(x => x !== g) : [...state.gens, g]).sort((x, y) => x - y); renderResults(); break; }
     case 'sort':
       if (state.sort === v) state.dir *= -1; else { state.sort = v; state.dir = v === 'num' ? 1 : -1; }
-      renderResults(); break;
+      state.dd = null; renderResults(); break;
     case 'type':
       state.types = state.types.includes(v) ? state.types.filter(t => t !== v) : [...state.types, v].slice(-2);
       renderResults(); break;
     case 'tier-f':
       state.tiers = state.tiers.includes(v) ? state.tiers.filter(t => t !== v) : [...state.tiers, v];
       renderResults(); break;
-    case 'flag': state[v] = !state[v]; renderResults(); break;
+    case 'flag': if (v === 'favs' && !state.favs && !requireLogin({ type: 'favs' })) break; state[v] = !state[v]; renderResults(); break;
     case 'clear-q': state.q = ''; $('#q').value = ''; $('#q').focus(); renderResults(); break;
     case 'reset':
-      Object.assign(state, { q: '', sort: 'num', dir: 1, types: [], tiers: [], favs: false, base: false });
+      Object.assign(state, { q: '', sort: 'num', dir: 1, types: [], tiers: [], gens: [], favs: false, gen9: false, dd: null });
       $('#q').value = ''; renderResults(); break;
     case 'shuffle': state.randomMode = 'random'; state.randoms = pickRandoms(false); renderResults(); break;
-    case 'tier-go':
-      closeSheet();
-      Object.assign(state, { q: '', sort: 'num', dir: 1, types: [], tiers: [v], favs: false, base: false, scroll: 0, shown: 40 });
-      if (location.hash === '#/' || location.hash === '') renderHome(); else location.hash = '#/';
-      break;
+    case 'tier-go': goSearch({ tiers: [v] }); break;
 
     // ficha
-    case 'fav':
-      if (favs.has(page.d.id)) favs.delete(page.d.id); else favs.add(page.d.id);
-      saveFavs();
-      el.setAttribute('aria-pressed', favs.has(page.d.id));
-      el.setAttribute('aria-label', favs.has(page.d.id) ? t('favRemove') : t('favAdd'));
-      toast(favs.has(page.d.id) ? t('favAdded') : t('favRemoved'));
-      break;
+    case 'fav': if (requireLogin({ type: 'fav', id: page.d.id })) toggleFav(page.d.id); break;
+    case 'sign-in': startLogin(); break;
+    case 'sign-out': auth.signOut().catch(() => {}); closeSettings(); break;
+    case 'type-go': goSearch({ types: [v] }); break;
+    case 'size-go': goSearch({ sort: v, dir: -1 }); break;
+    case 'dock-home': goSearch(); window.scrollTo(0, 0); break;
+    case 'dock-search': goSearch({ q: state.view === 'home' ? state.q : '' }, true); break;
+    case 'dock-favs': if (requireLogin({ type: 'favs' })) { goSearch({ favs: true }); window.scrollTo(0, 0); } break;
+    case 'dock-settings': if (smodal.hidden) openSettings(); else closeSettings(); break;
+    case 'settings-close': closeSettings(); break;
     case 'compare': openCompare(); break;
     case 'tier': location.hash = `#/tier/${v}`; break;
     case 'move': location.hash = `#/move/${v}`; break;
@@ -864,6 +1081,19 @@ document.addEventListener('click', e => {
   }
 });
 
+/** En la app instalada de iOS la web puede quedar bajo la barra de estado sin que env() lo indique: se calcula a mano */
+function fixStatusBar() {
+  const probe = document.createElement('div');
+  probe.style.cssText = 'position:fixed;top:0;visibility:hidden;padding-top:env(safe-area-inset-top,0px)';
+  document.body.appendChild(probe);
+  const env = parseFloat(getComputedStyle(probe).paddingTop) || 0;
+  probe.remove();
+  if (navigator.standalone && env < 1 && innerHeight >= screen.height - 1) {
+    document.documentElement.style.setProperty('--st', `${screen.height >= 852 ? 56 : screen.height >= 812 ? 47 : 20}px`);
+  }
+}
+fixStatusBar();
+
 // ───────────────────────── Arranque ─────────────────────────
 async function boot() {
   try {
@@ -874,7 +1104,9 @@ async function boot() {
     return;
   }
   BYID = new Map(INDEX.map(p => [p.id, p]));
+  renderDock();
   window.addEventListener('hashchange', route);
   route();
+  auth.initAuth(onAuth).catch(() => {});
 }
 boot();
