@@ -162,7 +162,7 @@ const miniPoke = id => (BYID.get(id) ? pokeImg(BYID.get(id), 'small', 'mini') : 
 const descHTML = x => {
   const fl = dd(x);
   if (!hasPrecise(x)) return `<p class="desc">${esc(fl) || `<span class="dim">${t('noDesc')}</span>`}</p>`;
-  return `<p class="desc strong">${esc(dp(x))}</p>${fl ? `<p class="flavor"><small>${t('inGameText')}</small>${esc(fl)}</p>` : ''}`;
+  return `<p class="desc strong">${esc(dp(x))}</p>${fl ? `<details class="flavor"><summary>${t('inGameText')}</summary>${esc(fl)}</details>` : ''}`;
 };
 const pageMember = () => (page?.bm ? { id: page.d.id, ...(page.bm.s != null ? { s: page.bm.s } : {}), b: page.bm.b } : { id: page.d.id });
 function paintFavBtn() {
