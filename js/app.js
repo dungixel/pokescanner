@@ -521,7 +521,9 @@ function fitRow({ p, why }) {
       <span class="why">${why.map(esc).join(' · ')}</span></span>
     <span class="side">${tierBadge(p.r, '', p.g)}</span></a>`;
 }
-const chipPoke = p => `<a class="chip pkpill" href="#/pokemon/${p.id}" style="--c:${TYPE_COLOR[p.t[0]]}">${pokeImg(p, 'small', 'thumb')}${esc(pname(p))}</a>`;
+/** Enlace a la ficha; si el Pokémon tiene la build editada, la ficha se abre con esa build ("personalizada") */
+const pokeHref = (id, m) => (m?.b ? `#/pokemon/${id}?b=${encodeURIComponent(JSON.stringify({ ...m.b, ...(m.s != null ? { s: m.s } : {}) }))}` : `#/pokemon/${id}`);
+const chipPoke = (p, m) => `<a class="chip pkpill" href="${pokeHref(p.id, m)}" style="--c:${TYPE_COLOR[p.t[0]]}">${pokeImg(p, 'small', 'thumb')}${esc(pname(p))}</a>`;
 const byStrength = (a, b) => strength(a) - strength(b) || a.num - b.num;
 /** Lista que muestra los primeros y deja ver el resto con un botón */
 function listSection(key, title, hint, items, render, wrap) {
@@ -955,9 +957,9 @@ function teamHTML(team, shared = false) {
 
 function tierBadge(r, extra = '', g = 0) { return `<span class="tier" style="--tier:${tierColor(r)}" ${extra}${g ? ` title="${t('tierInGen', { g })}"` : ''}>${tierNumHTML(r)}${esc(tierLabel(r))}${g ? `<small>G${g}</small>` : ''}</span>`; }
 
-function rowCore(p, shiny = false) {
+function rowCore(p, shiny = false, href = `#/pokemon/${p.id}`) {
   const showStat = state.sort !== 'num' && state.view === 'home';
-  return `<a class="row" href="#/pokemon/${p.id}" style="--c:${TYPE_COLOR[p.t[0]]}">
+  return `<a class="row" href="${href}" style="--c:${TYPE_COLOR[p.t[0]]}">
     ${pokeImg(p, 'small', '', undefined, shiny)}
     <span class="meta"><b>${esc(pname(p))}</b><span class="sub"><small>${dexNum(p.num)}${p.fm && p.es !== p.en && lang() === 'es' ? ` · ${esc(p.en)}` : ''}</small><span class="types">${p.t.map(typeDot).join('')}</span></span></span>
     <span class="side">
@@ -1297,6 +1299,22 @@ const artImg = d => {
   const srcs = sh ? [`${SPR}/pokemon/other/official-artwork/shiny/${d.sp}.png`, `${SPR}/pokemon/other/home/shiny/${d.sp}.png`, `https://play.pokemonshowdown.com/sprites/gen5-shiny/${d.ss}.png`] : spriteChain({ sp: d.sp, ss: d.ss }, 'art');
   return img(srcs, { cls: 'poke art', alt: '', w: 300, h: 300 }).replace('loading="lazy"', 'fetchpriority="high"');
 };
+
+function customBuildHTML() {
+  const { d, cur } = page;
+  const st = finalStats(d.s, cur.e, cur.v, cur.n, DICT.natures);
+  const evs = cur.e.map((v, i) => (v ? `<span class="ev"><b>${v}</b> ${statName(EDK[i])}</span>` : '')).join('');
+  const ivs = cur.v.some(v => v !== 31) ? cur.v.map((v, i) => (v !== 31 ? `<span class="ev"><b>${v}</b> ${statName(EDK[i])}</span>` : '')).join('') : '';
+  return `<section class="sec"><h2>${t('customBuild')}</h2><div class="build">
+    <div><h3>${t('moves')}</h3><ul class="slots">${cur.m.filter(Boolean).map(id => `<li class="slot">${chipMove(id)}</li>`).join('')}</ul></div>
+    <div><h3>${t('ability')}</h3><div class="chips">${chipAbility(cur.a)}</div></div>
+    ${cur.i ? `<div><h3>${t('item')}</h3><div class="chips">${chipItem(cur.i)}</div></div>` : ''}
+    <div><h3>${t('nature')}</h3><div class="chips">${chipNature(cur.n)}</div></div>
+    ${evs ? `<div><h3>EVs</h3><div class="evs">${evs}</div></div>` : ''}
+    ${ivs ? `<div><h3>IVs</h3><div class="evs">${ivs}</div></div>` : ''}
+    <div><h3>${t('customFinal')}</h3><div class="fstats">${st.map((v, i) => `<div><small>${statName(EDK[i])}</small><b>${v}</b></div>`).join('')}</div></div>
+  </div></section>`;
+}
 function pokemonHTML() {
   const { d } = page;
   const isFav = favs.has(d.id);
@@ -1318,6 +1336,7 @@ function pokemonHTML() {
   <button class="favbtn" data-act="fav" aria-pressed="${isFav}">${favBtnInner(isFav)}</button>
 
   ${d.g ? oldNote(d) : ''}
+  ${page.cur ? customBuildHTML() : ''}
   <section class="sec"><h2>${t('baseStats')}</h2><div id="stats">${statsHTML(d.s)}</div>
     <button class="compare-btn" data-act="compare">${I.compare}${t('compare')}</button>
     <a class="compare-btn" href="#/calc?a=${d.id}">${CALCIC}${t('calcFrom')}</a></section>
@@ -1353,6 +1372,16 @@ async function renderPokemon(id) {
   catch { $app.innerHTML = `<div class="empty"><b>${t('loadFail')}</b>${t('loadFailHint')}</div>`; return; }
   if (state.view !== 'pokemon' || !location.hash.startsWith(`#/pokemon/${id}`)) return; // se navegó a otro sitio mientras cargaba
   page = { d, fmt: d.sets[0]?.f, idx: 0, expanded: false, mod: /[?&]mod=1\b/.test(location.hash) };
+  const bm = /[?&]b=([^&]+)/.exec(location.hash);
+  if (bm) { // ficha "personalizada": se abre con la build editada del equipo
+    try {
+      const b = JSON.parse(decodeURIComponent(bm[1])), E = await getEditor(); mergeEditor(DICT, E);
+      if (state.view !== 'pokemon' || !location.hash.startsWith(`#/pokemon/${id}`)) return;
+      const { s: si, ...bb } = b;
+      page.cur = currentBuild(baseBuild(d, { id, s: si }, DICT, E), bb);
+      page.mod = page.mod || Object.keys(bb).some(k => k !== 'sh'); page.shiny = !!bb.sh;
+    } catch { /* enlace con build ilegible: se enseña la ficha normal */ }
+  }
   $app.innerHTML = pokemonHTML();
   document.documentElement.style.setProperty('--accent', TYPE_COLOR[d.t[0]]);
   animate($('#stats'));
@@ -1931,7 +1960,7 @@ function buildCardHTML({ m, d, cur }) {
   const it = DICT.items[cur.i], ab = d.ab.find(a => a.id === cur.a), nat = DICT.natures[cur.n];
   const evs = cur.e.map((v, i) => (v ? `${v} ${statName(EDK[i])}` : '')).filter(Boolean).join(' / ');
   const ivs = cur.v.some(v => v !== 31) ? cur.v.map((v, i) => (v !== 31 ? `${v} ${statName(EDK[i])}` : '')).filter(Boolean).join(' / ') : '';
-  return `<div class="cbuild">${(mod => `<a class="cb-poke" href="#/pokemon/${d.id}${mod ? '?mod=1' : ''}">${pokeImg(d, 'small', 'thumb', undefined, cur.sh)}<b>${esc(pname(d))}</b>${mod ? `<small class="modtag">(${t('modified')})</small>` : ''}</a>`)(!!m.b && Object.keys(m.b).some(k => k !== 'sh'))}
+  return `<div class="cbuild">${(mod => `<a class="cb-poke" href="${pokeHref(d.id, mod ? m : null)}">${pokeImg(d, 'small', 'thumb', undefined, cur.sh)}<b>${esc(pname(d))}</b>${mod ? `<small class="modtag">(${t('modified')})</small>` : ''}</a>`)(!!m.b && Object.keys(m.b).some(k => k !== 'sh'))}
     <div class="cb-info">
       <div class="cb-line">${it ? `<button class="cb-item" data-act="item" data-v="${cur.i}">${itemImg(it)}${esc(dn(it))}</button>` : ''}${ab ? `<button class="cb-ab" data-act="ability" data-v="${ab.id}">${esc(dn(DICT.abilities[ab.id] || ab))}</button>` : ''}${nat ? `<span>${esc(dn(nat))}${nat.plus ? ` <small>(+${statName(nat.plus)} −${statName(nat.minus)})</small>` : ''}</span>` : ''}</div>
       <div class="cb-moves">${cur.m.map(id => { const mv = DICT.moves[id]; return mv ? `<button class="cb-mv" style="--tc:${TYPE_COLOR[mv.t]}" data-act="move" data-v="${id}">${typeIcon(mv.t)}${esc(dn(mv))}</button>` : ''; }).join('')}</div>
@@ -2087,7 +2116,7 @@ const inTeams = () => state.view === 'teams' || state.view === 'team';
 const loginCta = (title, action) => `<div class="empty"><b>${t(title)}</b>${t('loginText')}<div class="ctarow"><button class="chip accent" data-act="login-open" data-v="${action}">${IC.user}${t('loginGoogle')}</button></div></div>`;
 function memberRow(p, slot, k) {
   const m = teams[slot]?.members[k];
-  return `<div class="mrow">${rowCore(p, m?.b?.sh)}<button class="iconbtn ${m?.b ? 'on' : ''}" data-act="ed-open" data-v="${slot}:${k}" aria-label="${t('edTitle')}">${IC.pencil}</button><button class="iconbtn" data-act="team-remove" data-v="${p.id}" aria-label="${t('removePoke')}">${IC.trash}</button></div>`;
+  return `<div class="mrow">${rowCore(p, m?.b?.sh, pokeHref(p.id, m))}<button class="iconbtn ${m?.b ? 'on' : ''}" data-act="ed-open" data-v="${slot}:${k}" aria-label="${t('edTitle')}">${IC.pencil}</button><button class="iconbtn" data-act="team-remove" data-v="${p.id}" aria-label="${t('removePoke')}">${IC.trash}</button></div>`;
 }
 function slotHTML(i) {
   const tm = teams[i];
@@ -2378,7 +2407,7 @@ function tipHTML(tp) {
 }
 const cellColor = s => (s > 0 ? `color-mix(in srgb, #2FAE5F ${Math.round(18 + Math.abs(s) * 72)}%, var(--surface))` : s < 0 ? `color-mix(in srgb, #E5484D ${Math.round(18 + Math.abs(s) * 72)}%, var(--surface))` : 'var(--soft)');
 // ───── plan de juego ─────
-const uChip = u => chipPoke(u.p);
+const uChip = u => chipPoke(u.p, u.mem);
 const mvLabel = m => esc(m ? (lang() === 'es' ? m.es || m.name : m.name) : '');
 const hitsText = x => (x.ohko || x.hits <= 1 ? t('pl_ohko') : t('pl_hko', { n: x.hits }));
 const pctText = x => `${Math.min(100, x.pct)}%`;
@@ -2451,7 +2480,7 @@ function resultHTML() {
   const star = (rows, label) => {
     const sorted = [...rows].sort((p, q) => q.score - p.score);
     const best = sorted[0], worst = sorted[sorted.length - 1];
-    return `<div class="stars"><b>${label}</b><div class="starrow"><span class="stag good">${t('mvp')}</span>${chipPoke(best.u.p)}</div>${rows.length > 1 ? `<div class="starrow"><span class="stag bad">${t('weakestLink')}</span>${chipPoke(worst.u.p)}</div>` : ''}</div>`;
+    return `<div class="stars"><b>${label}</b><div class="starrow"><span class="stag good">${t('mvp')}</span>${uChip(best.u)}</div>${rows.length > 1 ? `<div class="starrow"><span class="stag bad">${t('weakestLink')}</span>${chipPoke(worst.u.p)}</div>` : ''}</div>`;
   };
   const est = [...ua, ...ub].filter(u => u.estimated);
   const f = r.factors;

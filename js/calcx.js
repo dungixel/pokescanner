@@ -142,7 +142,7 @@ export function makeUnit(p, member, dict, mode, { learnable, pname } = {}) {
   if (abId === 'protosynthesis' || abId === 'quarkdrive') opts.boostedStat = 'auto'; // se activa con sol / campo eléctrico / Energía Potenciadora
   const probe = new C.Pokemon(G, spec.name, opts);
   const u = {
-    uid: ++UID, id: p.id, p, name: pname ? pname(p) : p.es, spec: spec.name, types: p.t.slice(), set: idx, setName: set?.n || '', fmt: set?.f || '', estimated,
+    uid: ++UID, id: p.id, p, mem: member || null, name: pname ? pname(p) : p.es, spec: spec.name, types: p.t.slice(), set: idx, setName: set?.n || '', fmt: set?.f || '', estimated,
     ab: abId, item, nat, evs, opts, moves, tera: set?.te?.[0] || null,
     maxHP: probe.maxHP(), raw: probe.rawStats, base: p.s, nfe: p.r === 'NFE' || p.r === 'LC',
   };

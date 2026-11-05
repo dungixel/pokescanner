@@ -1229,3 +1229,9 @@ button.slot.slothead { cursor: pointer; }
 .cres.k-none .cko { color: var(--muted); }
 .calcreset { margin-top: 14px; }
 .bst span { white-space: nowrap; font-size: .82rem; } .bst { gap: 4px; padding-left: 10px; }
+
+.fstats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.fstats > div { padding: 8px 2px; border-radius: 12px; background: var(--soft); text-align: center; }
+.fstats small { display: block; color: var(--muted); font-size: .68rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fstats b { font-size: .95rem; }
+.spill .ddl::after { content: ":"; }
