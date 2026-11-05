@@ -1070,3 +1070,4 @@ input.edr:focus-visible::-webkit-slider-thumb { outline: 3px solid color-mix(in 
 .shint.err { color: #e5484d; min-height: 1em; }
 .slotopt:not(.on) .sck { opacity: 0; }
 .modtag { font-size: .4em; font-weight: 600; color: var(--muted); letter-spacing: 0; white-space: nowrap; vertical-align: middle; }
+.cb-poke .modtag { font-size: .72rem; line-height: 1.1; }

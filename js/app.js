@@ -1560,7 +1560,7 @@ function buildCardHTML({ m, d, cur }) {
   const it = DICT.items[cur.i], ab = d.ab.find(a => a.id === cur.a), nat = DICT.natures[cur.n];
   const evs = cur.e.map((v, i) => (v ? `${v} ${statName(EDK[i])}` : '')).filter(Boolean).join(' / ');
   const ivs = cur.v.some(v => v !== 31) ? cur.v.map((v, i) => (v !== 31 ? `${v} ${statName(EDK[i])}` : '')).filter(Boolean).join(' / ') : '';
-  return `<div class="cbuild"><a class="cb-poke" href="#/pokemon/${d.id}${m.b && Object.keys(m.b).some(k => k !== 'sh') ? '?mod=1' : ''}">${pokeImg(d, 'small', 'thumb', undefined, cur.sh)}<b>${esc(pname(d))}</b></a>
+  return `<div class="cbuild">${(mod => `<a class="cb-poke" href="#/pokemon/${d.id}${mod ? '?mod=1' : ''}">${pokeImg(d, 'small', 'thumb', undefined, cur.sh)}<b>${esc(pname(d))}</b>${mod ? `<small class="modtag">(${t('modified')})</small>` : ''}</a>`)(!!m.b && Object.keys(m.b).some(k => k !== 'sh'))}
     <div class="cb-info">
       <div class="cb-line">${it ? `<span class="cb-item">${itemImg(it)}${esc(dn(it))}</span>` : ''}${ab ? `<span>${esc(dn(ab))}</span>` : ''}${nat ? `<span>${esc(dn(nat))}${nat.plus ? ` <small>+${statName(nat.plus)} −${statName(nat.minus)}</small>` : ''}</span>` : ''}</div>
       <div class="cb-moves">${cur.m.map(id => { const mv = DICT.moves[id]; return mv ? `<span class="cb-mv" style="--tc:${TYPE_COLOR[mv.t]}">${typeIcon(mv.t)}${esc(dn(mv))}</span>` : ''; }).join('')}</div>
