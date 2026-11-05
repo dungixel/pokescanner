@@ -117,7 +117,7 @@ const refreshModal = () => { if (!smodal.hidden) smodal.innerHTML = modalHTML();
 function askConfirm(text, okLabel, fn) {
   let dlg = $('#cfm');
   if (!dlg) { dlg = document.createElement('dialog'); dlg.id = 'cfm'; dlg.className = 'cfm'; document.body.appendChild(dlg); }
-  dlg.innerHTML = `<div class="cfmbox" role="alertdialog" aria-label="${esc(text)}"><p>${esc(text)}</p><div class="cfmbtns"><button class="chip" data-cfm="0" autofocus>${t('comCancel')}</button><button class="chip danger" data-cfm="1">${esc(okLabel)}</button></div></div>`;
+  dlg.innerHTML = `<div class="cfmbox" role="alertdialog" aria-label="${esc(text)}"><p>${esc(text)}</p><div class="cfmbtns"><button class="chip" data-cfm="0">${t('comCancel')}</button><button class="chip danger" data-cfm="1">${esc(okLabel)}</button></div></div>`;
   dlg.onclick = e => { const b = e.target.closest('[data-cfm]'); if (!b && e.target !== dlg) return; dlg.close(); if (b?.dataset.cfm === '1') fn(); };
   dlg.showModal();
 }
@@ -356,7 +356,7 @@ async function pollNotifs() {
 }
 setInterval(pollNotifs, 45000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) pollNotifs(); });
-const notifText = n => { const u = `<b>${esc(n.username || '?')}</b>`; return t(n.kind === 'like' ? 'notifLike' : n.kind === 'comment' ? 'notifComment' : n.kind === 'friend_request' ? 'notifReq' : 'notifAcc', { u }); };
+const notifText = n => { const u = `<b>${esc(n.username || '?')}</b>`; return t(n.kind === 'like' ? 'notifLike' : n.kind === 'comment' ? 'notifComment' : n.kind === 'reply' ? 'notifReply' : n.kind === 'clike' ? 'notifCLike' : n.kind === 'friend_request' ? 'notifReq' : 'notifAcc', { u }); };
 function notifsHTML() {
   const head = `<div class="shead"><button class="iconbtn" data-act="settings-close" aria-label="${t('close')}">${IC.x}</button><h2 class="brand">${titleIc('dock-notifs')}${t('notifTitle')}</h2></div>`;
   const body = !auth.currentUser() ? `<p class="shint">${t('notifLogin')}</p>`
@@ -379,7 +379,7 @@ async function openNotifs() {
 function goNotif(id) {
   const n = notif.items?.find(x => String(x.id) === String(id)); if (!n) return;
   closeSettings();
-  location.hash = n.kind === 'like' || n.kind === 'comment' ? `#/community/${n.post_id}` : n.kind === 'friend_request' ? '#/battle' : `#/user/${n.actor_id}`;
+  location.hash = n.kind === 'like' ? `#/community/${n.post_id}` : ['comment', 'reply', 'clike'].includes(n.kind) ? `#/community/${n.post_id}?c=1` : n.kind === 'friend_request' ? '#/battle' : `#/user/${n.actor_id}`;
 }
 /** Vuelve al buscador con los filtros que se indiquen (el resto se limpia) */
 function goSearch(opts = {}, focus = false) {
@@ -1996,7 +1996,7 @@ async function renderPost(id) {
   state.view = 'post'; curPostId = id;
   document.title = `${t('comTitle')} · PokeScanner`;
   document.documentElement.style.removeProperty('--accent');
-  com.post = null; com.comments = []; com.full = null; com.confirm = null; com.msg = '';
+  com.post = null; com.comments = []; com.full = null; com.confirm = null; com.msg = ''; com.reply = null;
   $app.innerHTML = topbarHTML() + '<div id="post-root"><div class="empty"><b>…</b></div></div>';
   window.scrollTo(0, 0); updateDock();
   try {
@@ -2026,16 +2026,31 @@ function buildCardHTML({ m, d, cur }) {
       <small class="cb-ev">${evs ? `EVs ${evs}` : ''}${ivs ? ` · IVs ${ivs}` : ''}</small>
     </div></div>`;
 }
-function commentHTML(c) {
+function commentHTML(c, reply = false) {
   const can = c.mine || com.post?.mine || auth.isAdmin();
-  return `<li class="ccm"><div><div class="chead">${userLink(c.user_id, c.username, c.avatar)}<small>${ago(c.created_at)}</small>${can ? `<button class="iconbtn sm" data-act="com-cdel" data-v="${c.id}" aria-label="${t('comDelete')}">${IC.trash}</button>` : ''}</div><p>${esc(c.body)}</p></div></li>`;
+  const body = esc(c.body).replace(/^@([A-Za-z0-9_]{3,16})/, '<span class="ment">@$1</span>');
+  return `<li class="ccm ${reply ? 'rep' : ''}" id="cm-${c.id}">
+    <button class="avbtn" data-act="user-open" data-v="${c.user_id}" aria-label="${esc(c.username || '')}">${avatarImg(c.avatar, 'sm')}</button>
+    <div class="cbody"><p><button class="userlink" data-act="user-open" data-v="${c.user_id}"><b>${esc(c.username || '?')}</b></button> ${body}</p>
+      <div class="cmeta"><small>${ago(c.created_at)}</small>${c.likes ? `<small>${t(c.likes === 1 ? 'cmLikeOne' : 'cmLikeN', { n: c.likes })}</small>` : ''}<button class="cmbtn" data-act="cm-reply" data-v="${c.id}">${t('cmReply')}</button>${can ? `<button class="cmbtn del" data-act="com-cdel" data-v="${c.id}" aria-label="${t('comDelete')}">${IC.trash}</button>` : ''}</div></div>
+    <button class="clike ${c.liked ? 'on' : ''}" data-act="cm-like" data-v="${c.id}" aria-pressed="${!!c.liked}" aria-label="${t('comLike')}">${heart(c.liked)}</button>
+  </li>`;
+}
+/** comentarios principales con sus respuestas debajo (como en Instagram, las respuestas a respuestas cuelgan del mismo comentario) */
+function commentsListHTML() {
+  const all = com.comments, top = all.filter(c => !c.parent_id), ids = new Set(all.map(c => String(c.id)));
+  const orphans = all.filter(c => c.parent_id && !ids.has(String(c.parent_id)));
+  return [...top, ...orphans].map(c => {
+    const reps = all.filter(r => String(r.parent_id) === String(c.id));
+    return commentHTML(c) + (reps.length ? `<li class="creps"><ul>${reps.map(r => commentHTML(r, true)).join('')}</ul></li>` : '');
+  }).join('');
 }
 function postHTML() {
   const x = com.post;
   if (!x) return `<div class="empty"><b>${t(com.err ? 'comLoadFail' : 'comGone')}</b><div class="ctarow"><a class="chip" href="#/community">${t('comBack')}</a></div></div>`;
   const del = delBtns(x);
   const form = auth.currentUser()
-    ? `<div class="cform"><textarea id="cm-body" rows="2" maxlength="300" placeholder="${t('comCommentPh')}"></textarea><button class="chip accent" data-act="com-send">${t('comSend')}</button></div><p class="shint err" id="cm-msg" role="alert">${esc(com.msg)}</p>`
+    ? `${com.reply ? `<div class="replybar"><span>${t('cmReplyingTo', { u: esc(com.reply.user) })}</span><button class="iconbtn sm" data-act="cm-reply-x" aria-label="${t('comCancel')}">${IC.x}</button></div>` : ''}<div class="cform"><textarea id="cm-body" rows="2" maxlength="300" placeholder="${t('comCommentPh')}"></textarea><button class="chip accent" data-act="com-send">${t('comSend')}</button></div><p class="shint err" id="cm-msg" role="alert">${esc(com.msg)}</p>`
     : `<div class="ctarow"><button class="chip accent" data-act="com-login">${IC.user}${t('comLoginAct')}</button></div>`;
   return `<header class="chero"><div class="chead">${userLink(x.user_id, x.username, x.avatar)}<small>${ago(x.created_at)}</small></div>
       <h1>${esc(x.name)}</h1>${x.description ? `<p class="cdesc full">${esc(x.description)}</p>` : ''}</header>
@@ -2045,7 +2060,7 @@ function postHTML() {
     ${(ps => (ps.length >= 3 ? teamHTML(ps, true) : ''))((x.members || []).map(m => BYID.get(m.id)).filter(Boolean))}
     <section class="sec" id="post-comments"><h2>${t('comComments')} <small>${com.comments.length}</small></h2>
       ${form}
-      <ul class="ccms">${com.comments.length ? com.comments.map(commentHTML).join('') : `<li class="dim">${t('comNoComments')}</li>`}</ul></section>`;
+      <ul class="ccms">${com.comments.length ? commentsListHTML() : `<li class="dim">${t('comNoComments')}</li>`}</ul></section>`;
 }
 function paintPost() {
   const root = $('#post-root'); if (!root) return;
@@ -2054,12 +2069,20 @@ function paintPost() {
   const b = $('#cm-body'); if (b && draft) b.value = draft;
   window.scrollTo(0, y);
 }
+async function likeComment(id) {
+  if (!requireLogin({ type: 'community', hash: location.hash })) return;
+  const c = com.comments.find(x => String(x.id) === String(id)); if (!c) return;
+  const on = !c.liked, apply = v => { c.liked = v; c.likes = Math.max(0, (c.likes || 0) + (v ? 1 : -1)); };
+  apply(on); paintPost();
+  try { await auth.setCommentLike(id, on); } catch { apply(!on); paintPost(); toast(t('syncFail')); }
+}
 async function sendComment() {
   const box = $('#cm-body'); const body = box?.value.trim(); if (!body) return;
   const btn = $('[data-act="com-send"]'); btn.disabled = true;
   try {
-    await auth.addComment(com.post.id, body);
-    box.value = '';
+    if (com.reply && body === `@${com.reply.user}`) { btn.disabled = false; return; }
+    await auth.addComment(com.post.id, body, com.reply?.parent);
+    box.value = ''; com.reply = null;
     com.comments = await auth.communityComments(com.post.id); com.post.comments = com.comments.length; com.msg = '';
   } catch (err) { com.msg = t(err.message === 'rate_limit' ? 'comCommentLimit' : err.message === 'text_banned' ? 'comCommentBanned' : err.message === 'banned' ? 'comBanned' : 'comCommentFail'); }
   paintPost();
@@ -2776,6 +2799,17 @@ document.addEventListener('click', e => {
     case 'pub-go': doPublish(); break;
     case 'com-login': openLogin({ type: 'community', hash: location.hash }); break;
     case 'com-send': sendComment(); break;
+    case 'cm-like': likeComment(v); break;
+    case 'cm-reply': {
+      if (!requireLogin({ type: 'community', hash: location.hash })) break;
+      const c = com.comments.find(x => String(x.id) === String(v)); if (!c) break;
+      com.reply = { parent: c.parent_id || c.id, user: c.username || '?' };
+      const keep = $('#cm-body')?.value || '';
+      paintPost();
+      const box = $('#cm-body'); if (box) { box.value = /^@\w+\s/.test(keep) ? keep.replace(/^@\w+\s/, `@${com.reply.user} `) : `@${com.reply.user} ${keep}`; box.scrollIntoView({ block: 'center', behavior: 'smooth' }); box.focus(); box.setSelectionRange(box.value.length, box.value.length); }
+      break;
+    }
+    case 'cm-reply-x': { const box = $('#cm-body'); const txt = (box?.value || '').replace(/^@\w+\s?/, ''); com.reply = null; paintPost(); const b2 = $('#cm-body'); if (b2) b2.value = txt; break; }
     case 'com-cdel': askConfirm(t('cfmComment'), t('comDelete'), () => auth.deleteComment(v).then(() => auth.communityComments(com.post.id)).then(c => { com.comments = c; com.post.comments = c.length; paintPost(); }).catch(() => toast(t('syncFail')))); break;
     case 'com-save': if (com.post) openSaveTeam({ name: com.post.name, ids: com.post.members.map(m => m.id), members: com.post.members }); break;
     case 'com-compare': if (com.post) { bt.link = { name: com.post.name, custom: true, members: com.post.members.filter(m => BYID.has(m.id)) }; bt.b = { owner: 'link', slot: 0 }; bt.res = null; bt.cmpMsg = ''; location.hash = '#/battle'; } break;

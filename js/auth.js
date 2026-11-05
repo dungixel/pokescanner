@@ -209,7 +209,7 @@ export async function communityFeed(sort = 'new', offset = 0, limit = 20, post =
 }
 export async function communityComments(postId) {
   const c = await client(); await c.auth.getSession();
-  const { data, error } = await c.rpc('community_comments', { p_post: Number(postId) });
+  const { data, error } = await c.rpc('community_comments2', { p_post: Number(postId) });
   if (error) throw comErr(error);
   return data || [];
 }
@@ -220,12 +220,17 @@ export async function publishPost(name, description, members) {
   return data.id;
 }
 export async function deletePost(id) { const c = await client(); const { error } = await c.from('posts').delete().eq('id', Number(id)); if (error) throw comErr(error); }
-export async function addComment(postId, body) {
+export async function addComment(postId, body, parentId = null) {
   const c = await client();
-  const { error } = await c.from('post_comments').insert({ post_id: Number(postId), body });
+  const { error } = await c.from('post_comments').insert({ post_id: Number(postId), body, ...(parentId ? { parent_id: Number(parentId) } : {}) });
   if (error) throw comErr(error);
 }
 export async function deleteComment(id) { const c = await client(); const { error } = await c.from('post_comments').delete().eq('id', Number(id)); if (error) throw comErr(error); }
+export async function setCommentLike(id, on) {
+  const c = await client();
+  const { error } = on ? await c.from('comment_likes').insert({ comment_id: Number(id) }) : await c.from('comment_likes').delete().eq('comment_id', Number(id)).eq('user_id', currentUser().id);
+  if (error && error.code !== '23505') throw comErr(error);
+}
 export async function setLike(postId, on) {
   const c = await client();
   const { error } = on ? await c.from('post_likes').insert({ post_id: Number(postId) }) : await c.from('post_likes').delete().eq('post_id', Number(postId)).eq('user_id', currentUser().id);
