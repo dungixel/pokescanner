@@ -1483,7 +1483,7 @@ function editorPickHTML() {
   else if (pick === 'nature') opts = Object.keys(DICT.natures).sort((a, b) => dn(DICT.natures[a]).localeCompare(dn(DICT.natures[b]))).map(id => `<button class="edopt ${cur.n === id ? 'on' : ''}" data-act="ed-set" data-v="${id}"><b>${natLabel(id)}</b></button>`).join('');
   else if (pick === 'item') {
     const ids = Object.keys(ED.items).filter(id => !f || fold(dn(DICT.items[id])).includes(f) || fold(DICT.items[id].e).includes(f)).sort((a, b) => dn(DICT.items[a]).localeCompare(dn(DICT.items[b]))).slice(0, 80);
-    opts = `<button class="edopt ${cur.i === '' ? 'on' : ''}" data-act="ed-set" data-v=""><b>${t('edNoItem')}</b></button>` + ids.map(id => `<button class="edopt ${cur.i === id ? 'on' : ''}" data-act="ed-set" data-v="${id}">${itemImg(DICT.items[id])}<b>${esc(dn(DICT.items[id]))}</b></button>`).join('');
+    opts = (f ? '' : `<button class="edopt ${cur.i === '' ? 'on' : ''}" data-act="ed-set" data-v=""><b>${t('edNoItem')}</b></button>`) + ids.map(id => `<button class="edopt ${cur.i === id ? 'on' : ''}" data-act="ed-set" data-v="${id}">${itemImg(DICT.items[id])}<b>${esc(dn(DICT.items[id]))}</b></button>`).join('');
   } else {
     const slot = Number(pick.slice(1));
     const ids = (ED.learn[d.id] || []).filter(id => DICT.moves[id] && (!f || fold(dn(DICT.moves[id])).includes(f) || fold(DICT.moves[id].e).includes(f))).sort((a, b) => dn(DICT.moves[a]).localeCompare(dn(DICT.moves[b])));
@@ -1642,27 +1642,50 @@ async function runShowdownImport() {
 }
 
 // ───────────────────────── Calculadora de daño ─────────────────────────
-const calc = { a: { id: 'garchomp' }, d: { id: 'corviknight' }, ua: null, ud: null, boosts: { a: { atk: 0, spa: 0 }, d: { def: 0, spd: 0 } }, weather: '', terrain: '', doubles: false, reflect: false, lightScreen: false, crit: false, busy: false, err: false };
+const CALC_KEY = 'pk.calc';
+const ZB = () => ({ atk: 0, def: 0, spa: 0, spd: 0 });
+const calc = { a: { id: 'garchomp' }, d: { id: 'corviknight' }, ua: null, ud: null, boosts: { a: ZB(), d: ZB() }, hp: 1, weather: '', terrain: '', doubles: false, reflect: false, lightScreen: false, crit: false, busy: false, err: false, det: {} };
+try { const sv = JSON.parse(store.get(CALC_KEY) || 'null'); if (sv?.a?.id && sv?.d?.id) Object.assign(calc, { a: sv.a, d: sv.d, weather: sv.weather || '', terrain: sv.terrain || '', doubles: !!sv.doubles, reflect: !!sv.reflect, lightScreen: !!sv.lightScreen, hp: sv.hp || 1 }); } catch { /* sin guardado */ }
+const saveCalc = () => store.set(CALC_KEY, JSON.stringify({ a: calc.a, d: calc.d, weather: calc.weather, terrain: calc.terrain, doubles: calc.doubles, reflect: calc.reflect, lightScreen: calc.lightScreen, hp: calc.hp }));
 const WEATHERS = [['', 'cNone'], ['Sun', 'cSun'], ['Rain', 'cRain'], ['Sand', 'cSand'], ['Snow', 'cSnow']];
 const TERRAINS = [['', 'cNone'], ['Electric', 'cElectric'], ['Grassy', 'cGrassy'], ['Psychic', 'cPsychic'], ['Misty', 'cMisty']];
 let calcSeq = 0;
+/** Elige el set de Smogon más ofensivo (atacante) o el más resistente (defensor) cuando no se ha elegido ninguno */
+function autoSet(d, side) {
+  if (!d.sets?.length) return null;
+  let best = -1, bs = -1;
+  d.sets.forEach((st, i) => {
+    if (st.f === 'monotype') return;
+    const ev = st.ev || {};
+    const atk = Math.max(ev.atk || 0, ev.spa || 0), bulk = (ev.hp || 0) + (ev.def || 0) + (ev.spd || 0);
+    const attacks = st.m.filter(sl => { const m = DICT.moves[sl[0]]; return m && m.c !== 's'; }).length;
+    const sc = side === 'a' ? atk * 2 + attacks * 60 : bulk * 2 + (st.m.length - attacks) * 30;
+    if (sc > bs) { bs = sc; best = i; }
+  });
+  return best;
+}
 async function loadCalcUnits() {
   const seq = ++calcSeq;
   try {
     const [dict, eng] = await Promise.all([getDict(), getEngine(), getLearners()]);
     if ([calc.a, calc.d].some(m => m.b)) mergeEditor(dict, await getEditor());
-    const mk = async m => eng.X.makeUnit(await getPokemon(m.id), m, dict, 'singles', { learnable: learnableOf, pname });
-    const [ua, ud] = await Promise.all([mk(calc.a), mk(calc.d)]);
+    const mk = async (side) => {
+      const m = calc[side], d = await getPokemon(m.id); calc.det[side] = d;
+      if (m.s == null && !m.b) { const k = autoSet(d, side); if (k != null && k >= 0) m.s = k; }
+      return eng.X.makeUnit(d, m, dict, 'singles', { learnable: learnableOf, pname });
+    };
+    const [ua, ud] = await Promise.all([mk('a'), mk('d')]);
     if (seq !== calcSeq) return;
     eng.X.clearMemo(); calc.ua = ua; calc.ud = ud; calc.X = eng.X; calc.err = false;
   } catch (e) { console.error(e); if (seq === calcSeq) calc.err = true; }
+  saveCalc();
   if (state.view === 'calc') paintCalc();
 }
 function renderCalc(a) {
   state.view = 'calc';
   document.title = `${t('calcTitle')} · PokeScanner`;
   document.documentElement.style.removeProperty('--accent');
-  if (a && BYID.has(a)) { calc.a = { id: a }; calc.ua = null; }
+  if (a && BYID.has(a)) { calc.a = { id: a }; calc.ua = null; calc.boosts.a = ZB(); }
   window.scrollTo(0, 0);
   $app.innerHTML = `${topbarHTML()}<header class="hero"><h1>${t('calcTitle')}</h1><p>${t('calcLead')}</p></header><div id="calc-root"><p class="boot">…</p></div>`;
   updateDock();
@@ -1670,34 +1693,47 @@ function renderCalc(a) {
 }
 const boostTxt = n => (n > 0 ? `+${n}` : String(n));
 function calcSideHTML(side) {
-  const u = side === 'a' ? calc.ua : calc.ud, m = side === 'a' ? calc.a : calc.d, p = BYID.get(m.id);
-  const keys = side === 'a' ? ['atk', 'spa'] : ['def', 'spd'];
-  const ev = Object.entries(u.evs || {}).filter(([, v]) => v).map(([k, v]) => `${v} ${statName(k)}`).join(' / ');
+  const u = side === 'a' ? calc.ua : calc.ud, m = calc[side], p = BYID.get(m.id), d = calc.det[side];
   const ab = u.ab && DICT.abilities[u.ab], it = u.item && DICT.items[u.item];
+  const ev = Object.entries(u.evs || {}).filter(([, v]) => v).map(([k, v]) => `${v} ${statName(k)}`).join(' / ');
+  const sets = d?.sets || [];
+  const cur = m.b ? 'custom' : m.s != null ? String(m.s) : '';
+  const opts = sets.map((st, i) => `<option value="${i}" ${cur === String(i) ? 'selected' : ''}>${esc(st.n)} · ${esc(formatName(st.f))}</option>`).join('')
+    + `<option value="custom" ${cur === 'custom' ? 'selected' : ''}>${t('calcCustom')}</option>${sets.length ? '' : `<option value="" ${cur === '' ? 'selected' : ''}>${t('calcAuto')}</option>`}`;
+  const bs = ['atk', 'def', 'spa', 'spd'];
   return `<section class="sec calcside"><h2>${t(side === 'a' ? 'calcAtk' : 'calcDef')}</h2>
     <div class="calchead"><button class="pkopt" data-act="calc-pick" data-v="${side}">${pokeImg(p, 'small')}<span><b>${esc(pname(p))}</b><small>${p.t.map(x => typeName(x)).join(' / ')}</small></span></button>
       <button class="iconbtn" data-act="calc-edit" data-v="${side}" aria-label="${t('edTitle')}">${IC.pencil}</button></div>
-    <p class="calcsum">${[DICT.natures[u.nat] ? dn(DICT.natures[u.nat]) : u.nat, ab ? dn(ab) : '', it ? dn(it) : t('edNoItem'), ev].filter(Boolean).map(esc).join(' · ')}${m.b ? '' : ` <em>(${t('calcAuto')})</em>`}</p>
-    <div class="boosts">${keys.map(k => `<div class="bst"><span>${statName(k)}</span><button class="iconbtn sm" data-act="calc-boost" data-v="${side}:${k}:-1" aria-label="−">−</button><b>${boostTxt(calc.boosts[side][k])}</b><button class="iconbtn sm" data-act="calc-boost" data-v="${side}:${k}:1" aria-label="+">+</button></div>`).join('')}</div>
+    <label class="calcset"><span>${t('calcSet')}</span><select data-calcset="${side}" aria-label="${t('calcSet')}">${opts}</select></label>
+    <p class="calcsum">${[DICT.natures[u.nat] ? dn(DICT.natures[u.nat]) : u.nat, ab ? dn(ab) : '', it ? dn(it) : t('edNoItem'), ev].filter(Boolean).map(esc).join(' · ')}</p>
+    <div class="boosts">${bs.map(k => `<div class="bst"><span>${statName(k)}</span><button class="iconbtn sm" data-act="calc-boost" data-v="${side}:${k}:-1" aria-label="−">−</button><b class="${calc.boosts[side][k] > 0 ? 'up' : calc.boosts[side][k] < 0 ? 'dn' : ''}">${boostTxt(calc.boosts[side][k])}</b><button class="iconbtn sm" data-act="calc-boost" data-v="${side}:${k}:1" aria-label="+">+</button></div>`).join('')}</div>
   </section>`;
 }
-function calcResultsHTML() {
-  const { ua, ud, X } = calc, eng = X;
+function calcRows(from, to, hpLeft) {
+  const eng = calc.X, ua = from === 'a' ? calc.ua : calc.ud, ud = from === 'a' ? calc.ud : calc.ua;
   const f = { weather: calc.weather || undefined, terrain: calc.terrain || undefined, doubles: calc.doubles };
   const ctx = { field: f, dSide: { reflect: calc.reflect, lightScreen: calc.lightScreen }, crit: calc.crit };
   const aSt = eng.newState(ua), dSt = eng.newState(ud);
-  Object.assign(aSt.boosts, calc.boosts.a); Object.assign(dSt.boosts, calc.boosts.d);
+  Object.assign(aSt.boosts, calc.boosts[from]); Object.assign(dSt.boosts, calc.boosts[to]);
+  dSt.hp = hpLeft;
   const fmt = n => (Math.round(n * 1000) / 10).toLocaleString(lang() === 'en' ? 'en' : 'es', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-  const rows = ua.moves.filter(m => m.c !== 's').map(mv => {
+  return ua.moves.filter(m => m.c !== 's').map(mv => {
     const r = eng.damage(ua, aSt, ud, dSt, mv, ctx);
     const lo = Math.round(r.min * ud.maxHP), hi = Math.round(r.max * ud.maxHP);
-    const ko = r.max <= 0 ? t('calcNoDmg') : r.min >= 1 ? t('calcOhko') : r.max >= 1 ? t('calcMaybeOhko') : (n1 => (n1 === Math.ceil(1 / r.min) ? t('calcHko', { n: n1 }) : t('calcHkoRange', { a: n1, b: Math.ceil(1 / r.min) })))(Math.ceil(1 / r.max));
+    const k = r.max <= 0 ? 'none' : r.min >= hpLeft ? 'ko' : r.max >= hpLeft ? 'maybe' : 'hit';
+    const n1 = Math.ceil(hpLeft / Math.max(r.max, 1e-9)), n2 = Math.ceil(hpLeft / Math.max(r.min, 1e-9));
+    const txt = k === 'none' ? t('calcNoDmg') : k === 'ko' ? t('calcOhko') : k === 'maybe' ? t('calcMaybeOhko') : n1 === n2 ? t('calcHko', { n: n1 }) : t('calcHkoRange', { a: n1, b: n2 });
     const m = DICT.moves[mv.id];
-    return `<li class="cres" style="--tc:${TYPE_COLOR[mv.t]}"><div class="cmv">${typeIcon(mv.t)}<b>${esc(m ? dn(m) : mv.name)}</b>${catIcon(mv.c)}</div>
-      <div class="cbar"><i style="width:${Math.min(100, r.max * 100)}%"></i><u style="width:${Math.min(100, r.min * 100)}%"></u></div>
-      <div class="cnum"><b>${fmt(r.min)}–${fmt(r.max)} %</b><small>${lo}–${hi} / ${ud.maxHP} ${t('calcHp')}</small></div><div class="cko">${ko}</div></li>`;
+    return { mv, m, r, lo, hi, k, txt, fmt };
   });
-  return `<section class="sec"><h2>${t('calcResult')}</h2>${rows.length ? `<ul class="cresl">${rows.join('')}</ul>` : `<p class="hint">${t('calcNoMoves')}</p>`}</section>`;
+}
+function calcListHTML(from, to) {
+  const hp = calc.hp, dmax = (to === 'd' ? calc.ud : calc.ua).maxHP;
+  const rows = calcRows(from, to, to === 'd' ? hp : 1);
+  const pf = BYID.get(calc[from].id), pt = BYID.get(calc[to].id);
+  return `<h3 class="cdir">${esc(pname(pf))} <span>→</span> ${esc(pname(pt))}</h3>${rows.length ? `<ul class="cresl">${rows.map(({ mv, m, r, lo, hi, k, txt, fmt }) => `<li class="cres k-${k}" style="--tc:${TYPE_COLOR[mv.t]}"><div class="cmv">${typeIcon(mv.t)}<b>${esc(m ? dn(m) : mv.name)}</b>${catIcon(mv.c)}<span class="cko">${txt}</span></div>
+      <div class="cbar"><i style="width:${Math.min(100, r.max * 100)}%"></i><u style="width:${Math.min(100, r.min * 100)}%"></u></div>
+      <div class="cnum"><b>${fmt(r.min)}–${fmt(r.max)} %</b><small>${lo}–${hi} / ${dmax} ${t('calcHp')}</small></div></li>`).join('')}</ul>` : `<p class="hint">${t('calcNoMoves')}</p>`}`;
 }
 function calcHTML() {
   if (calc.err) return `<div class="empty"><b>${t('loadFail')}</b>${t('loadFailHint')}</div>`;
@@ -1706,19 +1742,30 @@ function calcHTML() {
   return `${calcSideHTML('a')}
     <div class="calcswap"><button class="chip" data-act="calc-swap">⇅ ${t('calcSwap')}</button></div>
     ${calcSideHTML('d')}
+    <section class="sec"><h2>${t('calcResult')}</h2>
+      <p class="lbl">${t('calcHpLeft')}</p><div class="chips">${[1, 0.75, 0.5, 0.25].map(h => chip('calc-hp', h, calc.hp === h, `${h * 100} %`)).join('')}</div>
+      ${calcListHTML('a', 'd')}${calcListHTML('d', 'a')}
+    </section>
     <section class="sec"><h2>${t('calcField')}</h2>
       <p class="lbl">${t('calcWeather')}</p><div class="chips">${WEATHERS.map(([k, l]) => chip('calc-set', `weather:${k}`, calc.weather === k, t(l))).join('')}</div>
       <p class="lbl">${t('calcTerrain')}</p><div class="chips">${TERRAINS.map(([k, l]) => chip('calc-set', `terrain:${k}`, calc.terrain === k, t(l))).join('')}</div>
       <p class="lbl">${t('calcOther')}</p><div class="chips">${chip('calc-tog', 'doubles', calc.doubles, t('calcDoubles'))}${chip('calc-tog', 'reflect', calc.reflect, t('calcReflect'))}${chip('calc-tog', 'lightScreen', calc.lightScreen, t('calcLightScreen'))}${chip('calc-tog', 'crit', calc.crit, t('calcCrit'))}</div>
-    </section>
-    ${calcResultsHTML()}`;
+      <button class="chip ghost calcreset" data-act="calc-reset">${t('calcReset')}</button>
+    </section>`;
 }
 function paintCalc() {
   const root = $('#calc-root'); if (!root) return;
-  const y = window.scrollY; root.innerHTML = calcHTML(); window.scrollTo(0, y);
+  const y = window.scrollY; root.innerHTML = calcHTML(); window.scrollTo(0, y); saveCalc();
 }
 const calcOpenPick = side => openPicker({ mode: 'calc', side });
 async function calcEdit(side) { await openEditor(-1, -1, { member: calc[side], after: () => { clearTimeout(calcEdit.t); calcEdit.t = setTimeout(loadCalcUnits, 250); } }); }
+document.addEventListener('change', e => {
+  const side = e.target?.dataset?.calcset; if (!side) return;
+  const v = e.target.value, m = calc[side];
+  if (v === 'custom') { calcEdit(side); paintCalc(); return; }
+  calc[side] = { id: m.id, ...(v === '' ? {} : { s: Number(v) }) };
+  calc.boosts[side] = ZB(); calc[side === 'a' ? 'ua' : 'ud'] = null; paintCalc(); loadCalcUnits();
+});
 
 // ───────────────────────── Comunidad ─────────────────────────
 const com = { q: '', pokes: [], sort: 'new', items: [], more: false, loading: false, err: false, post: null, comments: [], full: null, confirm: null, busy: false, msg: '' };
@@ -2550,7 +2597,9 @@ document.addEventListener('click', e => {
     case 'go-calc': location.hash = '#/calc'; break;
     case 'calc-pick': calcOpenPick(v); break;
     case 'calc-edit': calcEdit(v); break;
-    case 'calc-swap': [calc.a, calc.d] = [calc.d, calc.a]; [calc.boosts.a, calc.boosts.d] = [{ atk: 0, spa: 0 }, { def: 0, spd: 0 }]; calc.ua = calc.ud = null; paintCalc(); loadCalcUnits(); break;
+    case 'calc-swap': [calc.a, calc.d] = [calc.d, calc.a]; [calc.boosts.a, calc.boosts.d] = [calc.boosts.d, calc.boosts.a]; calc.ua = calc.ud = null; paintCalc(); loadCalcUnits(); break;
+    case 'calc-hp': calc.hp = Number(v); paintCalc(); break;
+    case 'calc-reset': Object.assign(calc, { weather: '', terrain: '', doubles: false, reflect: false, lightScreen: false, crit: false, hp: 1, boosts: { a: ZB(), d: ZB() } }); paintCalc(); break;
     case 'calc-boost': { const [sd, k, n] = v.split(':'); calc.boosts[sd][k] = Math.max(-6, Math.min(6, calc.boosts[sd][k] + Number(n))); paintCalc(); break; }
     case 'calc-set': { const i = v.indexOf(':'); calc[v.slice(0, i)] = v.slice(i + 1); paintCalc(); break; }
     case 'calc-tog': calc[v] = !calc[v]; paintCalc(); break;
@@ -2598,7 +2647,7 @@ document.addEventListener('click', e => {
     case 'team-remove': if (teamsSel.open >= 0) toggleInTeam(teamsSel.open, v); break;
     case 'pk-pick':
       if (pickCtx?.mode === 'avatar') setAvatar(BYID.get(v).num);
-      else if (pickCtx?.mode === 'calc') { calc[pickCtx.side] = { id: v }; calc.ua = calc.ud = null; closeSettings(); paintCalc(); loadCalcUnits(); }
+      else if (pickCtx?.mode === 'calc') { calc[pickCtx.side] = { id: v }; calc.boosts[pickCtx.side] = ZB(); calc.ua = calc.ud = null; closeSettings(); paintCalc(); loadCalcUnits(); }
       else if (pickCtx?.mode === 'comfilter') { if (!com.pokes.includes(v) && com.pokes.length < 3) com.pokes.push(v); closeSettings(); if (state.view === 'community') loadFeed(true); }
       else if (pickCtx?.mode === 'team') {
         toggleInTeam(pickCtx.slot, v);

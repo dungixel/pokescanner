@@ -1215,3 +1215,17 @@ button.slot.slothead { cursor: pointer; }
 .offbar { height: 8px; border-radius: 4px; background: var(--soft); overflow: hidden; }
 .offbar i { display: block; height: 100%; background: var(--ink); transition: width .2s; }
 .offbtns { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.calcset { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.calcset span { color: var(--muted); font-size: .8rem; font-weight: 600; flex: none; }
+.calcset select { flex: 1; min-width: 0; height: 40px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--soft); color: var(--ink); font: inherit; font-size: .9rem; }
+.boosts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.bst { justify-content: space-between; }
+.bst b.up { color: var(--ok, #2FAE5F); } .bst b.dn { color: var(--bad, #E5484D); }
+.cdir { margin: 16px 2px 8px; font-size: .95rem; } .cdir span { color: var(--muted); }
+.cres .cko { margin-left: auto; font-size: .78rem; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: var(--soft); }
+.cres.k-ko .cko { background: #E5484D; color: #fff; }
+.cres.k-maybe .cko { background: #F0974B; color: #fff; }
+.cres.k-none .cko { color: var(--muted); }
+.calcreset { margin-top: 14px; }
+.bst span { white-space: nowrap; font-size: .82rem; } .bst { gap: 4px; padding-left: 10px; }
