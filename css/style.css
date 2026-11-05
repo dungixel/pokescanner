@@ -623,11 +623,6 @@ button.tpill:active { transform: scale(.96); }
 .swap h4 { margin: 0; font-size: .95rem; }
 .swap p { margin: 0; font-size: .9rem; line-height: 1.4; }
 
-/* ───────────── PRUEBA: sin bordes en botones y cajas ─────────────
-   Para volver atrás basta con borrar este bloque entero. Las líneas que separan secciones se mantienen. */
-*, *::before, *::after { border-color: transparent !important; }
-.stat.total, .sgroup + .sgroup, .sitefoot, .cmp-total, .evo-kids { border-color: var(--line) !important; }
-
 /* ───────────── Equipos, amigos y batalla ───────────── */
 img.mini { width: 28px; height: 28px; object-fit: contain; flex: none; }
 .minis { display: flex; align-items: center; gap: 0; min-width: 0; flex-wrap: wrap; }
