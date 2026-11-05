@@ -1036,21 +1036,44 @@ function updHTML() {
 const effOne = (atk, def) => { const m = matchups([def]); for (const k of Object.keys(m)) if (m[k].includes(atk)) return Number(k); return 1; };
 let TCHART = null;
 const tchart = () => (TCHART ??= TYPES.map(a => TYPES.map(d => effOne(a, d))));
-const tcPill = ty => `<button class="tpill" data-act="tc-sel" data-v="${ty}" style="--tc:${TYPE_COLOR[ty]}">${typeIcon(ty)}<span>${typeName(ty)}</span></button>`;
+const tcPill = ty => `<button class="tc-pill tpill" data-act="tc-sel" data-v="${TYPES.indexOf(ty)},${TYPES.indexOf(ty)}" style="--tc:${TYPE_COLOR[ty]}">${typeIcon(ty)}<span>${typeName(ty)}</span></button>`;
+const tcRes = { 2: ['x2', '×2', 'tcRes2'], 0.5: ['xh', '×½', 'tcRes05'], 0: ['x0', '×0', 'tcRes0'], 1: ['x1', '×1', 'tcRes1'] };
 function typesHTML() {
-  const sel = state.tcSel, si = sel ? TYPES.indexOf(sel) : -1, ch = tchart();
-  const head = TYPES.map((ty, i) => `<button class="tc-h ${i === si ? 'sel' : ''}" data-act="tc-sel" data-v="${ty}" aria-label="${typeName(ty)}" style="--tc:${TYPE_COLOR[ty]}">${typeIcon(ty)}</button>`).join('');
-  const rows = TYPES.map((a, r) => `<button class="tc-h ${r === si ? 'sel' : ''}" data-act="tc-sel" data-v="${a}" aria-label="${typeName(a)}" style="--tc:${TYPE_COLOR[a]}">${typeIcon(a)}</button>`
-    + TYPES.map((d, c) => { const e = ch[r][c]; return `<span class="tc-c ${e === 2 ? 'x2' : e === 0.5 ? 'xh' : e === 0 ? 'x0' : ''} ${r === si || c === si ? 'on' : ''}">${e === 2 ? '2' : e === 0.5 ? '½' : e === 0 ? '0' : ''}</span>`; }).join('')).join('');
+  const sel = state.tcSel, ch = tchart();
+  const sr = sel ? sel.r : -1, sc = sel ? sel.c : -1;
+  const head = TYPES.map((ty, i) => `<button class="tc-h ${i === sc ? 'sel' : ''}" data-act="tc-sel" data-v="${i},${i}" data-r="${i}" data-c="${i}" data-rr="-1" data-cc="${i}" aria-label="${typeName(ty)}" style="--tc:${TYPE_COLOR[ty]}">${typeIcon(ty)}</button>`).join('');
+  const rows = TYPES.map((a, r) => `<button class="tc-h ${r === sr ? 'sel' : ''}" data-act="tc-sel" data-v="${r},${r}" data-r="${r}" data-c="${r}" data-rr="${r}" data-cc="-1" aria-label="${typeName(a)}" style="--tc:${TYPE_COLOR[a]}">${typeIcon(a)}</button>`
+    + TYPES.map((d, c) => { const e = ch[r][c]; return `<span class="tc-c ${e === 2 ? 'x2' : e === 0.5 ? 'xh' : e === 0 ? 'x0' : ''} ${r === sr || c === sc ? 'on' : ''} ${r === sr && c === sc ? 'hit' : ''}" data-act="tc-sel" data-v="${r},${c}" data-r="${r}" data-c="${c}" data-rr="${r}" data-cc="${c}" title="${typeName(a)} → ${typeName(d)}">${e === 2 ? '2' : e === 0.5 ? '½' : e === 0 ? '0' : ''}</span>`; }).join('')).join('');
   let detail = '';
   if (sel) {
-    const atk = k => TYPES.filter((_, c) => ch[si][c] === k), def = k => TYPES.filter((_, r) => ch[r][si] === k);
-    const blk = (label, list) => `<div class="mx-row"><b>${label}</b><div class="chips">${list.length ? list.map(tcPill).join('') : `<span class="hint">${t('tcNone')}</span>`}</div></div>`;
-    detail = `<div class="tc-detail"><h3>${tcPill(sel)}</h3><div class="mx">${blk(t('tcAtk'), atk(2))}${blk(t('tcAtkNo'), atk(0.5))}${blk(t('tcImm'), atk(0))}${blk(t('tcDefW'), def(2))}${blk(t('tcDefR'), def(0.5))}${blk(t('tcDefI'), def(0))}</div></div>`;
+    const atk = (i, k) => TYPES.filter((_, c) => ch[i][c] === k), def = (i, k) => TYPES.filter((_, r) => ch[r][i] === k);
+    const row = (k, label, list) => { const [cls, mult] = tcRes[k]; return `<div class="tcb ${cls}"><div class="tcb-t"><i>${mult}</i><span>${label}</span></div><div class="chips">${list.length ? list.map(tcPill).join('') : `<span class="hint">${t('tcNone')}</span>`}</div></div>`; };
+    const A = TYPES[sr], D = TYPES[sc];
+    const offBox = i => `<section class="tcbox"><h3>${t('tcAsAtk')}</h3>${row(2, t('tcAtk'), atk(i, 2))}${row(0.5, t('tcAtkNo'), atk(i, 0.5))}${row(0, t('tcImm'), atk(i, 0))}</section>`;
+    const defBox = i => `<section class="tcbox"><h3>${t('tcAsDef')}</h3>${row(2, t('tcDefW'), def(i, 2))}${row(0.5, t('tcDefR'), def(i, 0.5))}${row(0, t('tcDefI'), def(i, 0))}</section>`;
+    if (sr === sc && sel.hdr) detail = `<div class="tc-detail"><div class="tchead">${tcPill(A)}</div><div class="tcgrid">${offBox(sr)}${defBox(sr)}</div></div>`;
+    else {
+      const e = ch[sr][sc], [cls, mult, key] = tcRes[e];
+      detail = `<div class="tc-detail"><div class="tcres ${cls}"><div class="tcres-ty">${tcPill(A)}<b>→</b>${tcPill(D)}</div><div class="tcres-x"><strong>${mult}</strong><span>${t(key)}</span></div></div>
+        <div class="tcgrid">${offBox(sr).replace('<h3>', `<h3>${typeName(A)} · `)}${defBox(sc).replace('<h3>', `<h3>${typeName(D)} · `)}</div></div>`;
+    }
   }
-  return `<div class="tc-wrap"><div class="tc"><span class="tc-corner"></span>${head}${rows}</div></div><p class="hint tc-legend">${t('tcLegend')}</p>${detail}`;
+  return `<div class="tc-wrap"><div class="tc ${sel ? 'hasSel' : ''}"><span class="tc-corner"></span>${head}${rows}</div></div><p class="hint tc-legend">${t('tcLegend')}</p>${detail}`;
 }
-function paintTypes() { const r = $('#types-root'); if (r) { const y = scrollY; r.innerHTML = typesHTML(); scrollTo(0, y); } }
+function tcApplyHv() {
+  const tc = $('.tc'); if (!tc) return;
+  const h = state.tcHv;
+  tc.classList.toggle('hovering', !!h);
+  tc.querySelectorAll('[data-rr]').forEach(el => el.classList.toggle('hv', !!h && (+el.dataset.rr === h.r || +el.dataset.cc === h.c)));
+}
+function paintTypes() { const r = $('#types-root'); if (r) { const y = scrollY; r.innerHTML = typesHTML(); scrollTo(0, y); tcApplyHv(); } }
+document.addEventListener('pointerover', e => {
+  if (state.view !== 'types' || e.pointerType !== 'mouse') return;
+  const el = e.target.closest?.('.tc [data-rr]');
+  const h = el ? { r: +el.dataset.r, c: +el.dataset.c } : null;
+  if ((h?.r ?? -2) === (state.tcHv?.r ?? -2) && (h?.c ?? -2) === (state.tcHv?.c ?? -2)) return;
+  state.tcHv = h; tcApplyHv();
+});
 function renderTypes() {
   state.view = 'types';
   document.title = `${t('typeChart')} · PokeScanner`;
@@ -2755,7 +2778,7 @@ document.addEventListener('click', e => {
     case 'calc-boost': { const [sd, k, n] = v.split(':'); calc.boosts[sd][k] = Math.max(-6, Math.min(6, calc.boosts[sd][k] + Number(n))); paintCalc(); break; }
     case 'calc-set': { const i = v.indexOf(':'); calc[v.slice(0, i)] = v.slice(i + 1); paintCalc(); break; }
     case 'calc-tog': calc[v] = !calc[v]; paintCalc(); break;
-    case 'tc-sel': state.tcSel = state.tcSel === v ? null : v; paintTypes(); break;
+    case 'tc-sel': { const [r, c] = v.split(',').map(Number), pill = el.classList.contains('tc-pill'), hdr = pill || el.classList.contains('tc-h'), cur = state.tcSel; state.tcSel = !pill && cur && cur.r === r && cur.c === c && !!cur.hdr === hdr ? null : { r, c, hdr }; paintTypes(); break; }
     case 'shuffle': { const pool = INDEX.filter(p => !p.g); location.hash = '#/pokemon/' + pool[Math.floor(Math.random() * pool.length)].id; break; }
     case 'tier-go': goSearch({ tiers: [v] }); break;
 

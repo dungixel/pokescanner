@@ -175,13 +175,20 @@ button.tier { cursor: pointer; }
 .block-title { flex-wrap: wrap; gap: 10px 8px; }
 .btnrow { display: flex; gap: 8px; }
 .upd { margin-top: 6px; font-size: .84rem; color: var(--muted); }
-.tc-wrap { margin-top: 18px; }
+.tc-wrap { margin-top: 18px; container-type: inline-size; }
 .tc { display: grid; grid-template-columns: repeat(19, minmax(0, 1fr)); gap: 2px; }
 .tc-h { display: flex; align-items: center; justify-content: center; padding: 0; border: 0; background: none; border-radius: 6px; aspect-ratio: 1; cursor: pointer; }
 .tc-h .ticon { width: 100%; max-width: 20px; height: auto; aspect-ratio: 1; border-radius: 50%; }
 .tc-h.sel { box-shadow: 0 0 0 2px var(--ink); }
-.tc-c { display: flex; align-items: center; justify-content: center; aspect-ratio: 1; border-radius: 4px; font-size: .62rem; font-weight: 700; background: color-mix(in srgb, var(--ink) 4%, transparent); }
-.tc-c.on { background: color-mix(in srgb, var(--ink) 11%, transparent); }
+.tc-c { display: flex; align-items: center; justify-content: center; aspect-ratio: 1; border-radius: 4px; font-size: clamp(.82rem, 3.9cqw, 1.5rem); font-weight: 800; cursor: pointer; transition: opacity .12s, box-shadow .12s; background: color-mix(in srgb, var(--ink) 4%, transparent); }
+.tc-c.on, .tc-c.hv { background: color-mix(in srgb, var(--ink) 15%, transparent); }
+.tc-c.x2.on, .tc-c.x2.hv { background: #3aa655; }
+.tc-c.xh.on, .tc-c.xh.hv { background: #ec8f2a; }
+.tc-c.hit, .tc-c.hv:hover { box-shadow: 0 0 0 2.5px var(--ink); position: relative; z-index: 1; }
+.tc-h.hv { box-shadow: 0 0 0 2px color-mix(in srgb, var(--ink) 55%, transparent); }
+.tc.hovering .tc-c.x2:not(.hv), .tc.hovering .tc-c.xh:not(.hv), .tc.hovering .tc-c.x0:not(.hv) { opacity: .28; }
+.tc.hasSel:not(.hovering) .tc-c.x2:not(.on), .tc.hasSel:not(.hovering) .tc-c.xh:not(.on), .tc.hasSel:not(.hovering) .tc-c.x0:not(.on) { opacity: .28; }
+.tc.hovering .tc-c.hit:not(.hv) { box-shadow: none; }
 .tc-c.x2 { background: #4fb866; color: #fff; }
 .tc-c.xh { background: #f0a24a; color: #fff; }
 .tc-c.x0 { background: var(--ink); color: var(--bg); }
@@ -1363,3 +1370,25 @@ dialog.cfm::backdrop { background: rgba(10, 12, 20, .5); }
 .swap .pans li { padding: 10px 12px; border-radius: var(--r-md); background: var(--soft); }
 .tpart .k { display: inline-flex; align-items: center; gap: 10px; }
 .tpart .pi { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Tabla de tipos: detalle en cajas */
+.tc-detail .tchead { margin-bottom: 12px; }
+.tcres { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 14px 16px; border-radius: var(--r-lg); border: 2px solid var(--line); background: var(--surface); margin-bottom: 12px; }
+.tcres-ty { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tcres-ty b { color: var(--muted); font-size: 1.1rem; }
+.tcres-x { display: flex; align-items: baseline; gap: 8px; }
+.tcres-x strong { font-size: 1.9rem; line-height: 1; }
+.tcres-x span { font-weight: 700; color: var(--muted); }
+.tcres.x2 { border-color: #4fb866; } .tcres.x2 strong { color: #3aa655; }
+.tcres.xh { border-color: #f0a24a; } .tcres.xh strong { color: #e08a28; }
+.tcres.x0 { border-color: var(--ink); }
+.tcgrid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
+.tcbox { border: 1px solid var(--line); background: var(--surface); border-radius: var(--r-lg); padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.tcbox h3 { margin: 0 0 2px; font-size: 1rem; }
+.tcb { border-radius: var(--r-md); padding: 10px 12px; background: var(--soft); border-left: 5px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+.tcb-t { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: .88rem; }
+.tcb-t i { font-style: normal; min-width: 2.2em; text-align: center; padding: 1px 6px; border-radius: var(--r-pill); color: #fff; font-weight: 800; background: var(--muted); }
+.tcb.x2 { border-left-color: #4fb866; } .tcb.x2 .tcb-t i { background: #4fb866; }
+.tcb.xh { border-left-color: #f0a24a; } .tcb.xh .tcb-t i { background: #f0a24a; }
+.tcb.x0 { border-left-color: var(--ink); } .tcb.x0 .tcb-t i { background: var(--ink); color: var(--bg); }
+.tcb .chips { display: flex; flex-wrap: wrap; gap: 6px; }
