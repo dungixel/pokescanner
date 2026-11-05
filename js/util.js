@@ -104,10 +104,26 @@ export const TIER_ORDER = ['AG', 'Uber', 'OU', 'UUBL', 'UU', 'RUBL', 'RU', 'NUBL
 export const TIER_RANK = { AG: 1, Uber: 2, OU: 3, UUBL: 4, UU: 5, RUBL: 6, RU: 7, NUBL: 8, NU: 9, PUBL: 10, PU: 11, ZUBL: 12, ZU: 13 };
 export const TIER_MAX = 13;
 export const tierNum = r => TIER_RANK[String(r).replace(/^\((.*)\)$/, '$1')] || 0;
-export const tierNumHTML = r => (tierNum(r) ? `<b class="tn" style="--tier:${tierColor(r)}">${tierNum(r)}</b>` : '');
+// Colores de la escala: del más fuerte (azul) al más débil (rojo); los rangos intermedios mezclan los dos colores vecinos
+const SCALE = [[1, '#3B7BEF'], [4, '#2FAE5F'], [7, '#E3B20F'], [10, '#F08A2C'], [13, '#E5484D']];
+const hex2rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const scaleRGB = n => {
+  const k = Math.max(0, SCALE.findIndex(([p]) => p >= n) - 1) || 0;
+  const [p0, c0] = SCALE[Math.min(k, SCALE.length - 2)], [p1, c1] = SCALE[Math.min(k, SCALE.length - 2) + 1];
+  const f = Math.max(0, Math.min(1, (n - p0) / (p1 - p0)));
+  const a = hex2rgb(c0), b = hex2rgb(c1);
+  return a.map((v, i) => Math.round(v + (b[i] - v) * f));
+};
+const rgb2hex = c => '#' + c.map(v => v.toString(16).padStart(2, '0')).join('');
+const OTHER_HUE = { LC: '#E36AA0', NFE: '#A79B8A' }; // fuera de la escala
+export const tierColor = r => {
+  const n = tierNum(r);
+  return n ? rgb2hex(scaleRGB(n)) : OTHER_HUE[String(r).replace(/^\((.*)\)$/, '$1')] || '#8A91A3';
+};
+// el texto del número es oscuro sobre colores claros (amarillo) y blanco sobre el resto
+const tnInk = r => { const [R, G, B] = scaleRGB(tierNum(r)); return (0.299 * R + 0.587 * G + 0.114 * B) > 150 ? '#23190A' : '#fff'; };
+export const tierNumHTML = r => (tierNum(r) ? `<b class="tn" style="--tier:${tierColor(r)};--tnc:${tnInk(r)}">${tierNum(r)}</b>` : '');
 export const tierLabel = r => String(r).replace('Uber', 'Ubers').replace(/^\((.*)\)$/, '$1');
-const TIER_HUE = { AG: '#8B5CF6', Uber: '#8B5CF6', OU: '#4D7CF0', UU: '#1FA8A0', RU: '#3DAA5C', NU: '#C9A227', PU: '#E8833A', ZU: '#8A91A3', LC: '#E36AA0', NFE: '#A79B8A' };
-export const tierColor = r => TIER_HUE[String(r).replace(/BL$/, '')] || '#8A91A3';
 
 const FORMAT_NAME = { ou: 'OU', ubers: 'Ubers', ubersuu: 'Ubers UU', anythinggoes: 'AG', uu: 'UU', ru: 'RU', nu: 'NU', pu: 'PU', zu: 'ZU',
   lc: 'LC', nfe: 'NFE', vgc2025: 'VGC 2025', monotype: 'Monotype' };
