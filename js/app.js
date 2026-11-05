@@ -63,7 +63,7 @@ const I = {
 const FLAG = { es: 'icons/flags/es.svg', en: 'icons/flags/gb.svg' };
 const LANGS = { es: 'Español', en: 'English' };
 const smodal = document.getElementById('smodal');
-let modalKind = null; // 'settings' | 'login' | 'teampick' | 'picker' | 'saveteam' | 'publish' | 'bans'
+let modalKind = null; // 'notifs' | 'settings' | 'login' | 'teampick' | 'picker' | 'saveteam' | 'publish' | 'bans'
 let pending = null;   // lo que la persona quería hacer cuando se le pidió iniciar sesión
 const themePref = () => { const v = store.get('pk.theme'); return v === 'light' || v === 'dark' ? v : 'system'; };
 const THEME_ICON = { system: 'desktop', light: 'sun', dark: 'moon' };
@@ -107,7 +107,7 @@ function loginHTML() {
       <button class="ghostbtn" data-act="settings-close">${t('notNow')}</button></div>
   </div>`;
 }
-const modalHTML = () => (modalKind === 'login' ? loginHTML() : modalKind === 'bans' ? bansModalHTML() : modalKind === 'publish' ? publishModalHTML() : modalKind === 'saveteam' ? saveTeamHTML() : modalKind === 'teampick' ? teamPickHTML() : modalKind === 'picker' ? pickerHTML() : settingsHTML());
+const modalHTML = () => (modalKind === 'login' ? loginHTML() : modalKind === 'bans' ? bansModalHTML() : modalKind === 'notifs' ? notifsHTML() : modalKind === 'publish' ? publishModalHTML() : modalKind === 'saveteam' ? saveTeamHTML() : modalKind === 'teampick' ? teamPickHTML() : modalKind === 'picker' ? pickerHTML() : settingsHTML());
 const refreshModal = () => { if (!smodal.hidden) smodal.innerHTML = modalHTML(); };
 function showModal(kind) {
   modalKind = kind;
@@ -188,6 +188,7 @@ const takePending = () => {
 /** Se llama cuando cambia la sesión (inicio, vuelta de Google o cierre) */
 async function onAuth(event, s) {
   if (!s) { // sesión cerrada
+    notif.items = null; notif.unread = 0; paintBadge();
     pending = null; me = null; resetTeams(); if (state.view === 'community') paintCom(); else if (state.view === 'post') paintPost(); else if (state.view === 'user') paintUser();
     auth.untrackPresence().catch(() => {}); auth.unwatchFriends().catch(() => {});
     refreshModal(); paintFavBtn();
@@ -222,7 +223,7 @@ async function onAuth(event, s) {
       else if (!prof.lang) syncProfile(); // cuenta nueva: se guarda el idioma actual
     }
   } catch { /* se queda con lo local */ }
-  auth.trackPresence().catch(() => {});
+  auth.trackPresence().catch(() => {}); pollNotifs();
   if (!smodal.hidden) closeSettings();
   if (state.view === 'home') renderResults(); else if (inTeams()) paintTeams(); else if (state.view === 'battle') renderBattle();
   paintFavBtn();
@@ -314,13 +315,54 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSetting
 const dockEl = document.getElementById('dock');
 function renderDock() {
   const it = (act, label) => `<button class="dk" data-act="${act}" aria-label="${label}" title="${label}"><span class="ic">${DOCK[act].o}${DOCK[act].f}</span><span class="lb">${label}</span></button>`;
-  dockEl.innerHTML = it('dock-home', t('dockHome')) + it('dock-community', t('dockCommunity')) + it('dock-battle', t('dockBattle')) + it('dock-favs', t('dockFavs')) + it('dock-settings', t('settings'));
+  dockEl.innerHTML = it('dock-home', t('dockHome')) + it('dock-community', t('dockCommunity')) + it('dock-battle', t('dockBattle')) + it('dock-favs', t('dockFavs')) + it('dock-notifs', t('dockNotifs')) + it('dock-settings', t('settings'));
   updateDock();
 }
 function updateDock() {
   const home = state.view === 'home';
-  const on = { 'dock-home': home, 'dock-community': state.view === 'community' || state.view === 'post' || state.view === 'user', 'dock-battle': state.view === 'battle', 'dock-favs': state.view === 'teams' || state.view === 'team', 'dock-settings': !smodal.hidden };
+  const on = { 'dock-home': home, 'dock-community': state.view === 'community' || state.view === 'post' || state.view === 'user', 'dock-battle': state.view === 'battle', 'dock-favs': state.view === 'teams' || state.view === 'team', 'dock-notifs': !smodal.hidden && modalKind === 'notifs', 'dock-settings': !smodal.hidden && modalKind !== 'notifs' };
   dockEl.querySelectorAll('.dk').forEach(b => b.classList.toggle('on', !!on[b.dataset.act]));
+  paintBadge();
+}
+// ───────────── Notificaciones (campana) ─────────────
+const notif = { items: null, unread: 0, loading: false };
+function paintBadge() {
+  const b = dockEl.querySelector('[data-act="dock-notifs"]'); if (!b) return;
+  let d = b.querySelector('.nbadge');
+  if (!notif.unread) { d?.remove(); return; }
+  if (!d) { d = document.createElement('i'); d.className = 'nbadge'; b.append(d); }
+  d.textContent = notif.unread > 9 ? '9+' : String(notif.unread);
+}
+async function pollNotifs() {
+  if (!auth.currentUser() || document.hidden) return;
+  try { const n = await auth.notifUnread(); if (n !== notif.unread) { notif.unread = n; paintBadge(); } } catch { /* sin red */ }
+}
+setInterval(pollNotifs, 45000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) pollNotifs(); });
+const notifText = n => { const u = `<b>${esc(n.username || '?')}</b>`; return t(n.kind === 'like' ? 'notifLike' : n.kind === 'comment' ? 'notifComment' : n.kind === 'friend_request' ? 'notifReq' : 'notifAcc', { u }); };
+function notifsHTML() {
+  const head = `<div class="shead"><button class="iconbtn" data-act="settings-close" aria-label="${t('close')}">${IC.x}</button><h2>${t('notifTitle')}</h2></div>`;
+  const body = !auth.currentUser() ? `<p class="shint">${t('notifLogin')}</p>`
+    : notif.items == null ? `<p class="shint">…</p>`
+    : !notif.items.length ? `<p class="shint">${t('notifEmpty')}</p>`
+    : `<ul class="nlist">${notif.items.map(n => `<li><button class="nitem ${n.fresh ? 'new' : ''}" data-act="notif-go" data-v="${n.id}">${avatarImg(n.avatar, 'sm')}<span class="ntx"><span>${notifText(n)}</span>${n.body ? `<em>“${esc(n.body)}”</em>` : ''}<small>${ago(n.created_at)}</small></span>${n.fresh ? '<i class="ndot"></i>' : ''}</button></li>`).join('')}</ul>`;
+  return `<div class="scard" role="dialog" aria-modal="true" aria-label="${t('notifTitle')}">${head}${body}</div>`;
+}
+async function openNotifs() {
+  if (!smodal.hidden && modalKind === 'notifs') { closeSettings(); return; }
+  notif.items = null; showModal('notifs');
+  if (!auth.currentUser()) return;
+  try {
+    const rows = await auth.notifList();
+    notif.items = rows.map(r => ({ ...r, fresh: !r.read }));
+    if (modalKind === 'notifs' && !smodal.hidden) refreshModal();
+    if (notif.items.some(n => n.fresh)) { notif.unread = 0; paintBadge(); auth.notifMarkRead().catch(() => {}); }
+  } catch { notif.items = []; if (modalKind === 'notifs') refreshModal(); }
+}
+function goNotif(id) {
+  const n = notif.items?.find(x => String(x.id) === String(id)); if (!n) return;
+  closeSettings();
+  location.hash = n.kind === 'like' || n.kind === 'comment' ? `#/community/${n.post_id}` : n.kind === 'friend_request' ? '#/battle' : `#/user/${n.actor_id}`;
 }
 /** Vuelve al buscador con los filtros que se indiquen (el resto se limpia) */
 function goSearch(opts = {}, focus = false) {
@@ -689,6 +731,9 @@ function remember(pid) {
 }
 function applyRestore() { if (state.restoreY != null) { window.scrollTo(0, state.restoreY); state.restoreY = null; } }
 let backFlag = false;
+/** Posición de cada pestaña del dock, para deslizar la página hacia el lado correcto */
+const tabOf = h => (/^#\/(community|user\/)/.test(h) ? 1 : h === '#/battle' ? 2 : /^#\/team/.test(h) ? 3 : (h === '' || h === '#' || h === '#/') ? 0 : null);
+let curTab = null;
 function route() {
   closeSheet();
   closeSettings();
@@ -709,7 +754,11 @@ function route() {
   if (state.view === 'battle' && location.hash !== '#/battle') auth.unwatchFriends().catch(() => {});
   if (sh) renderShared(sh[1], sh[2]); else if (m) renderPokemon(m[1]); else if (d) renderDetailPage(d[1], d[2]); else if (tp) renderTeamPage(tp[1]); else if (um) renderUser(um[1]); else if (cm) renderPost(cm[1]); else if (location.hash === '#/community') renderCommunity(); else if (location.hash === '#/types') renderTypes(); else if (location.hash === '#/teams') renderTeams(); else if (location.hash === '#/battle') renderBattle(); else renderHome();
   updateDock();
-  if (wentBack) { $app.classList.remove('goback'); void $app.offsetWidth; $app.classList.add('goback'); setTimeout(() => $app.classList.remove('goback'), 260); }
+  const tab = tabOf(location.hash), dir = tab != null && curTab != null && tab !== curTab ? (tab > curTab ? 'slide-r' : 'slide-l') : null;
+  curTab = tab;
+  $app.classList.remove('goback', 'slide-r', 'slide-l'); void $app.offsetWidth;
+  if (dir) $app.classList.add(dir); else if (wentBack) $app.classList.add('goback');
+  clearTimeout(route.t); route.t = setTimeout(() => $app.classList.remove('goback', 'slide-r', 'slide-l'), 300);
 }
 
 // ───────────────────────── Inicio ─────────────────────────
@@ -2331,6 +2380,8 @@ document.addEventListener('click', e => {
     case 'com-pk-del': com.pokes = com.pokes.filter(x => x !== v); loadFeed(true); break;
     case 'dock-community': location.hash = '#/community'; break;
     case 'dock-battle': location.hash = '#/battle'; break;
+    case 'dock-notifs': openNotifs(); break;
+    case 'notif-go': goNotif(v); break;
     case 'dock-settings': if (smodal.hidden) openSettings(); else closeSettings(); break;
     case 'settings-close': closeSettings(); break;
     case 'compare': openCompare(); break;

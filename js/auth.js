@@ -269,3 +269,8 @@ export async function communitySearch(q = '', pokes = [], sort = 'new', offset =
   if (error) throw comErr(error);
   return data || [];
 }
+
+// ───────── notificaciones ─────────
+export async function notifList() { const c = await client(); const { data, error } = await c.rpc('my_notifications'); if (error) throw error; return data || []; }
+export async function notifUnread() { const c = await client(); const { data, error } = await c.rpc('notif_unread'); if (error) throw error; return Number(data) || 0; }
+export async function notifMarkRead() { const c = await client(); const { error } = await c.rpc('notif_mark_read'); if (error) throw error; }
