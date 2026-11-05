@@ -33,32 +33,50 @@ const I = {
   search: '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>',
   close: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   star: '<svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.5 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.8l6-.8z"/></svg>',
-  sun: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
-  moon: '<svg viewBox="0 0 24 24"><path d="M20.5 13.2A8.5 8.5 0 1 1 10.8 3.5a6.8 6.8 0 0 0 9.7 9.7z"/></svg>',
+  sun: '<svg viewBox="0 0 24 24"><path d="M8 12a4 4 0 1 0 8 0a4 4 0 1 0 -8 0"/><path d="M3 12h1m8 -9v1m8 8h1m-9 8v1m-6.4 -15.4l.7 .7m12.1 -.7l-.7 .7m0 11.4l.7 .7m-12.1 -.7l-.7 .7"/></svg>',
+  moon: '<svg viewBox="0 0 24 24"><path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454l0 .008"/></svg>',
+  settings: '<svg viewBox="0 0 24 24"><path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065"/><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0"/></svg>',
+  language: '<svg viewBox="0 0 24 24"><path d="M9 6.371c0 4.418 -2.239 6.629 -5 6.629"/><path d="M4 6.371h7"/><path d="M5 9c0 2.144 2.252 3.908 6 4"/><path d="M12 20l4 -9l4 9"/><path d="M19.1 18h-6.2"/><path d="M6.694 3l.793 .582"/></svg>',
+  check: '<svg viewBox="0 0 24 24"><path d="M5 12l5 5l10 -10"/></svg>',
   compare: '<svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
   shuffle: '<svg viewBox="0 0 24 24"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>',
   down: '<svg viewBox="0 0 24 24"><path d="M12 4v15M6 13l6 6 6-6"/></svg>',
   copy: '<svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>',
 };
-const themeIcon = () => (currentTheme() === 'dark' ? I.sun : I.moon);
-const themeBtn = () => `<button class="iconbtn" data-act="theme" aria-label="${t('themeAria')}">${themeIcon()}</button>`;
-const langBtn = () => `<button class="langbtn" data-act="lang" aria-label="${t('langAria')}"><span class="${lang() === 'es' ? 'on' : ''}">ES</span><span class="${lang() === 'en' ? 'on' : ''}">EN</span></button>`;
+/** Botón de ajustes: idioma (con bandera) y tema claro/oscuro en un menú desplegable */
+const FLAG = { es: 'icons/flags/es.svg', en: 'icons/flags/gb.svg' };
+const LANGS = { es: 'Español', en: 'English' };
+const settingsBtn = () => `<div class="settings">
+  <button class="iconbtn" data-act="settings" aria-haspopup="true" aria-expanded="false" aria-label="${t('settings')}">${I.settings}</button>
+  <div class="spanel" role="menu" hidden>
+    <div class="sgroup"><h3>${I.language}${t('language')}</h3>
+      ${['es', 'en'].map(l => `<button class="sopt" role="menuitemradio" data-act="set-lang" data-v="${l}" aria-checked="${lang() === l}"><img class="flag" src="${FLAG[l]}" alt="" width="24" height="18">${LANGS[l]}<span class="ck">${I.check}</span></button>`).join('')}</div>
+    <div class="sgroup"><h3>${currentTheme() === 'dark' ? I.moon : I.sun}${t('theme')}</h3>
+      ${['light', 'dark'].map(m => `<button class="sopt" role="menuitemradio" data-act="set-theme" data-v="${m}" aria-checked="${currentTheme() === m}">${m === 'light' ? I.sun : I.moon}${t(m)}<span class="ck">${I.check}</span></button>`).join('')}</div>
+  </div></div>`;
+function closeSettings() {
+  document.querySelectorAll('.spanel').forEach(p => { p.hidden = true; });
+  document.querySelectorAll('[data-act="settings"]').forEach(b => b.setAttribute('aria-expanded', 'false'));
+}
+document.addEventListener('click', e => { if (!e.target.closest('.settings')) closeSettings(); }, true);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSettings(); });
 
 // ───────────────────────── Tema ─────────────────────────
 function currentTheme() {
   return document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
 }
-function toggleTheme() {
-  const next = currentTheme() === 'dark' ? 'light' : 'dark';
-  document.documentElement.dataset.theme = next;
-  store.set('pk.theme', next);
-  document.querySelectorAll('[data-act="theme"]').forEach(b => { b.innerHTML = themeIcon(); });
+function setTheme(mode) {
+  document.documentElement.dataset.theme = mode;
+  store.set('pk.theme', mode);
+  document.querySelectorAll('[data-act="set-theme"]').forEach(b => b.setAttribute('aria-checked', b.dataset.v === mode));
+  document.querySelectorAll('.sgroup:last-child h3').forEach(h => { h.innerHTML = `${mode === 'dark' ? I.moon : I.sun}${t('theme')}`; });
 }
 
 // ───────────────────────── Idioma ─────────────────────────
 /** Cambia el idioma y vuelve a dibujar la página en la que estás, sin moverte de ella ni de donde ibas del scroll. */
-function switchLang() {
-  setLang(lang() === 'es' ? 'en' : 'es');
+function switchLang(to) {
+  if (to === lang()) return;
+  setLang(to);
   const y = window.scrollY;
   closeSheet();
   if (state.view === 'pokemon' && page && location.hash.endsWith(page.d.id)) {
@@ -147,7 +165,7 @@ const otherName = x => (dn2(x) && dn2(x) !== dn(x) ? `<p class="dim">${t('otherN
 let navDepth = 0; // cuántas navegaciones se han hecho dentro de la web (para que "volver" no mande siempre al inicio)
 const topbarHTML = () => `<div class="topbar">
     <button class="iconbtn" data-act="back" aria-label="${t('backShort')}">${I.back}</button>
-    <div class="right">${langBtn()}${themeBtn()}</div></div>`;
+    <div class="right">${settingsBtn()}</div></div>`;
 const FIRST = 12; // Pokémon que se enseñan antes de "Ver todos"
 const strength = p => tierNum(p.r) || 14; // 1 = más fuerte; LC y NFE cuentan como lo más débil
 
@@ -314,6 +332,7 @@ function natureSheet(id) {
 // ───────────────────────── Router ─────────────────────────
 function route() {
   closeSheet();
+  closeSettings();
   navDepth++;
   if (state.view === 'home') state.scroll = window.scrollY;
   const m = location.hash.match(/^#\/pokemon\/([a-z0-9]+)/);
@@ -328,7 +347,7 @@ const sortLabel = k => (k === 'num' ? t('num') : statName(k));
 function homeHTML() {
   const chip = (attrs, inner, extra = '') => `<button class="chip ${extra}" ${attrs} aria-pressed="false">${inner}</button>`;
   return `
-  <div class="topline">${langBtn()}${themeBtn()}</div>
+  <div class="topline">${settingsBtn()}</div>
   <header class="hero">
     <h1>PokeScanner</h1>
   </header>
@@ -674,10 +693,9 @@ function pokemonHTML() {
     <a class="iconbtn" href="#/" aria-label="${t('back')}">${I.back}</a>
     <div class="right">
       <button class="iconbtn" data-act="fav" aria-pressed="${isFav}" aria-label="${isFav ? t('favRemove') : t('favAdd')}">${I.star}</button>
-      ${langBtn()}${themeBtn()}
+      ${settingsBtn()}
     </div>
   </div>
-  <button class="compare-btn" data-act="compare">${I.compare}${t('compare')}</button>
   <section class="phero" aria-label="${esc(pname(d))}">
     ${pokeImg({ sp: d.sp, ss: d.ss }, 'art', 'art', 300).replace('loading="lazy"', 'fetchpriority="high"')}
     <span class="num">${dexNum(d.num)}</span>
@@ -690,7 +708,8 @@ function pokemonHTML() {
   </section>
 
   ${d.g ? oldNote(d) : ''}
-  <section class="sec"><h2>${t('baseStats')}</h2><div id="stats">${statsHTML(d.s)}</div></section>
+  <section class="sec"><h2>${t('baseStats')}</h2><div id="stats">${statsHTML(d.s)}</div>
+    <button class="compare-btn" data-act="compare">${I.compare}${t('compare')}</button></section>
 
   <section class="sec"><h2>${t('buildTitle')} <small>Smogon</small></h2><div id="build">${buildHTML()}</div></section>
 
@@ -708,7 +727,7 @@ async function renderPokemon(id) {
   state.view = 'pokemon';
   const p = BYID.get(id);
   if (!p) {
-    $app.innerHTML = `<div class="topbar"><a class="iconbtn" href="#/" aria-label="${t('backShort')}">${I.back}</a><div class="right">${langBtn()}${themeBtn()}</div></div>
+    $app.innerHTML = `<div class="topbar"><a class="iconbtn" href="#/" aria-label="${t('backShort')}">${I.back}</a><div class="right">${settingsBtn()}</div></div>
       <div class="empty"><b>${t('notFound')}</b>${t('notFoundHint')}</div>`;
     return;
   }
@@ -788,8 +807,9 @@ document.addEventListener('click', e => {
   if (!el) return;
   const v = el.dataset.v;
   switch (el.dataset.act) {
-    case 'theme': toggleTheme(); break;
-    case 'lang': switchLang(); break;
+    case 'settings': { const p = el.parentElement.querySelector('.spanel'), open = p.hidden; closeSettings(); p.hidden = !open; el.setAttribute('aria-expanded', String(open)); break; }
+    case 'set-theme': setTheme(v); break;
+    case 'set-lang': switchLang(v); break;
     case 'filters-toggle': state.filtersOpen = !state.filtersOpen; syncFilters(); break;
     case 'close': closeSheet(); break;
     case 'back': if (navDepth > 1) history.back(); else location.hash = '#/'; break;
