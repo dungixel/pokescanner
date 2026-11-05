@@ -1416,7 +1416,7 @@ function onEditorInput(e) {
 
 
 // ───────────────────────── Comunidad ─────────────────────────
-const com = { sort: 'new', items: [], more: false, loading: false, err: false, post: null, comments: [], full: null, confirm: null, busy: false, msg: '' };
+const com = { q: '', pokes: [], sort: 'new', items: [], more: false, loading: false, err: false, post: null, comments: [], full: null, confirm: null, busy: false, msg: '' };
 let curPostId = null, pubCtx = null;
 const PAGE = 20;
 const ago = iso => {
@@ -1448,18 +1448,29 @@ function postCardHTML(x) {
 function communityHTML() {
   const sortBtn = (k, lbl) => `<button class="chip" data-act="com-sort" data-v="${k}" aria-pressed="${com.sort === k}">${t(lbl)}</button>`;
   const list = com.items.length ? com.items.map(postCardHTML).join('')
-    : com.loading ? '' : com.err ? `<div class="empty"><b>${t('comLoadFail')}</b></div>` : `<div class="empty"><b>${t('comEmpty')}</b>${t('comEmptyHint')}</div>`;
+    : com.loading ? '' : com.err ? `<div class="empty"><b>${t('comLoadFail')}</b></div>` : (com.q.trim() || com.pokes.length) ? `<div class="empty"><b>${t('comNoMatch')}</b></div>` : `<div class="empty"><b>${t('comEmpty')}</b>${t('comEmptyHint')}</div>`;
+  const pkChips = com.pokes.map(id => BYID.get(id)).filter(Boolean).map(p => `<button class="chip pkf" data-act="com-pk-del" data-v="${p.id}" aria-label="${t('edRemove')}">${pokeImg(p, 'small', 'thumb')}${esc(pname(p))}<span class="x">${IC.x}</span></button>`).join('');
   return `<header class="hero"><h1>${t('comTitle')}</h1><p>${t('comLead')}</p></header>
+    <div class="searchbar"><div class="search ${com.q ? 'filled' : ''}">${I.search}<input id="com-q" type="search" inputmode="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${t('comSearchPh')}" value="${esc(com.q)}" aria-label="${t('comSearchPh')}"></div></div>
+    <div class="comfilters">${pkChips}${com.pokes.length < 3 ? `<button class="chip" data-act="com-pk-add">${IC.plus}${t('comFilterPoke')}</button>` : ''}</div>
     <div class="comtools"><div class="comsort">${sortBtn('new', 'comNew')}${sortBtn('top', 'comTop')}</div><span class="comtools-r">${auth.isAdmin() ? `<button class="chip" data-act="adm-bans">${t('admBans')}</button>` : ''}<button class="chip accent" data-act="com-publish">${IC.plus}${t('comPublish')}</button></span></div>
     <div class="cfeed">${list}</div>
     ${com.more ? `<div class="ctarow"><button class="chip" data-act="com-more" ${com.loading ? 'disabled' : ''}>${t('comMore')}</button></div>` : ''}`;
 }
 function paintCom() {
   const root = $('#com-root'); if (!root) return;
-  const y = window.scrollY;
+  const y = window.scrollY, q = $('#com-q'), had = q && document.activeElement === q, pos = q?.selectionStart;
   root.innerHTML = communityHTML();
+  if (had) { const n = $('#com-q'); n.focus({ preventScroll: true }); try { n.setSelectionRange(pos, pos); } catch { /* sin selección */ } }
   window.scrollTo(0, y);
 }
+let comT = 0;
+document.addEventListener('input', e => {
+  if (e.target.id !== 'com-q') return;
+  com.q = e.target.value;
+  e.target.closest('.search')?.classList.toggle('filled', !!com.q);
+  clearTimeout(comT); comT = setTimeout(() => loadFeed(true), 350);
+});
 async function loadFeed(reset) {
   if (com.loading && !reset) return;
   const seq = com.seq = (com.seq || 0) + 1; // si se pide otra vez (p. ej. al terminar de iniciar sesión) solo vale la última respuesta
@@ -1467,7 +1478,7 @@ async function loadFeed(reset) {
   if (reset) { com.items = []; com.more = false; }
   paintCom();
   try {
-    const rows = await auth.communityFeed(com.sort, com.items.length, PAGE);
+    const rows = await auth.communitySearch(com.q.trim(), com.pokes, com.sort, com.items.length, PAGE);
     if (seq !== com.seq) return;
     com.items = com.items.concat(rows.filter(r => !com.items.some(x => String(x.id) === String(r.id))));
     com.more = rows.length === PAGE;
@@ -2250,6 +2261,7 @@ document.addEventListener('click', e => {
     case 'team-remove': if (teamsSel.open >= 0) toggleInTeam(teamsSel.open, v); break;
     case 'pk-pick':
       if (pickCtx?.mode === 'avatar') setAvatar(BYID.get(v).num);
+      else if (pickCtx?.mode === 'comfilter') { if (!com.pokes.includes(v) && com.pokes.length < 3) com.pokes.push(v); closeSettings(); if (state.view === 'community') loadFeed(true); }
       else if (pickCtx?.mode === 'team') {
         toggleInTeam(pickCtx.slot, v);
         if (teams[pickCtx.slot].members.length >= MAXTEAM) closeSettings();
@@ -2295,6 +2307,8 @@ document.addEventListener('click', e => {
     case 'u-team-cmp': { const r = (usr.teams || []).find(x => x.slot === Number(v)); const ms = (r?.members || []).filter(m => BYID.has(m.id)); if (ms.length) { bt.link = { name: r.name || usr.prof?.username, custom: true, members: ms }; bt.b = { owner: 'link', slot: 0 }; bt.res = null; bt.cmpMsg = ''; location.hash = '#/battle'; } break; }
     case 'adm-bans': openBans(); break;
     case 'adm-unban': auth.adminUnban(v).then(() => auth.adminBans()).then(b => { usr.bans = b; refreshModal(); if (state.view === 'user' && usr.prof && usr.id === v) { usr.prof.banned = false; paintUser(); } }).catch(() => toast(t('syncFail'))); break;
+    case 'com-pk-add': openPicker({ mode: 'comfilter' }); break;
+    case 'com-pk-del': com.pokes = com.pokes.filter(x => x !== v); loadFeed(true); break;
     case 'dock-community': location.hash = '#/community'; break;
     case 'dock-battle': location.hash = '#/battle'; break;
     case 'dock-settings': if (smodal.hidden) openSettings(); else closeSettings(); break;

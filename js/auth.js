@@ -263,3 +263,9 @@ export async function adminPurge(id) {
   const a = await c.from('posts').delete().eq('user_id', id); if (a.error) throw comErr(a.error);
   const b = await c.from('post_comments').delete().eq('user_id', id); if (b.error) throw comErr(b.error);
 }
+export async function communitySearch(q = '', pokes = [], sort = 'new', offset = 0, limit = 20) {
+  const c = await client(); await c.auth.getSession();
+  const { data, error } = await c.rpc('community_search', { p_q: q, p_pokes: pokes, p_sort: sort, p_offset: offset, p_limit: limit });
+  if (error) throw comErr(error);
+  return data || [];
+}
