@@ -113,6 +113,14 @@ function loginHTML() {
 }
 const modalHTML = () => (modalKind === 'login' ? loginHTML() : modalKind === 'bans' ? bansModalHTML() : modalKind === 'sd' ? sdModalHTML() : modalKind === 'notifs' ? notifsHTML() : modalKind === 'publish' ? publishModalHTML() : modalKind === 'saveteam' ? saveTeamHTML() : modalKind === 'teampick' ? teamPickHTML() : modalKind === 'picker' ? pickerHTML() : settingsHTML());
 const refreshModal = () => { if (!smodal.hidden) smodal.innerHTML = modalHTML(); };
+/** Confirmación genérica antes de eliminar algo (diálogo propio: queda por encima de cualquier otra ventana) */
+function askConfirm(text, okLabel, fn) {
+  let dlg = $('#cfm');
+  if (!dlg) { dlg = document.createElement('dialog'); dlg.id = 'cfm'; dlg.className = 'cfm'; document.body.appendChild(dlg); }
+  dlg.innerHTML = `<div class="cfmbox" role="alertdialog" aria-label="${esc(text)}"><p>${esc(text)}</p><div class="cfmbtns"><button class="chip" data-cfm="0" autofocus>${t('comCancel')}</button><button class="chip danger" data-cfm="1">${esc(okLabel)}</button></div></div>`;
+  dlg.onclick = e => { const b = e.target.closest('[data-cfm]'); if (!b && e.target !== dlg) return; dlg.close(); if (b?.dataset.cfm === '1') fn(); };
+  dlg.showModal();
+}
 function showModal(kind) {
   modalKind = kind;
   smodal.innerHTML = modalHTML();
@@ -150,9 +158,12 @@ const resetTeams = () => { teams = Array.from({ length: SLOTS }, () => ({ name: 
 const avatarImg = (n, cls = '') => `<img class="av ${cls}" src="${SPR}/pokemon/${Number(n) || 25}.png" alt="" width="64" height="64" loading="lazy" decoding="async">`;
 const miniPoke = id => (BYID.get(id) ? pokeImg(BYID.get(id), 'small', 'mini') : '');
 
+/** miembro que representa la ficha abierta: el Pokémon tal cual o, en una ficha personalizada, su build editada */
+const pageMember = () => (page?.bm ? { id: page.d.id, ...(page.bm.s != null ? { s: page.bm.s } : {}), b: page.bm.b } : { id: page.d.id });
 function paintFavBtn() {
   const b = $('.favbtn'); if (!b || !page?.d) return;
-  const on = favs.has(page.d.id);
+  const pm = pageMember();
+  const on = teams.some(tm => tm.members.some(m => (page.bm ? sameM(m, pm) : m.id === pm.id)));
   b.setAttribute('aria-pressed', on); b.innerHTML = favBtnInner(on);
 }
 const saveTimers = {};
@@ -169,11 +180,11 @@ function afterTeamsChange() {
   document.querySelectorAll('.favn').forEach(n => { n.textContent = favs.size ? `(${favs.size})` : ''; });
 }
 /** Mete o saca un Pokémon de un equipo. Devuelve true si cambió algo */
-function toggleInTeam(slot, id) {
-  const tm = teams[slot];
-  const k = tm.members.findIndex(m => m.id === id);
+function toggleInTeam(slot, id, mem = null) {
+  const tm = teams[slot], want = mem || { id };
+  const k = tm.members.findIndex(m => (mem ? sameM(m, want) : m.id === id));
   if (k >= 0) tm.members.splice(k, 1);
-  else { if (tm.members.length >= MAXTEAM) { toast(t('teamFull')); return false; } tm.members.push({ id }); }
+  else { if (tm.members.length >= MAXTEAM) { toast(t('teamFull')); return false; } tm.members.push({ ...want }); }
   saveSlot(slot); afterTeamsChange();
   return true;
 }
@@ -236,7 +247,7 @@ async function onAuth(event, s) {
   if (state.view === 'community') loadFeed(true); else if (state.view === 'post') renderPost(curPostId); else if (state.view === 'user') renderUser(usr.id);
   if (wanted?.type === 'favs') location.hash = '#/teams';
   else if (wanted?.type === 'community') location.hash = wanted.hash || '#/community';
-  else if (wanted?.type === 'fav' && BYID.has(wanted.id)) openTeamPick(wanted.id);
+  else if (wanted?.type === 'fav' && BYID.has(wanted.id)) openTeamPick(wanted.id, wanted.m);
   else if (wanted?.type === 'saveteam' && wanted.ids?.length) openSaveTeam({ name: wanted.name, ids: wanted.ids });
 }
 // la presencia solo cuenta mientras la pestaña está a la vista
@@ -247,8 +258,10 @@ document.addEventListener('visibilitychange', () => {
 
 // ───────────────────────── Ventanas: elegir equipo y buscador de Pokémon ─────────────────────────
 let pickId = null;     // Pokémon que se está guardando
+let pickM = null;      // miembro concreto a guardar ({id, s?, b?}); una ficha personalizada guarda su versión
+const sameM = (a, b) => a.id === b.id && (a.s ?? null) === (b.s ?? null) && JSON.stringify(a.b || null) === JSON.stringify(b.b || null);
 let pickCtx = null;    // { mode: 'team', slot } | { mode: 'avatar' }
-const openTeamPick = id => { pickId = id; showModal('teampick'); };
+const openTeamPick = (id, m = null) => { pickId = id; pickM = m || { id }; showModal('teampick'); };
 // guardar en mis equipos un equipo que no es mío (compartido, de un amigo o de ejemplo)
 let saveCtx = null;
 const openSaveTeam = ctx => {
@@ -284,7 +297,7 @@ function teamPickHTML() {
     <div class="shead"><button class="iconbtn" data-act="settings-close" aria-label="${t('close')}">${IC.x}</button><h2>${t('pickTeamTitle')}</h2></div>
     <p class="shint">${t('pickTeamText', { name: esc(pname(p)) })}</p>
     <div class="slotlist">${teams.map((tm, i) => {
-      const has = tm.members.some(m => m.id === pickId), full = tm.members.length >= MAXTEAM && !has;
+      const has = tm.members.some(m => sameM(m, pickM)), full = tm.members.length >= MAXTEAM && !has;
       return `<button class="slotopt ${has ? 'on' : ''}" data-act="team-toggle" data-v="${i}" ${full ? 'disabled' : ''}>
         <span class="sn">${i + 1}</span>
         <span class="sname"><b>${full ? `<span class="fulltag">${t('fullTag')}</span> ` : ''}${esc(teamName(i))}</b><span class="minis">${tm.members.map(m => miniPoke(m.id)).join('') || `<small>${t('teamEmpty')}</small>`}</span></span>
@@ -1096,9 +1109,14 @@ function renderHome() {
 }
 
 // ───────────────────────── Ficha ─────────────────────────
-function statsHTML(s) {
-  const rows = STATS.map((k, i) => `<div class="stat"><span class="k">${statName(k)}</span><span class="v">${s[i]}</span>
-    <div class="bar"><i style="--w:${Math.min(100, s[i] / 255 * 100).toFixed(1)}%;--bc:${statColor(s[i])};--i:${i}"></i></div></div>`).join('');
+/** `delta`: cambio de cada stat final (Nv. 100) respecto a la build recomendada; se dibuja como una barrita fina superpuesta (2 puntos finales ≈ 1 punto base) */
+function statsHTML(s, delta = null) {
+  const rows = STATS.map((k, i) => {
+    const d = delta?.[i] || 0, f = Math.min(100, s[i] / 255 * 100), w = Math.min(100, Math.max(1.6, Math.abs(d) / 2 / 255 * 100));
+    const ov = d ? `<u class="${d > 0 ? 'up' : 'dn'}" style="--l:${(d > 0 ? Math.min(f, 100 - w) : Math.max(0, f - w)).toFixed(1)}%;--w:${w.toFixed(1)}%" title="${d > 0 ? '+' : '−'}${Math.abs(d)}"></u>` : '';
+    return `<div class="stat"><span class="k">${statName(k)}</span><span class="v">${s[i]}</span>
+    <div class="bar"><i style="--w:${f.toFixed(1)}%;--bc:${statColor(s[i])};--i:${i}"></i>${ov}</div></div>`;
+  }).join('');
   return `<div class="stats">${rows}<div class="stat total"><span class="k">${t('total')}</span><span class="v">${bst(s)}</span><div class="bar"></div></div></div>`;
 }
 
@@ -1304,23 +1322,32 @@ const artImg = d => {
 };
 
 function customBuildHTML() {
-  const { d, cur } = page;
+  const { d, cur, base } = page;
   const st = finalStats(d.s, cur.e, cur.v, cur.n, DICT.natures);
-  const evs = cur.e.map((v, i) => (v ? `<span class="ev"><b>${v}</b> ${statName(EDK[i])}</span>` : '')).join('');
-  const ivs = cur.v.some(v => v !== 31) ? cur.v.map((v, i) => (v !== 31 ? `<span class="ev"><b>${v}</b> ${statName(EDK[i])}</span>` : '')).join('') : '';
+  const same = (x, y) => JSON.stringify(x) === JSON.stringify(y);
+  const chg = c => (c ? ` <span class="chgtag">${t('changedTag')}</span>` : '');
+  const was = h => `<p class="was">${t('recommended')}: ${h}</p>`;
+  const nm = (map, id, none) => (id && map[id] ? esc(dn(map[id])) : none);
+  const evTxt = e => e.map((v, i) => (v ? `${v} ${statName(EDK[i])}` : '')).filter(Boolean).join(' / ') || '—';
+  const ivBase = cur.v.map((v, i) => (v !== 31 ? `<span class="ev"><b>${v}</b> ${statName(EDK[i])}</span>` : '')).join('');
+  const evs = cur.e.map((v, i) => (v ? `<span class="ev ${v !== base.e[i] ? 'chg' : ''}"><b>${v}</b> ${statName(EDK[i])}</span>` : '')).join('');
+  const mC = !same([...cur.m].sort(), [...base.m].sort()), aC = cur.a !== base.a, iC = cur.i !== base.i, nC = cur.n !== base.n, eC = !same(cur.e, base.e), vC = !same(cur.v, base.v);
+  const any = mC || aC || iC || nC || eC || vC;
+  const natTxt = id => { const n = DICT.natures[id]; return n ? `${esc(dn(n))}${n.plus ? ` <small>+${statName(n.plus)} −${statName(n.minus)}</small>` : ''}` : '—'; };
   return `<section class="sec"><h2>${t('customBuild')}</h2><div class="build">
-    <div><h3>${t('moves')}</h3><ul class="slots">${cur.m.filter(Boolean).map(id => `<li class="slot">${chipMove(id)}</li>`).join('')}</ul></div>
-    <div><h3>${t('ability')}</h3><div class="chips">${chipAbility(cur.a)}</div></div>
-    ${cur.i ? `<div><h3>${t('item')}</h3><div class="chips">${chipItem(cur.i)}</div></div>` : ''}
-    <div><h3>${t('nature')}</h3><div class="chips">${chipNature(cur.n)}</div></div>
-    ${evs ? `<div><h3>EVs</h3><div class="evs">${evs}</div></div>` : ''}
-    ${ivs ? `<div><h3>IVs</h3><div class="evs">${ivs}</div></div>` : ''}
-    <div><h3>${t('customFinal')}</h3><div class="fstats">${st.map((v, i) => `<div><small>${statName(EDK[i])}</small><b>${v}</b></div>`).join('')}</div></div>
+    <p class="cbsum ${any ? '' : 'ok'}">${any ? (n => t(n === 1 ? 'customOne' : 'customSome', { n }))([mC, aC, iC, nC, eC, vC].filter(Boolean).length) : t('customNone')}</p>
+    <div><h3>${t('moves')}${chg(mC)}</h3><ul class="slots">${cur.m.filter(Boolean).map(id => `<li class="slot ${base.m.includes(id) ? '' : 'chg'}">${chipMove(id)}${base.m.includes(id) ? '' : `<span class="newtag">${t('newTag')}</span>`}</li>`).join('')}</ul>${mC ? was(base.m.filter(id => DICT.moves[id]).map(id => esc(dn(DICT.moves[id]))).join(', ') || '—') : ''}</div>
+    <div><h3>${t('ability')}${chg(aC)}</h3><div class="chips">${chipAbility(cur.a)}</div>${aC ? was(nm(DICT.abilities, base.a, '—')) : ''}</div>
+    ${cur.i || iC ? `<div><h3>${t('item')}${chg(iC)}</h3><div class="chips">${cur.i ? chipItem(cur.i) : `<span class="dim">${t('noItem')}</span>`}</div>${iC ? was(nm(DICT.items, base.i, t('noItem'))) : ''}</div>` : ''}
+    <div><h3>${t('nature')}${chg(nC)}</h3><div class="chips">${chipNature(cur.n)}</div>${nC ? was(natTxt(base.n)) : ''}</div>
+    ${evs || eC ? `<div><h3>EVs${chg(eC)}</h3><div class="evs">${evs || '—'}</div>${eC ? was(evTxt(base.e)) : ''}</div>` : ''}
+    ${ivBase || vC ? `<div><h3>IVs${chg(vC)}</h3><div class="evs">${ivBase || '—'}</div>${vC ? was(evTxt(base.v.map(v => (v !== 31 ? v : 0)))) : ''}</div>` : ''}
+    <div><h3>${t('customFinal')}</h3><div class="fstats">${st.map((v, i) => { const dl = page.delta?.[i] || 0; return `<div><small>${statName(EDK[i])}</small><b>${v}</b>${dl ? `<em class="${dl > 0 ? 'up' : 'dn'}">${dl > 0 ? '+' : '−'}${Math.abs(dl)}</em>` : '<em></em>'}</div>`; }).join('')}</div></div>
   </div></section>`;
 }
 function pokemonHTML() {
   const { d } = page;
-  const isFav = favs.has(d.id);
+  const pm0 = pageMember(), isFav = teams.some(tm => tm.members.some(m => (page.bm ? sameM(m, pm0) : m.id === d.id)));
   const same = d.es === d.en;
   const abilities = d.ab.map(a => `<button class="chip" data-act="ability" data-v="${a.id}">${esc(dn(DICT.abilities[a.id]))}${a.h ? ` <small>${t('hidden')}</small>` : ''}</button>`).join('');
   return `
@@ -1336,11 +1363,12 @@ function pokemonHTML() {
       ${d.g ? `<small>· ${t('gen', { g: d.g })}</small>` : ''}${d.dr ? `<small>· ${t('doubles', { r: esc(tierLabel(d.dr)) })}</small>` : ''}</div>
     <div class="facts">${d.h != null ? `<button data-act="size-go" data-v="h">${t('height')} <b>${fmtNum(d.h)} m</b></button>` : ''}${d.w != null ? `<button data-act="size-go" data-v="w">${t('weight')} <b>${fmtNum(d.w)} kg</b></button>` : ''}</div>
   </section>
+  ${page.cur ? `<a class="origbtn" href="#/pokemon/${d.id}">${t('viewOriginal')}</a>` : ''}
   <button class="favbtn" data-act="fav" aria-pressed="${isFav}">${favBtnInner(isFav)}</button>
 
   ${d.g ? oldNote(d) : ''}
   ${page.cur ? customBuildHTML() : ''}
-  <section class="sec"><h2>${t('baseStats')}</h2><div id="stats">${statsHTML(d.s)}</div>
+  <section class="sec"><h2>${t('baseStats')}</h2><div id="stats">${statsHTML(d.s, page.delta)}</div>${page.delta?.some(Boolean) ? `<p class="dnote"><span class="dsw"></span>${t('deltaNote')}</p>` : ''}
     <button class="compare-btn" data-act="compare">${I.compare}${t('compare')}</button>
     <a class="compare-btn" href="#/calc?a=${d.id}">${CALCIC}${t('calcFrom')}</a></section>
 
@@ -1381,7 +1409,10 @@ async function renderPokemon(id) {
       const b = JSON.parse(decodeURIComponent(bm[1])), E = await getEditor(); mergeEditor(DICT, E);
       if (state.view !== 'pokemon' || !location.hash.startsWith(`#/pokemon/${id}`)) return;
       const { s: si, ...bb } = b;
-      page.cur = currentBuild(baseBuild(d, { id, s: si }, DICT, E), bb);
+      page.base = baseBuild(d, { id, s: si }, DICT, E);
+      page.cur = currentBuild(page.base, bb);
+      page.delta = finalStats(d.s, page.cur.e, page.cur.v, page.cur.n, DICT.natures).map((x, i) => x - finalStats(d.s, page.base.e, page.base.v, page.base.n, DICT.natures)[i]);
+      page.bm = { s: si, b: Object.keys(bb).length ? bb : undefined };
       page.mod = page.mod || Object.keys(bb).some(k => k !== 'sh'); page.shiny = !!bb.sh;
     } catch { /* enlace con build ilegible: se enseña la ficha normal */ }
   }
@@ -1826,7 +1857,7 @@ function postCardHTML(x) {
     </button>
     <div class="cscore">${scoreBadge(x.members)}</div>
     <div class="cacts"><button class="cact like ${x.liked ? 'on' : ''}" data-act="com-like" data-v="${x.id}" aria-pressed="${!!x.liked}" aria-label="${t('comLike')}">${heart(x.liked)}<span>${x.likes}</span></button>
-      <button class="cact" data-act="com-open" data-v="${x.id}" aria-label="${t('comComments')}">${bubble}<span>${x.comments}</span></button><span class="grow"></span>${delBtns(x)}</div>
+      <button class="cact" data-act="com-open" data-v="${x.id}" data-c="1" aria-label="${t('comComments')}">${bubble}<span>${x.comments}</span></button><span class="grow"></span>${delBtns(x)}</div>
   </article>`;
 }
 const FILTIC = '<svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>';
@@ -1979,7 +2010,10 @@ async function renderPost(id) {
       com.full = await Promise.all((com.post.members || []).filter(m => BYID.has(m.id)).map(async m => { const d = await getPokemon(m.id); return { m, d, cur: currentBuild(baseBuild(d, m, dict, E), m.b) }; }));
     }
   } catch { com.post = null; com.err = true; }
-  if (String(curPostId) === String(id) && state.view === 'post') paintPost();
+  if (String(curPostId) === String(id) && state.view === 'post') {
+    paintPost();
+    if (/[?&]c=1\b/.test(location.hash)) requestAnimationFrame(() => $('#post-comments')?.scrollIntoView({ block: 'start' }));
+  }
 }
 function buildCardHTML({ m, d, cur }) {
   const it = DICT.items[cur.i], ab = d.ab.find(a => a.id === cur.a), nat = DICT.natures[cur.n];
@@ -2009,7 +2043,7 @@ function postHTML() {
     <div class="sharedacts"><button class="chip accent" data-act="com-save">${IC.star}${t('comSave')}</button><button class="chip" data-act="com-compare">${IC.battle}${t('comCompare')}</button></div>
     <div class="cbuilds">${(com.full || []).map(buildCardHTML).join('')}</div>
     ${(ps => (ps.length >= 3 ? teamHTML(ps, true) : ''))((x.members || []).map(m => BYID.get(m.id)).filter(Boolean))}
-    <section class="sec"><h2>${t('comComments')} <small>${com.comments.length}</small></h2>
+    <section class="sec" id="post-comments"><h2>${t('comComments')} <small>${com.comments.length}</small></h2>
       ${form}
       <ul class="ccms">${com.comments.length ? com.comments.map(commentHTML).join('') : `<li class="dim">${t('comNoComments')}</li>`}</ul></section>`;
 }
@@ -2599,12 +2633,13 @@ document.addEventListener('click', e => {
     case 'ed-back': ed.pick = null; paintEditor(false); break;
     case 'ed-set': {
       const { pick, cur } = ed;
+      if (v === '-' && !el.dataset.ok) { askConfirm(t('cfmMove'), t('cfmRemove'), () => { el.dataset.ok = '1'; el.click(); }); break; }
       if (pick === 'ability') cur.a = v; else if (pick === 'nature') cur.n = v; else if (pick === 'item') cur.i = v;
       else { const s = Number(pick.slice(1)); if (v === '-') cur.m.splice(s, 1); else if (cur.m.length > s) cur.m[s] = v; else cur.m.push(v); }
       ed.pick = null; persistEditor(); paintEditor(false); break;
     }
     case 'ed-shiny': ed.cur.sh = !ed.cur.sh; persistEditor(); paintEditor(); break;
-    case 'ed-opt': { const keep = ed.cur.sh; ed.cur = { ...currentBuild(ed.base, null), sh: keep }; persistEditor(); paintEditor(); toast(t('edReset')); break; }
+    case 'ed-opt': askConfirm(t('cfmReset'), t('cfmResetBtn'), () => { const keep = ed.cur.sh; ed.cur = { ...currentBuild(ed.base, null), sh: keep }; persistEditor(); paintEditor(); toast(t('edReset')); }); break;
     case 'team-menu': bt.menu = bt.menu === v ? null : v; paintBattle(); if (bt.menu) $('.tmenu')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); break;
     case 'team-pick': { const k = v.lastIndexOf(':'), side = el.dataset.side; bt[side] = { owner: v.slice(0, k), slot: Number(v.slice(k + 1)) }; { const mt = bt[side].owner === 'meta' ? metaTeam(bt[side].slot) : null; if (mt) bt.mode = mt.fmt; } bt.menu = null; bt.res = null; bt.cmpMsg = ''; paintBattle(); break; }
     case 'settings': { const p = el.parentElement.querySelector('.spanel'), open = p.hidden; closeSettings(); p.hidden = !open; el.setAttribute('aria-expanded', String(open)); break; }
@@ -2646,7 +2681,7 @@ document.addEventListener('click', e => {
     case 'sd-copy': copyText($('#sd-text')?.value || sd.text); break;
     case 'sd-run': runShowdownImport(); break;
     case 'off-download': offlineDownload(); break;
-    case 'off-clear': offlineClear(); break;
+    case 'off-clear': askConfirm(t('cfmOffline'), t('cfmRemove'), offlineClear); break;
     case 'off-install': { const pr = off.prompt; off.prompt = null; pr?.prompt?.(); refreshModal(); break; }
     case 'com-ftoggle': com.fopen = !com.fopen; paintCom(); break;
     case 'com-type': com.types = com.types.includes(v) ? com.types.filter(x => x !== v) : [...com.types, v]; com.auto = 0; paintCom(); if (com.more && comVisible().length < 6) loadFeed(false); break;
@@ -2674,11 +2709,12 @@ document.addEventListener('click', e => {
       $('.phero .art').classList.add('swap-in');
       break;
     }
-    case 'fav': if (requireLogin({ type: 'fav', id: page.d.id })) openTeamPick(page.d.id); break;
+    case 'fav': { const m = pageMember(); if (requireLogin({ type: 'fav', id: page.d.id, m })) openTeamPick(page.d.id, m); break; }
     case 'login-open': openLogin({ type: v }); break;
     case 'team-toggle': {
-      const i = Number(v), had = teams[i].members.some(m => m.id === pickId), p = BYID.get(pickId);
-      if (toggleInTeam(i, pickId)) { closeSettings(); toast(t(had ? 'removedFrom' : 'addedTo', { name: pname(p), team: teamName(i) })); }
+      const i = Number(v), had = teams[i].members.some(m => sameM(m, pickM)), p = BYID.get(pickId);
+      const go = () => { if (toggleInTeam(i, pickId, pickM)) { closeSettings(); toast(t(had ? 'removedFrom' : 'addedTo', { name: pname(p), team: teamName(i) })); } };
+      if (had) askConfirm(t('cfmRemovePoke', { name: pname(p), team: teamName(i) }), t('cfmRemove'), go); else go();
       break;
     }
     case 'slot-go': location.hash = `#/team/${v}`; break;
@@ -2702,7 +2738,7 @@ document.addEventListener('click', e => {
     case 'shared-share': if (bt.link) shareTeam(bt.link.members.map(m => m.id), bt.link.custom ? bt.link.name : ''); break;
     case 'shared-compare': bt.b = { owner: 'link', slot: 0 }; bt.res = null; bt.cmpMsg = ''; location.hash = '#/battle'; break;
     case 'save-side': { const sel = bt[v], tm = teamOf(sel); if (tm?.members.length) openSaveTeam({ name: tm.name, ids: tm.members.map(m => m.id) }); break; }
-    case 'team-remove': if (teamsSel.open >= 0) toggleInTeam(teamsSel.open, v); break;
+    case 'team-remove': if (teamsSel.open >= 0) { const i = teamsSel.open; askConfirm(t('cfmRemovePoke', { name: pname(BYID.get(v)), team: teamName(i) }), t('cfmRemove'), () => toggleInTeam(i, v)); } break;
     case 'pk-pick':
       if (pickCtx?.mode === 'avatar') setAvatar(BYID.get(v).num);
       else if (pickCtx?.mode === 'calc') { calc[pickCtx.side] = { id: v }; calc.boosts[pickCtx.side] = ZB(); calc.ua = calc.ud = null; closeSettings(); paintCalc(); loadCalcUnits(); }
@@ -2717,8 +2753,8 @@ document.addEventListener('click', e => {
     case 'un-save': saveUsername(); break;
     case 'friend-add': addFriend(); break;
     case 'friend-accept': auth.respondFriend(v, true).then(() => refreshFriends()).then(() => { paintBattle(); watchBattle(); }).catch(() => toast(t('syncFail'))); break;
-    case 'friend-decline': auth.respondFriend(v, false).then(() => auth.removeFriend(v)).catch(() => {}).then(() => refreshFriends()).then(() => { paintBattle(); watchBattle(); }); break;
-    case 'friend-remove': auth.removeFriend(v).then(() => refreshFriends()).then(() => { if (bt.b.owner === v) bt.b = { owner: 'me', slot: 1 }; bt.res = null; paintBattle(); watchBattle(); }).catch(() => toast(t('syncFail'))); break;
+    case 'friend-decline': askConfirm(t('cfmDecline'), t('decline'), () => auth.respondFriend(v, false).then(() => auth.removeFriend(v)).catch(() => {}).then(() => refreshFriends()).then(() => { paintBattle(); watchBattle(); })); break;
+    case 'friend-remove': askConfirm(t('cfmFriend'), t('cfmRemove'), () => { auth.removeFriend(v).then(() => refreshFriends()).then(() => { if (bt.b.owner === v) bt.b = { owner: 'me', slot: 1 }; bt.res = null; paintBattle(); watchBattle(); }).catch(() => toast(t('syncFail')));; }); break;
     case 'compare': runCompare(); break;
     case 'bt-mode': if (!bt.busy && bt.mode !== v) { bt.mode = v; bt.cmpMsg = ''; paintBattle(); } break;
     case 'bt-plan': bt.planSide = v; paintBattle(); break;
@@ -2730,7 +2766,7 @@ document.addEventListener('click', e => {
     case 'dock-favs': if (requireLogin({ type: 'favs' })) location.hash = '#/teams'; break;
     case 'com-sort': if (com.sort !== v) { com.sort = v; loadFeed(true); } break;
     case 'com-more': loadFeed(false); break;
-    case 'com-open': location.hash = `#/community/${v}`; break;
+    case 'com-open': location.hash = `#/community/${v}${el.dataset.c ? '?c=1' : ''}`; break;
     case 'com-like': likePost(v); break;
     case 'com-del': com.confirm = v; repaintCom(); break;
     case 'com-del-no': com.confirm = null; repaintCom(); break;
@@ -2740,11 +2776,16 @@ document.addEventListener('click', e => {
     case 'pub-go': doPublish(); break;
     case 'com-login': openLogin({ type: 'community', hash: location.hash }); break;
     case 'com-send': sendComment(); break;
-    case 'com-cdel': auth.deleteComment(v).then(() => auth.communityComments(com.post.id)).then(c => { com.comments = c; com.post.comments = c.length; paintPost(); }).catch(() => toast(t('syncFail'))); break;
+    case 'com-cdel': askConfirm(t('cfmComment'), t('comDelete'), () => auth.deleteComment(v).then(() => auth.communityComments(com.post.id)).then(c => { com.comments = c; com.post.comments = c.length; paintPost(); }).catch(() => toast(t('syncFail')))); break;
     case 'com-save': if (com.post) openSaveTeam({ name: com.post.name, ids: com.post.members.map(m => m.id), members: com.post.members }); break;
     case 'com-compare': if (com.post) { bt.link = { name: com.post.name, custom: true, members: com.post.members.filter(m => BYID.has(m.id)) }; bt.b = { owner: 'link', slot: 0 }; bt.res = null; bt.cmpMsg = ''; location.hash = '#/battle'; } break;
     case 'user-open': location.hash = `#/user/${v}`; break;
-    case 'u-add': case 'u-accept': case 'u-decline': case 'u-remove': case 'u-ban': case 'u-unban': case 'u-purge': case 'u-rename': userAction(el.dataset.act, v); break;
+    case 'u-add': case 'u-accept': case 'u-decline': case 'u-remove': case 'u-ban': case 'u-unban': case 'u-purge': case 'u-rename': {
+      const a = el.dataset.act;
+      if (a === 'u-decline' || (a === 'u-remove' && usr.prof?.relation === 'out')) askConfirm(t(a === 'u-decline' ? 'cfmDecline' : 'cfmCancelReq'), t(a === 'u-decline' ? 'decline' : 'uCancelReq'), () => userAction(a, v));
+      else userAction(a, v);
+      break;
+    }
     case 'u-ask': usr.confirm = v; paintUser(); break;
     case 'u-cancel': usr.confirm = null; paintUser(); break;
     case 'u-more': auth.communityUserPosts(usr.id, usr.posts.length, PAGE).then(r => { usr.posts = usr.posts.concat(r); usr.more = r.length === PAGE; paintUser(); }).catch(() => toast(t('syncFail'))); break;

@@ -1259,3 +1259,31 @@ h1.brand, h2.brand { display: flex; align-items: center; gap: .26em; }
 .ticn svg { width: 100%; height: 100%; fill: currentColor; stroke: none; opacity: 1; }
 h2.brand .ticn { width: 1.2em; height: 1.2em; }
 .backfab svg { transform: translateX(-2px); }
+
+/* ficha personalizada: cambios respecto a la build recomendada */
+.bar { position: relative; }
+.bar u { position: absolute; top: 50%; height: 6px; margin-top: -3px; left: var(--l); width: var(--w); border-radius: var(--r-pill); background: var(--ink); text-decoration: none; box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--bg) 55%, transparent); }
+.dnote { display: flex; align-items: center; gap: 8px; margin: 10px 2px 0; font-size: .8rem; color: var(--muted); }
+.dsw { flex: none; width: 22px; height: 6px; border-radius: var(--r-pill); background: var(--ink); }
+.chgtag, .newtag { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: var(--r-pill); font-size: .68rem; font-weight: 700; vertical-align: middle; color: var(--ink); background: color-mix(in srgb, #F2B322 30%, var(--soft)); }
+.newtag { margin-left: 0; }
+.build h3 .chgtag { margin-left: 8px; }
+.was { margin: 8px 0 0; font-size: .8rem; color: var(--muted); }
+.cbsum { margin: 0; font-size: .88rem; font-weight: 600; color: var(--ink); }
+.cbsum.ok { color: var(--muted); font-weight: 500; }
+.ev.chg { background: color-mix(in srgb, #F2B322 26%, var(--soft)); }
+.fstats em { display: block; min-height: 1em; margin-top: 1px; font-style: normal; font-size: .7rem; font-weight: 700; }
+.fstats em.up { color: #30A46C; } .fstats em.dn { color: #E5484D; }
+.origbtn { display: flex; align-items: center; justify-content: center; width: 100%; height: 54px; margin-top: 14px; border-radius: var(--r-lg); background: var(--surface); color: var(--ink); font-weight: 700; font-size: 1rem; text-decoration: none; transition: transform .12s; }
+.origbtn:active { transform: scale(.985); }
+.origbtn + .favbtn { margin-top: 10px; }
+
+/* confirmación antes de eliminar */
+dialog.cfm { border: 0; padding: 0; background: transparent; color: var(--ink); max-width: none; max-height: none; width: 100%; height: 100%; display: none; place-items: center; }
+dialog.cfm[open] { display: grid; }
+dialog.cfm::backdrop { background: rgba(10, 12, 20, .5); }
+.cfmbox { width: min(calc(100% - 40px), 340px); padding: 22px 20px 18px; border-radius: var(--r-lg); background: var(--surface); box-shadow: 0 24px 60px rgba(30, 38, 62, .35); display: grid; gap: 18px; animation: cfmin .18s ease-out; }
+.cfmbox p { margin: 0; font-weight: 700; font-size: 1.02rem; line-height: 1.35; text-align: center; }
+.cfmbtns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cfmbtns .chip { justify-content: center; height: 44px; }
+@keyframes cfmin { from { opacity: 0; transform: scale(.94); } }
