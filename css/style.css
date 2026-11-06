@@ -1480,6 +1480,7 @@ dialog.cfm::backdrop { background: rgba(10, 12, 20, .5); }
 /* Con el teclado abierto (móvil): la ventana ocupa solo la parte visible y se pega arriba, para que los resultados del buscador no queden tapados */
 @media (hover: none) and (pointer: coarse) {
   html.kb .smodal { align-items: start; padding-top: calc(var(--vvt, 0px) + 10px); padding-bottom: 0; }
-  html.kb .scard.picker { max-height: calc(var(--vvh, 100dvh) - 18px); grid-template-rows: auto auto minmax(0, 1fr); }
+  html.kb .smodal .scard { max-height: calc(var(--vvh, 100dvh) - 18px); }
+  html.kb .scard.picker { grid-template-rows: auto auto minmax(0, 1fr); }
   html.kb .scard.picker .pklist { max-height: none; min-height: 0; }
 }

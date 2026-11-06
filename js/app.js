@@ -407,12 +407,14 @@ function goSearch(opts = {}, focus = false) {
   if (location.hash === '#/' || location.hash === '') renderHome(); else location.hash = '#/';
 }
 // con el teclado abierto el dock se esconde
-document.addEventListener('focusin', e => { if (e.target.matches?.('input, textarea')) document.documentElement.classList.add('kb'); });
+document.addEventListener('focusin', e => { if (e.target.matches?.('input, textarea')) { document.documentElement.classList.add('kb'); setTimeout(() => { if (document.activeElement === e.target && smodal.contains(e.target) && !e.target.matches('#pk-q')) e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 350); } });
 document.addEventListener('focusout', () => document.documentElement.classList.remove('kb'));
 // la zona visible de verdad (sin el teclado): las ventanas con buscador se colocan ahí arriba para que los resultados no queden tapados
 if (window.visualViewport) {
   const vv = window.visualViewport, root = document.documentElement.style;
-  const fit = () => { root.setProperty('--vvh', `${Math.round(vv.height)}px`); root.setProperty('--vvt', `${Math.round(vv.offsetTop)}px`); };
+  // si hay un campo de una ventana en el que se está escribiendo, se mantiene a la vista sobre el teclado
+  const keepField = () => { const a = document.activeElement; if (a && smodal.contains(a) && a.matches('textarea, input:not(#pk-q)')) a.scrollIntoView({ block: 'center', behavior: 'smooth' }); };
+  let kt; const fit = () => { root.setProperty('--vvh', `${Math.round(vv.height)}px`); root.setProperty('--vvt', `${Math.round(vv.offsetTop)}px`); clearTimeout(kt); kt = setTimeout(keepField, 120); };
   vv.addEventListener('resize', fit); vv.addEventListener('scroll', fit); fit();
 }
 
