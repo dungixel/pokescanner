@@ -1685,7 +1685,7 @@ function editorPickHTML() {
   } else {
     const slot = Number(pick.slice(1));
     const ids = (ED.learn[d.id] || []).filter(id => DICT.moves[id] && (!f || fold(dn(DICT.moves[id])).includes(f) || fold(DICT.moves[id].e).includes(f))).sort((a, b) => dn(DICT.moves[a]).localeCompare(dn(DICT.moves[b])));
-    opts = (cur.m[slot] ? `<button class="edopt rm" data-act="ed-set" data-v="-">${IC.trash}<b>${t('edRemove')}</b></button>` : '')
+    opts = (cur.m[slot] ? `<button class="edopt rm" data-act="ed-set" data-v="-">${IC.x}<b>${t('edRemove')}</b></button>` : '')
       + ids.map(id => { const m = DICT.moves[id], used = cur.m.includes(id) && cur.m[slot] !== id; return `<button class="edopt ${cur.m[slot] === id ? 'on' : ''}" ${used ? 'disabled' : ''} data-act="ed-set" data-v="${id}">${typeIcon(m.t)}<b>${esc(dn(m))}</b><small>${catName(m.c)}${m.p ? ` · ${m.p}` : ''}</small></button>`; }).join('')
       || `<p class="shint">${t('edNone')}</p>`;
   }
@@ -1981,7 +1981,7 @@ const scoreBadge = ms => { const ps = (ms || []).map(m => BYID.get(m.id)).filter
 const userLink = (uid, name, avatar) => `<button class="userlink" data-act="user-open" data-v="${uid}">${avatarImg(avatar, 'sm')}<b>${esc(name || '?')}</b></button>`;
 const delBtns = x => ((x.mine || auth.isAdmin()) ? (String(com.confirm) === String(x.id)
   ? `<button class="cact danger" data-act="com-del-yes" data-v="${x.id}">${t('comDeleteSure')}</button><button class="cact" data-act="com-del-no">${t('comCancel')}</button>`
-  : `<button class="cact" data-act="com-del" data-v="${x.id}" aria-label="${t('comDelete')}">${IC.trash}</button>`) : '');
+  : `<button class="cact" data-act="com-del" data-v="${x.id}" aria-label="${t('comDelete')}">${IC.x}</button>`) : '');
 function postCardHTML(x) {
   return `<article class="cpost">
     <div class="chead">${userLink(x.user_id, x.username, x.avatar)}<small>${ago(x.created_at)}</small></div>
@@ -2168,7 +2168,7 @@ function commentHTML(c, reply = false) {
   return `<${tag} class="ccm ${reply ? 'rep' : ''}" id="cm-${c.id}">
     <button class="avbtn" data-act="user-open" data-v="${c.user_id}" aria-label="${esc(c.username || '')}">${avatarImg(c.avatar, 'sm')}</button>
     <div class="cbody"><p><button class="userlink" data-act="user-open" data-v="${c.user_id}"><b>${esc(c.username || '?')}</b></button> ${body}</p>
-      <div class="cmeta"><small>${ago(c.created_at)}</small>${c.likes ? `<small>${t(c.likes === 1 ? 'cmLikeOne' : 'cmLikeN', { n: c.likes })}</small>` : ''}<button class="cmbtn" data-act="cm-reply" data-v="${c.id}">${t('cmReply')}</button>${can ? `<button class="cmbtn del" data-act="com-cdel" data-v="${c.id}" aria-label="${t('comDelete')}">${IC.trash}</button>` : ''}</div></div>
+      <div class="cmeta"><small>${ago(c.created_at)}</small>${c.likes ? `<small>${t(c.likes === 1 ? 'cmLikeOne' : 'cmLikeN', { n: c.likes })}</small>` : ''}<button class="cmbtn" data-act="cm-reply" data-v="${c.id}">${t('cmReply')}</button>${can ? `<button class="cmbtn del" data-act="com-cdel" data-v="${c.id}" aria-label="${t('comDelete')}">${IC.x}</button>` : ''}</div></div>
     <button class="clike ${c.liked ? 'on' : ''}" data-act="cm-like" data-v="${c.id}" aria-pressed="${!!c.liked}" aria-label="${t('comLike')}">${heart(c.liked)}</button>
   </${tag}>`;
 }
@@ -2360,7 +2360,7 @@ const inTeams = () => state.view === 'teams' || state.view === 'team';
 const loginCta = (title, action) => `<div class="empty"><b>${t(title)}</b>${t('loginText')}<div class="ctarow"><button class="chip accent" data-act="login-open" data-v="${action}">${IC.user}${t('loginGoogle')}</button></div></div>`;
 function memberRow(p, slot, k) {
   const m = teams[slot]?.members[k];
-  return `<div class="mrow">${rowCore(p, m?.b?.sh, pokeHref(p.id, m))}<button class="mact ${m?.b ? 'on' : ''}" data-act="ed-open" data-v="${slot}:${k}" aria-label="${t('edTitle')}">${IC.pencil}</button><button class="mact" data-act="team-remove" data-v="${p.id}" aria-label="${t('removePoke')}">${IC.trash}</button></div>`;
+  return `<div class="mrow">${rowCore(p, m?.b?.sh, pokeHref(p.id, m))}<button class="mact ${m?.b ? 'on' : ''}" data-act="ed-open" data-v="${slot}:${k}" aria-label="${t('edTitle')}">${IC.pencil}</button><button class="mact" data-act="team-remove" data-v="${p.id}" aria-label="${t('removePoke')}">${IC.x}</button></div>`;
 }
 function slotHTML(i) {
   const tm = teams[i];
@@ -2368,7 +2368,7 @@ function slotHTML(i) {
   return `<div class="slot slotbox"><button class="slothead" data-act="slot-go" data-v="${i}">
       ${members.length >= 3 ? (sc => `<span class="sn sc" style="--sc:${scoreInfo(sc).c}" title="${t('an_title')}">${sc}</span>`)(analyzeTeam(members).score) : `<span class="sn sc none" title="${t('an_title')}">-</span>`}
       <span class="sname"><b>${esc(teamName(i))}</b><span class="minis">${members.map((p, k) => pokeImg(p, 'small', 'mini', undefined, !!tm.members[k]?.b?.sh)).join('') || `<small>${t('teamEmpty')}</small>`}</span></span>
-      <span class="scount">${members.length}/${MAXTEAM}</span></button>${members.length ? `<button class="mact slotclr" data-act="team-clear" data-v="${i}" aria-label="${t('clearTeam')}" title="${t('clearTeam')}">${IC.trash}</button>` : ''}</div>`;
+      <span class="scount">${members.length}/${MAXTEAM}</span></button>${members.length ? `<button class="mact slotclr" data-act="team-clear" data-v="${i}" aria-label="${t('clearTeam')}" title="${t('clearTeam')}">${IC.x}</button>` : ''}</div>`;
 }
 function teamPageHTML(i) {
   const tm = teams[i];
@@ -2526,7 +2526,7 @@ function friendRow(f) {
     <button class="iconbtn" data-act="friend-decline" data-v="${f.user_id}" aria-label="${t('decline')}">${IC.x}</button></div>`;
   return `<div class="frow"><span class="fav">${frAvatar(f)}<i class="dot ${on ? 'on' : ''}" title="${t(on ? 'friendOnline' : 'friendOffline')}"></i></span>
     <span class="fname"><b>${esc(f.username)}</b><small class="${on ? 'live' : ''}">${t(on ? 'friendOnline' : 'friendOffline')}</small></span>
-    <button class="iconbtn" data-act="friend-remove" data-v="${f.user_id}" aria-label="${t('friendRemove')}">${IC.trash}</button></div>`;
+    <button class="iconbtn" data-act="friend-remove" data-v="${f.user_id}" aria-label="${t('friendRemove')}">${IC.x}</button></div>`;
 }
 function battleHTML() {
   const head = `<header class="hero"><h1 class="brand">${titleIc('dock-battle')}${t('battleTitle')}</h1><p>${t('battleLead')}</p></header>`;
