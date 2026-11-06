@@ -1273,7 +1273,7 @@ const chipNature = id => {
 };
 
 function oldNote(d) {
-  const rows = d.gt.map(([g, r]) => `<span class="gt"><span class="tier" style="--tier:${tierColor(r)}">${tierNumHTML(r)}${esc(tierLabel(r))}</span><small>${t('gen', { g })}</small></span>`).join('');
+  const rows = d.gt.map(([g, r]) => `<span class="gt"><button class="tier" style="--tier:${tierColor(r)}" data-act="tier" data-v="${esc(r)}" aria-label="${t('rankAria', { r: esc(tierLabel(r)) })}">${tierNumHTML(r)}${esc(tierLabel(r))}</button><small>${t('gen', { g })}</small></span>`).join('');
   return `<aside class="oldnote" aria-label="${t('oldAria')}">
     <b>${t('oldTitle')}</b>
     <p>${t('oldText', { g: d.g })}</p>
