@@ -1279,9 +1279,9 @@ h2.brand .ticn { width: 1.2em; height: 1.2em; }
 
 /* ficha personalizada: cambios respecto a la build recomendada */
 .bar { position: relative; }
-.bar u { position: absolute; top: 50%; height: 6px; margin-top: -3px; left: var(--l); width: var(--w); border-radius: var(--r-pill); background: var(--ink); text-decoration: none; box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--bg) 55%, transparent); }
+.bar u { position: absolute; top: 0; height: 100%; left: var(--l); width: var(--w); border-radius: var(--r-pill); background: var(--ink); text-decoration: none; box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--bg) 55%, transparent); }
 .dnote { display: flex; align-items: center; gap: 8px; margin: 10px 2px 0; font-size: .8rem; color: var(--muted); }
-.dsw { flex: none; width: 22px; height: 6px; border-radius: var(--r-pill); background: var(--ink); }
+.dsw { flex: none; width: 22px; height: 14px; border-radius: var(--r-pill); background: var(--ink); }
 .chgtag, .newtag { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: var(--r-pill); font-size: .68rem; font-weight: 700; vertical-align: middle; color: var(--ink); background: color-mix(in srgb, #F2B322 30%, var(--soft)); }
 .newtag { margin-left: 0; }
 .build h3 .chgtag { margin-left: 8px; }

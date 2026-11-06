@@ -1161,7 +1161,7 @@ function renderHome() {
 }
 
 // ───────────────────────── Ficha ─────────────────────────
-/** `delta`: cambio de cada stat final (Nv. 100) respecto a la build recomendada; se dibuja como una barrita fina superpuesta (2 puntos finales ≈ 1 punto base) */
+/** `delta`: cambio de cada stat final (Nv. 100) respecto a la build recomendada; se dibuja como una barra oscura superpuesta (2 puntos finales ≈ 1 punto base) */
 function statsHTML(s, delta = null) {
   const rows = STATS.map((k, i) => {
     const d = delta?.[i] || 0, f = Math.min(100, s[i] / 255 * 100), w = Math.min(100, Math.max(1.6, Math.abs(d) / 2 / 255 * 100));
