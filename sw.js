@@ -6,7 +6,7 @@ const V = 'v1';
 const CORE = `pk-core-${V}`, DATA = `pk-data-${V}`, IMG = `pk-img-${V}`;
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css',
-  'js/app.js', 'js/auth.js', 'js/battle.js', 'js/build.js', 'js/calcx.js', 'js/doubles.js', 'js/editor.js', 'js/i18n.js', 'js/icons.js', 'js/meta.js', 'js/singles.js', 'js/team.js', 'js/util.js',
+  'js/app.js', 'js/auth.js', 'js/battle.js', 'js/build.js', 'js/calcx.js', 'js/changes.js', 'js/doubles.js', 'js/editor.js', 'js/i18n.js', 'js/icons.js', 'js/meta.js', 'js/singles.js', 'js/team.js', 'js/util.js',
   'vendor/supabase.js', 'vendor/smogon-calc.js',
   'fonts/lexend-latin-400-normal.woff2', 'fonts/lexend-latin-700-normal.woff2', 'fonts/lexend-latin-ext-400-normal.woff2', 'fonts/lexend-latin-ext-700-normal.woff2',
   'icons/icon.svg', 'icons/spin.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',

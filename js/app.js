@@ -7,6 +7,7 @@ import {
 import { t, lang, dl, setLang, LANGS as LANG_IDS } from './i18n.js';
 import { analyzeTeam, scoreInfo } from './team.js';
 import { META_TEAMS } from './meta.js';
+import { detectChanges, readLog, readBanners, saveBanners } from './changes.js';
 import * as auth from './auth.js';
 import { DOCK, IC } from './icons.js';
 import { buildUnit, compareTeams, eff } from './battle.js';
@@ -27,6 +28,7 @@ const cache = new Map();
 // Los favoritos viven en la cuenta del usuario. Los que se guardaron en este dispositivo antes de existir las cuentas
 // (legacyFavs) se suben a la cuenta la primera vez que se inicia sesión.
 const favs = new Set();
+let banners = readBanners(); // avisos de cambios pendientes de cerrar (ver changes.js)
 const legacyFavs = (() => { try { const v = JSON.parse(store.get('pk.favs') || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } })();
 
 const state = {
@@ -40,6 +42,7 @@ let io = null;   // IntersectionObserver de la lista
 // ───────────────────────── Iconos ─────────────────────────
 const I = {
   back: '<svg viewBox="0 0 24 24"><path d="M15 6l-6 6l6 6"/></svg>',
+  log: '<svg viewBox="0 0 24 24"><path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/><path d="M5 6v.01"/><path d="M5 12v.01"/><path d="M5 18v.01"/></svg>',
   home: '<svg viewBox="0 0 24 24"><path d="M5 12l-2 0l9 -9l9 9l-2 0"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7"/><path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6"/></svg>',
   tsearch: '<svg viewBox="0 0 24 24"><path d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0"/><path d="M21 21l-6 -6"/></svg>',
   tstar: '<svg viewBox="0 0 24 24"><path d="M12 17.75l-6.172 3.245l1.179 -6.873l-5 -4.867l6.9 -1l3.086 -6.253l3.086 6.253l6.9 1l-5 4.867l1.179 6.873l-6.158 -3.245"/></svg>',
@@ -97,6 +100,7 @@ function settingsHTML() {
       ${sdd === 'lang' ? `<div class="sdl" role="listbox">${LANG_IDS.map(l => `<button class="sopt" role="radio" data-act="set-lang" data-v="${l}" aria-checked="${lang() === l}"><img class="flag" src="${FLAG[l]}" alt="" width="24" height="18">${LANGS[l]}<span class="ck">${I.check}</span></button>`).join('')}</div>` : ''}
       <button class="ddbtn spill" data-act="sdd" data-v="theme" aria-expanded="${sdd === 'theme'}" aria-haspopup="listbox"><span class="ddl">${t('theme')}</span><span class="ddv">${t(pref === 'system' ? 'themeSystem' : pref)}</span><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
       ${sdd === 'theme' ? `<div class="sdl" role="listbox">${['system', 'light', 'dark'].map(m => `<button class="sopt" role="radio" data-act="set-theme" data-v="${m}" aria-checked="${pref === m}">${I[THEME_ICON[m]]}${t(m === 'system' ? 'themeSystem' : m)}<span class="ck">${I.check}</span></button>`).join('')}</div>` : ''}</div></div>
+    <div class="sgroup"><button class="sopt" data-act="cg-open">${I.log}${t('cgLog')}${banners.length ? `<span class="cgdot"></span>` : ''}</button></div>
     ${offlineHTML()}
     ${auth.userInfo() ? feedbackHTML() : ''}
     ${auth.isAdmin() ? `<div class="sgroup"><button class="sopt" data-act="adm-bans"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg>${t('admBans')}</button></div>` : ''}
@@ -153,7 +157,7 @@ const SLOTS = 9, MAXTEAM = 6;
 let teams = Array.from({ length: SLOTS }, () => ({ name: '', members: [] }));
 let me = null; // { username, avatar } del perfil público
 const teamName = i => teams[i].name || t('teamN', { n: i + 1 });
-const rebuildFavs = () => { favs.clear(); teams.forEach(tm => tm.members.forEach(m => favs.add(m.id))); };
+const rebuildFavs = () => { favs.clear(); teams.forEach(tm => tm.members.forEach(m => favs.add(m.id))); paintBanners(); };
 const cacheTeams = () => { const u = auth.userInfo(); if (u) store.set(`pk.teams.${u.id}`, JSON.stringify(teams)); };
 const resetTeams = () => { teams = Array.from({ length: SLOTS }, () => ({ name: '', members: [] })); rebuildFavs(); };
 /** pantalla de carga: pokeball girando y "Cargando …" */
@@ -787,7 +791,7 @@ function route() {
   const cm = location.hash.match(/^#\/community\/(\d+)/);
   const sh = location.hash.match(/^#\/t\/([a-z0-9,]*)(?:\?n=(.*))?$/);
   if (state.view === 'battle' && location.hash !== '#/battle') auth.unwatchFriends().catch(() => {});
-  if (sh) renderShared(sh[1], sh[2]); else if (m) renderPokemon(m[1]); else if (d) renderDetailPage(d[1], d[2]); else if (tp) renderTeamPage(tp[1]); else if (um) renderUser(um[1]); else if (cm) renderPost(cm[1]); else if (location.hash === '#/community') renderCommunity(); else if (location.hash === '#/types') renderTypes(); else if (/^#\/calc/.test(location.hash)) renderCalc((location.hash.match(/[?&]a=([a-z0-9]+)/) || [])[1]); else if (location.hash === '#/teams') renderTeams(); else if (location.hash === '#/battle') renderBattle(); else renderHome();
+  if (sh) renderShared(sh[1], sh[2]); else if (m) renderPokemon(m[1]); else if (d) renderDetailPage(d[1], d[2]); else if (tp) renderTeamPage(tp[1]); else if (um) renderUser(um[1]); else if (cm) renderPost(cm[1]); else if (location.hash === '#/community') renderCommunity(); else if (location.hash === '#/types') renderTypes(); else if (location.hash === '#/changelog') renderChangelog(); else if (/^#\/calc/.test(location.hash)) renderCalc((location.hash.match(/[?&]a=([a-z0-9]+)/) || [])[1]); else if (location.hash === '#/teams') renderTeams(); else if (location.hash === '#/battle') renderBattle(); else renderHome();
   updateDock();
   const tab = tabOf(location.hash), dir = tab != null && curTab != null && tab !== curTab ? (tab > curTab ? 'slide-r' : 'slide-l') : null;
   curTab = tab;
@@ -810,6 +814,7 @@ function homeHTML() {
     <h1 class="brand"><img class="applogo" src="icons/icon.svg" alt="" width="48" height="48" decoding="async">PokeScanner</h1>
     ${updHTML()}
   </header>
+  <div id="banners">${bannersHTML()}</div>
   <div class="searchbar"><div class="search ${state.q ? 'filled' : ''}">
     ${I.search}
     <input id="q" type="text" role="searchbox" inputmode="search" enterkeyhint="search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
@@ -1048,6 +1053,77 @@ function updHTML() {
   const days = Math.max(0, Math.floor((Date.now() - new Date(META.generado).getTime()) / 864e5));
   const when = days === 0 ? t('updToday') : days === 1 ? t('updYesterday') : days < 14 ? t('updDays', { n: days }) : days < 60 ? t('updWeeks', { n: Math.floor(days / 7) }) : t('updMonths', { n: Math.floor(days / 30) });
   return `<p class="upd" title="${esc(META.fuente || '')}">${t('updLabel', { when })}</p>`;
+}
+
+
+// ───────── Avisos y registro de cambios ─────────
+const CG_KIND = { new: 'cgNew', pk: 'cgSecPk', mv: 'cgSecMv', ab: 'cgSecAb', it: 'cgSecIt' };
+const CG_HREF = { new: 'pokemon', pk: 'pokemon', mv: 'move', ab: 'ability', it: 'item' };
+const cgNum = v => (v == null || v === '' ? '—' : v);
+const cgVal = (f, v, k) => (f === 't' ? (Array.isArray(v) ? v.map(typeName).join('/') : typeName(v)) : f === 'c' ? catName(v) : f === 'r' ? tierLabel(v) : cgNum(v));
+const CG_LABEL = { r: 'cgTier', t: 'cgType', c: 'cgCat', p: 'cgPower', a: 'cgAcc', pr: 'cgPrio' };
+/** Líneas de texto de un cambio: "Tier: UU → UUBL", "Potencia: 80 → 90"… */
+function cgParts(e) {
+  if (e.k === 'new') return [t('cgNew')];
+  return e.c.map(([f, a, b]) => {
+    if (f === 'x') return t('cgText');
+    if (f === 's') return `${t('cgStats')}: ${STATS.map((k, i) => (a[i] !== b[i] ? `${statName(k)} ${a[i]} → ${b[i]}` : '')).filter(Boolean).join(', ')}`;
+    return `${f === 'pp' ? 'PP' : t(CG_LABEL[f])}: ${cgVal(f, a)} → ${cgVal(f, b)}`;
+  });
+}
+const cgName = e => {
+  if (e.k === 'pk' || e.k === 'new') { const p = BYID.get(e.id); return p ? pname(p) : e.id; }
+  const x = DICT?.[{ mv: 'moves', ab: 'abilities', it: 'items' }[e.k]]?.[e.id]; return x ? dn(x) : e.id;
+};
+const cgKey = e => `${e.k}:${e.id}`;
+/** Qué avisos se enseñan sueltos y cuáles se juntan en el resumen: los de tus equipos siempre (máx. 3), y el resto solo si son pocos */
+function bannerSplit() {
+  const ok = banners.filter(e => (e.k === 'pk' || e.k === 'new' ? BYID.has(e.id) : true));
+  const mine = ok.filter(e => (e.k === 'pk' || e.k === 'new') && favs.has(e.id)).slice(0, 3);
+  const rest = ok.filter(e => !mine.includes(e));
+  const few = rest.length <= 2;
+  return { single: few ? [...mine, ...rest] : mine, sum: few ? [] : rest };
+}
+const bannerIc = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9v4"/><path d="M12 16v.01"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"/></svg>';
+function bannersHTML() {
+  if (!BYID.size) return '';
+  const { single, sum } = bannerSplit();
+  const one = e => `<div class="bn" role="status"><button class="bn-b" data-act="bn-go" data-v="${esc(cgKey(e))}"><span class="bn-ic">${bannerIc}</span><span class="bn-t"><b>${esc(cgName(e))}</b><span>${cgParts(e).map(esc).join(' · ')}</span></span></button><button class="bn-x" data-act="bn-x" data-v="${esc(cgKey(e))}" aria-label="${t('bnClose')}">${I.close}</button></div>`;
+  const all = sum.length ? `<div class="bn" role="status"><button class="bn-b" data-act="bn-go" data-v="*"><span class="bn-ic">${bannerIc}</span><span class="bn-t"><b>${t(sum.length === 1 ? 'bnSum1' : 'bnSumN', { n: sum.length })}</b><span>${t('bnSumSub')}</span></span></button><button class="bn-x" data-act="bn-x" data-v="*" aria-label="${t('bnClose')}">${I.close}</button></div>` : '';
+  return single.map(one).join('') + all;
+}
+function paintBanners() {
+  const box = document.getElementById('banners'); if (!box) return;
+  const h = bannersHTML(); if (box.innerHTML !== h) box.innerHTML = h;
+  if (banners.some(e => !['pk', 'new'].includes(e.k)) && !DICT) getDict().then(() => { const b = document.getElementById('banners'); if (b) b.innerHTML = bannersHTML(); }).catch(() => {});
+}
+function bannerGo(key) {
+  if (key === '*') { location.hash = '#/changelog'; return; }
+  const [k, id] = key.split(':'); location.hash = `#/${CG_HREF[k]}/${id}`;
+}
+function bannerClose(key) {
+  const gone = key === '*' ? bannerSplit().sum : banners.filter(e => cgKey(e) === key);
+  banners = banners.filter(e => !gone.includes(e)); saveBanners(banners); paintBanners();
+}
+async function renderChangelog() {
+  state.view = 'changelog';
+  document.title = `${t('cgLog')} · PokeScanner`;
+  document.documentElement.style.removeProperty('--accent');
+  $app.innerHTML = `${topbarHTML()}<header class="hero"><h1>${t('cgLog')}</h1><p>${t('cgLead')}</p></header><div id="cg-root">${loadingHTML(t('cgLog'))}</div>`;
+  window.scrollTo(0, 0); updateDock();
+  try { await getDict(); } catch { /* sin diccionario se enseñan los ids */ }
+  const root = document.getElementById('cg-root'); if (!root || state.view !== 'changelog') return;
+  const log = readLog().filter(e => (e.k === 'pk' || e.k === 'new' ? BYID.has(e.id) : true));
+  if (!log.length) { root.innerHTML = `<p class="empty"><b>${t('cgLog')}</b>${t('cgEmpty')}</p>`; return; }
+  const days = [...new Set(log.map(e => e.d))];
+  root.innerHTML = days.map(d => {
+    const day = new Date(`${d}T12:00:00`).toLocaleDateString(lang(), { day: 'numeric', month: 'long', year: 'numeric' });
+    const sec = k => { const es = log.filter(e => e.d === d && e.k === k); return es.length ? `<h3 class="cgh">${t(CG_KIND[k])} <small>${es.length}</small></h3><ul class="cglist">${es.map(e => {
+      const p = e.k === 'pk' || e.k === 'new' ? BYID.get(e.id) : null;
+      return `<li><a class="cgrow" href="#/${CG_HREF[e.k]}/${e.id}">${p ? pokeImg(p, 'small', 'mini') : ''}<span class="cgt"><b>${esc(cgName(e))}</b><span>${e.k === 'new' ? '' : cgParts(e).map(esc).join(' · ')}</span></span></a></li>`;
+    }).join('')}</ul>` : ''; };
+    return `<section class="cgday"><h2>${day}</h2>${['new', 'pk', 'mv', 'ab', 'it'].map(sec).join('')}</section>`;
+  }).join('');
 }
 
 // ───────── Tabla de tipos ─────────
@@ -2953,6 +3029,9 @@ document.addEventListener('click', e => {
     case 'dock-community': location.hash = '#/community'; break;
     case 'dock-battle': location.hash = '#/battle'; break;
     case 'dock-notifs': openNotifs(); break;
+    case 'cg-open': closeSettings(); location.hash = '#/changelog'; break;
+    case 'bn-go': bannerGo(v); break;
+    case 'bn-x': bannerClose(v); break;
     case 'notif-go': goNotif(v); break;
     case 'dock-settings': if (smodal.hidden) openSettings(); else closeSettings(); break;
     case 'settings-close': closeSettings(); break;
@@ -2999,7 +3078,7 @@ async function boot() {
   }
   BYID = new Map(INDEX.map(p => [p.id, p]));
   renderDock();
-  fetch('data/meta.json', { cache: 'no-cache' }).then(r => (r.ok ? r.json() : null)).then(m => { META = m; const h1 = state.view === 'home' && document.querySelector('.hero h1'); if (m && h1 && !h1.parentElement.querySelector('.upd')) h1.insertAdjacentHTML('afterend', updHTML()); }).catch(() => {});
+  fetch('data/meta.json', { cache: 'no-cache' }).then(r => (r.ok ? r.json() : null)).then(m => { META = m; const h1 = state.view === 'home' && document.querySelector('.hero h1'); if (m && h1 && !h1.parentElement.querySelector('.upd')) h1.insertAdjacentHTML('afterend', updHTML()); if (m?.generado) detectChanges({ generado: m.generado, index: INDEX, loadDict: getDict }).then(n => { if (n) { banners = readBanners(); paintBanners(); } }).catch(() => {}); }).catch(() => {});
   window.addEventListener('hashchange', route);
   route();
   auth.initAuth(onAuth).catch(() => {});
