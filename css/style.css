@@ -1013,6 +1013,8 @@ table.mx { display: table; margin: 0 auto; }
 .edtx { display: grid; gap: 6px; } .edtx b { font-size: 1.3rem; letter-spacing: -.02em; }
 .edbtns { display: flex; gap: 8px; flex-wrap: wrap; }
 .edbtns .chip svg { margin-right: 6px; }
+.edbuilds { margin: 0; padding: 2px 0; min-width: 0; -webkit-mask-image: none; mask-image: none; }
+.edbuilds .chip { flex: none; }
 .edpills { display: flex; flex-wrap: wrap; gap: 8px; }
 .edpills .ddbtn { background: var(--soft); }
 .edmoves { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }

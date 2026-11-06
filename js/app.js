@@ -10,7 +10,7 @@ import { META_TEAMS } from './meta.js';
 import { detectChanges, readLog, readBanners, saveBanners } from './changes.js';
 import * as auth from './auth.js';
 import { DOCK, IC } from './icons.js';
-import { buildUnit, compareTeams, eff } from './battle.js';
+import { buildUnit, compareTeams, eff, bestSetIndex } from './battle.js';
 import { baseBuild, currentBuild, diffBuild, finalStats, evTotal, KEYS as EDK, EV_MAX, EV_TOTAL } from './editor.js';
 
 const $app = document.getElementById('app');
@@ -1653,7 +1653,7 @@ async function openEditor(slot, k, ext) {
     const [d, dict, E] = await Promise.all([getPokemon(m.id), getDict(), getEditor()]);
     mergeEditor(dict, E);
     const base = baseBuild(d, m, dict, E);
-    ed = { slot, k, ext, d, base, cur: currentBuild(base, m.b), pick: null, q: '' };
+    ed = { slot, k, ext, d, base, s: m.s, cur: currentBuild(base, m.b), pick: null, q: '' };
     openSheet(pname(d), '<div id="edbody"></div>', { wide: true });
     sheet.dataset.ed = '1';
     paintEditor();
@@ -1683,6 +1683,7 @@ function editorHTML() {
     <div class="edtop">${pokeImg(d, 'art', 'edart', 96, cur.sh)}<div class="edtx"><b>${esc(pname(d))}</b><span class="types">${d.t.map(typeDot).join('')}</span></div></div>
     <div class="edbtns"><button class="chip ${cur.sh ? 'accent' : ''}" data-act="ed-shiny" aria-pressed="${cur.sh}">${SPARK_I}Shiny</button><button class="chip" data-act="ed-opt">${t('edOpt')}</button></div>
     <p class="shint">${t('edOptHint')}</p>
+    ${d.sets.length > 1 ? (() => { const cs = ed.s != null && d.sets[ed.s] ? ed.s : bestSetIndex(d); return `<h3>${t('edBuild')}</h3><div class="scroller edbuilds" role="tablist">${d.sets.map((x, i) => `<button class="chip small" role="tab" data-act="ed-build" data-v="${i}" aria-selected="${i === cs}">${esc(formatName(x.f))} · ${esc(x.n)}</button>`).join('')}</div>`; })() : ''}
     <div class="edpills">
       <button class="ddbtn" data-act="ed-pick" data-v="ability"><span class="ddl">${t('edAbility')}</span><span class="ddv">${abil ? esc(dn(DICT.abilities[abil.id])) : esc(cur.a)}</span></button>
       <button class="ddbtn" data-act="ed-pick" data-v="item"><span class="ddl">${t('edItem')}</span><span class="ddv">${item ? esc(dn(item)) : t('edNoItem')}</span></button>
@@ -1713,11 +1714,11 @@ function editorPickHTML() {
   return `${head}<div class="edlist">${opts}</div>`;
 }
 function persistEditor() {
-  const { slot, k, base, cur, ext } = ed;
-  if (ext) { const b = diffBuild(base, cur); if (b) ext.member.b = b; else delete ext.member.b; ext.after(); return; }
+  const { slot, k, base, cur, ext, s } = ed;
+  const put = m => { const b = diffBuild(base, cur); if (b) m.b = b; else delete m.b; if (s != null) m.s = s; else delete m.s; };
+  if (ext) { put(ext.member); ext.after(); return; }
   const m = teams[slot]?.members[k]; if (!m) return;
-  const b = diffBuild(base, cur);
-  if (b) m.b = b; else delete m.b;
+  put(m);
   saveSlot(slot); if (inTeams()) paintTeams();
 }
 function onEditorInput(e) {
@@ -2864,6 +2865,7 @@ document.addEventListener('click', e => {
       else { const s = Number(pick.slice(1)); if (v === '-') cur.m.splice(s, 1); else if (cur.m.length > s) cur.m[s] = v; else cur.m.push(v); }
       ed.pick = null; persistEditor(); paintEditor(false); break;
     }
+    case 'ed-build': { const si = Number(v), keep = ed.cur.sh; ed.s = si; ed.base = baseBuild(ed.d, { id: ed.d.id, s: si }, DICT, ED); ed.cur = { ...currentBuild(ed.base, null), sh: keep }; persistEditor(); paintEditor(); break; }
     case 'ed-shiny': ed.cur.sh = !ed.cur.sh; persistEditor(); paintEditor(); break;
     case 'ed-opt': askConfirm(t('cfmReset'), t('cfmResetBtn'), () => { const keep = ed.cur.sh; ed.cur = { ...currentBuild(ed.base, null), sh: keep }; persistEditor(); paintEditor(); toast(t('edReset')); }); break;
     case 'team-menu': bt.menu = bt.menu === v ? null : v; paintBattle(); if (bt.menu) $('.tmenu')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); break;
