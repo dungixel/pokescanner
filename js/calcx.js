@@ -65,7 +65,7 @@ export function setIndexFor(p, mode) {
   const want = formatRank(TIER_FORMAT[String(p.r).replace(/^\((.*)\)$/, '$1')] || 'ou');
   let best = -1, bd = 99;
   sets.forEach((s, i) => {
-    if (s.f === 'monotype' || s.f === 'doublesou' || s.f === 'vgc2025') return;
+    if (['monotype', 'doublesou', 'vgc2025'].includes(String(s.f).split('@')[0])) return;
     const d = Math.abs(formatRank(s.f) - want);
     if (d < bd || (d === bd && formatRank(s.f) < formatRank(sets[best].f))) { bd = d; best = i; }
   });

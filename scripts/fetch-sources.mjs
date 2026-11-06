@@ -34,6 +34,7 @@ const PKX_TEXT = ['gen2/text_gsc', 'gen3/text_rsefrlg', 'gen3/text_cxd', 'gen4/t
 await fs.mkdir(RAW, { recursive: true });
 await fs.mkdir(path.join(RAW, 'pkhex'), { recursive: true });
 await download(SMOGON, 'smogon-gen9.json');
+for (let g = 8; g >= 1; g--) await download(SMOGON.replace('gen9', `gen${g}`), `smogon-gen${g}.json`); // generaciones anteriores (respaldo para los Pokémon sin sets en Gen 9)
 for (const name of CSVS) await download(`${POKEAPI}/${name}.csv`, `${name}.csv`);
 for (const f of PKX_WILD) await download(`${PKHEX}/legality/wild/${f}.pkl`, `pkhex/${path.basename(f)}.pkl`);
 for (const f of PKX_TEXT) for (const l of ['en', 'es']) await download(`${PKHEX}/text/locations/${f}_00000_${l}.txt`, `pkhex/${path.basename(f)}_${l}.txt`);

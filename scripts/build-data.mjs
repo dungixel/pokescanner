@@ -9,6 +9,7 @@
 // Fuentes: @pkmn/dex + @pkmn/data (datos de Pokémon Showdown), sets de Smogon (raw/smogon-gen9.json)
 // y tablas CSV de PokeAPI para el español (raw/*.csv).
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Dex, toID } from '@pkmn/dex';
@@ -184,6 +185,15 @@ for (const [name, formats] of Object.entries(smogon)) {
   const sp = Dex.species.get(name);
   if (sp.exists) smogonById.set(sp.id, formats);
 }
+// Sets de generaciones anteriores (Gen 8 → 1): sirven para los Pokémon que no tienen sets en Gen 9 (los que ya no se pueden usar allí o que Smogon aún no ha analizado)
+const smogonOld = new Map(); // gen → (id → formatos)
+for (let g = 8; g >= 1; g--) {
+  const file = path.join(RAW, `smogon-gen${g}.json`);
+  if (!fs.existsSync(file)) continue;
+  const m = new Map();
+  for (const [name, formats] of Object.entries(JSON.parse(fs.readFileSync(file, 'utf8')))) { const sp = Dex.species.get(name); if (sp.exists) m.set(sp.id, formats); }
+  smogonOld.set(g, m);
+}
 // formatos de Smogon que se muestran (en este orden de relevancia)
 const FORMATS = ['ou', 'ubers', 'ubersuu', 'anythinggoes', 'uu', 'ru', 'nu', 'pu', 'zu', 'lc', 'nfe', 'doublesou', 'vgc2025', 'monotype'];
 
@@ -340,7 +350,8 @@ const TIER_FORMAT = {
   NU: 'nu', PUBL: 'nu', PU: 'pu', ZUBL: 'pu', ZU: 'zu', NFE: 'nfe', LC: 'lc',
 };
 
-fs.rmSync(OUT, { recursive: true, force: true });
+// solo se borran los paquetes de Pokémon que se regeneran; data/lang, data/enc*, shinyfix.json… se conservan
+fs.rmSync(path.join(OUT, 'pokemon'), { recursive: true, force: true });
 fs.mkdirSync(path.join(OUT, 'pokemon'), { recursive: true });
 const SHARD = 60; // Pokémon por paquete (pocos archivos = fácil de subir a GitHub)
 const details = new Map();
@@ -424,6 +435,30 @@ for (const s of allSpecies) {
       });
     }
   }
+  // sin sets en Gen 9: se usan los de la generación más reciente que los tenga (y la anterior si esa tiene pocos). El formato se guarda como "ru@7" (formato@generación)
+  if (!sets.length) {
+    const FALLBACK = FORMATS.filter(f => f !== 'monotype' && f !== 'doublesou' && !f.startsWith('vgc'));
+    let used = 0;
+    for (let g = old ? old.g : 8; g >= (old ? 1 : 8) && used < 2 && sets.length < 2; g--) { // los que siguen en Gen 9 solo miran Gen 8; los que ya no están, todas las anteriores
+      const fmg = smogonOld.get(g)?.get(s.id);
+      if (!fmg) continue;
+      const before = sets.length;
+      for (const f of FALLBACK.filter(x => fmg[x])) {
+        for (const [setName, set] of Object.entries(fmg[f])) {
+          sets.push({
+            f: `${f}@${g}`, n: setName,
+            m: arr(set.moves).map(slot => arr(slot).map(addMove)),
+            a: arr(set.ability).map(addAbility),
+            i: arr(set.item).map(addItem),
+            na: arr(set.nature).map(addNature),
+            ev: (Array.isArray(set.evs) ? set.evs[0] : set.evs) || {},
+            te: [],
+          });
+        }
+      }
+      if (sets.length > before) used++;
+    }
+  }
   if (sets.length) withSets++;
 
   const types = s.types.map(t => t.toLowerCase());
@@ -432,6 +467,7 @@ for (const s of allSpecies) {
   if (s.forme) entry.fm = 1;
   if (old) entry.g = old.g;
   if (sets.length) entry.ns = sets.length; // nº de builds de Smogon (sirve para ordenar "los mejores" de un rango)
+  if (sets.length) entry.sh = crypto.createHash('md5').update(JSON.stringify(sets)).digest('base64url').slice(0, 6); // huella de los builds: sirve para avisar cuando cambian
   index.push(entry);
 
   const detail = {

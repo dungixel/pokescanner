@@ -14,17 +14,18 @@ export const saveBanners = list => store.set(BN_KEY, JSON.stringify(list.slice(0
 const hash = s => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
 const txt = x => hash(x.xe || x.de || x.x || x.d || '');
 
-const pkSig = p => `${p.r}|${p.t.join(',')}|${p.s.join(',')}`;
+const pkSig = p => `${p.r}|${p.t.join(',')}|${p.s.join(',')}|${p.sh || ''}`;
 const MV = ['t', 'c', 'p', 'a', 'pp', 'pr'];
 const mvSig = m => [...MV.map(k => m[k] ?? ''), txt(m)].join('|');
 const txSig = x => txt(x);
 
 /** Cambios de un Pokémon entre dos firmas (r|t|s) */
 function pkDiff(a, b) {
-  const [ra, ta, sa] = a.split('|'), [rb, tb, sb] = b.split('|'), c = [];
+  const [ra, ta, sa, ha] = a.split('|'), [rb, tb, sb, hb] = b.split('|'), c = [];
   if (ra !== rb) c.push(['r', ra, rb]);
   if (ta !== tb) c.push(['t', ta.split(','), tb.split(',')]);
   if (sa !== sb) c.push(['s', sa.split(',').map(Number), sb.split(',').map(Number)]);
+  if (ha !== undefined && ha !== '' && hb !== undefined && ha !== hb) c.push(['b']); // builds de Smogon cambiados (si antes no había huella, no cuenta)
   return c;
 }
 const num = v => (v === '' ? null : /^-?\d+$/.test(v) ? Number(v) : v);

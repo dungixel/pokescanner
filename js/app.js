@@ -1,6 +1,6 @@
 import {
   TYPES, TYPE_ES, TYPE_EN, TYPE_COLOR, STATS, typeName, statName, catName, tierInfo, TIER_ORDER, formatName,
-  esc, fold, dexNum, fmtNum, store, matchups, bst, statColor, tierLabel, tierColor, tierNum, tierNumHTML, TIER_MAX, formatRank,
+  esc, fold, dexNum, fmtNum, store, matchups, bst, statColor, tierLabel, tierColor, tierNum, tierNumHTML, TIER_MAX, formatRank, formatGen,
   pname, pname2, dn, dn2, dd, dp, hasPrecise, how, OV, applyLangData,
   pokeImg, itemImg, typeIcon, typePill, typeDot, catIcon, SPR, img, spriteChain, smallSprite, SFIX, shinyStyle,
 } from './util.js';
@@ -1076,6 +1076,7 @@ function cgParts(e) {
   if (e.k === 'new') return [t('cgNew')];
   return e.c.map(([f, a, b]) => {
     if (f === 'x') return t('cgText');
+    if (f === 'b') return t('cgBuilds');
     if (f === 's') return `${t('cgStats')}: ${STATS.map((k, i) => (a[i] !== b[i] ? `${statName(k)} ${a[i]} → ${b[i]}` : '')).filter(Boolean).join(', ')}`;
     return `${f === 'pp' ? 'PP' : t(CG_LABEL[f])}: ${cgVal(f, a)} → ${cgVal(f, b)}`;
   });
@@ -1291,6 +1292,7 @@ function buildHTML() {
   const evs = Object.entries(set.ev || {});
   return `
     ${formats.length > 1 ? tabs(formats.map(f => [f, formatName(f)]), 'fmt', fmt) : `<span class="hint">${t('format', { f: esc(formatName(fmt)) })}</span>`}
+    ${formatGen(fmt) ? `<p class="hint" style="margin-top:6px">${t('setsOldGen', { g: formatGen(fmt) })}</p>` : ''}
     ${sets.length > 1 ? `<div style="margin-top:8px">${tabs(sets.map((s, i) => [i, s.n]), 'set', idx)}</div>` : ''}
     <div class="build">
       <div><h3>${t('moves')}</h3><ul class="slots">${set.m.map(slot => `<li class="slot">${chipMove(slot[0])}${slot.length > 1 ? `<span class="or">${t('or')}</span>${slot.slice(1).map(id => chipMove(id, true)).join('')}` : ''}</li>`).join('')}</ul></div>

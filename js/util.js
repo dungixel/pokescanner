@@ -133,8 +133,10 @@ const FORMAT_NAME = { ou: 'OU', ubers: 'Ubers', ubersuu: 'Ubers UU', anythinggoe
   lc: 'LC', nfe: 'NFE', vgc2025: 'VGC 2025', monotype: 'Monotype' };
 // orden de los formatos de Smogon, del más fuerte al más débil (igual que la escala de rangos); los de dobles y especiales, al final
 const FORMAT_ORDER = ['anythinggoes', 'ubers', 'ubersuu', 'ou', 'uu', 'ru', 'nu', 'pu', 'zu', 'lc', 'nfe', 'doublesou', 'vgc2025', 'monotype'];
-export const formatRank = f => { const i = FORMAT_ORDER.indexOf(f); return i < 0 ? FORMAT_ORDER.length : i; };
-export const formatName = f => (f === 'doublesou' ? t('fmt_doublesou') : FORMAT_NAME[f] || f);
+// los sets de generaciones anteriores se guardan como "ru@7" (formato@generación): van después de los de Gen 9, de la generación más reciente a la más antigua
+export const formatRank = f => { const [b, g] = String(f).split('@'); const i = FORMAT_ORDER.indexOf(b); return (i < 0 ? FORMAT_ORDER.length : i) + (g ? (9 - Number(g)) * 100 : 0); };
+export const formatGen = f => Number(String(f).split('@')[1]) || 0;
+export const formatName = f => { const [b, g] = String(f).split('@'); const n = b === 'doublesou' ? t('fmt_doublesou') : FORMAT_NAME[b] || b; return g ? `${n} · ${t('gen', { g })}` : n; };
 
 // ───────── nombres según el idioma ─────────
 const FORMS = {

@@ -156,6 +156,8 @@ for (const [pid, rows] of byPokemon) {
 for (const k of ['grp', 'ver', 'loc', 'meth', 'cond']) Object.assign(dict[k], PK.dict[k]);
 for (const [k, v] of Object.entries(PK.dict.reg)) dict.reg[k] = v;
 for (const r of csv('regions')) if (['hisui', 'paldea'].includes(r.identifier) && !dict.reg[r.id]) dict.reg[r.id] = [regName.get(r.id)?.es || regName.get(r.id)?.en || r.identifier, regName.get(r.id)?.en || r.identifier];
+// las traducciones al francés y alemán (dict.l) se hacen a mano: se conservan al regenerar
+try { const prev = JSON.parse(fs.readFileSync(path.join(OUT, 'enc-dict.json'), 'utf8')); if (prev.l) dict.l = prev.l; } catch { /* primera vez */ }
 fs.writeFileSync(path.join(OUT, 'enc-dict.json'), JSON.stringify(dict));
 fs.writeFileSync(path.join(RAW, 'untranslated-locations.txt'), [...UNTRANSLATED].sort().join('\n'));
 
