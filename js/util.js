@@ -159,12 +159,12 @@ export const dn = x => (lang() === 'es' ? x.n : lang() === 'en' ? x.e : (x.l || 
 export const dn2 = x => (lang() === 'en' ? '' : x.e);
 export const dd = x => (lang() === 'es' ? x.d : lang() === 'en' ? (x.de || x.d) : (x.ld || x.de || x.d));
 /** descripción precisa (con cifras) si existe; si no, el texto del juego */
-export const dp = x => (lang() === 'es' ? (x.x || x.d) : lang() === 'en' ? (x.xe || x.de || x.d) : dd(x)) || '';
-export const hasPrecise = x => (lang() === 'es' ? !!x.x : lang() === 'en' ? !!x.xe : false);
+export const dp = x => (lang() === 'es' ? (x.x || x.d) : lang() === 'en' ? (x.xe || x.de || x.d) : (x.lx || dd(x))) || '';
+export const hasPrecise = x => (lang() === 'es' ? !!x.x : lang() === 'en' ? !!x.xe : !!x.lx);
 /** copia los nombres y textos fr/de del overlay sobre el diccionario (se repite al cambiar de idioma) */
 export function applyLangData(dict) {
   const o = OV[lang()]; if (!dict) return;
-  for (const [cat, key] of [['moves', 'mv'], ['abilities', 'ab'], ['items', 'it']]) for (const [id, x] of Object.entries(dict[cat])) { const r = o?.[key]?.[id]; x.l = r ? r[0] : undefined; x.ld = r ? r[1] : undefined; }
+  for (const [cat, key] of [['moves', 'mv'], ['abilities', 'ab'], ['items', 'it']]) for (const [id, x] of Object.entries(dict[cat])) { const r = o?.[key]?.[id]; x.l = r ? r[0] : undefined; x.ld = r ? r[1] : undefined; x.lx = r ? r[2] : undefined; }
   for (const [id, x] of Object.entries(dict.natures)) x.l = o?.nat?.[id];
 }
 export const how = n => (lang() === 'es' ? n.how : (n.hx || n.how));
