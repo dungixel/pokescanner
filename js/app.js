@@ -1050,9 +1050,12 @@ const TCIC = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke
 let META = null;
 function updHTML() {
   if (!META?.generado) return '';
-  const days = Math.max(0, Math.floor((Date.now() - new Date(META.generado).getTime()) / 864e5));
+  const gen = new Date(META.generado), mid = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const days = Math.max(0, Math.round((mid(new Date()) - mid(gen)) / 864e5)); // días de calendario, para que "hoy" sea de verdad hoy
   const when = days === 0 ? t('updToday') : days === 1 ? t('updYesterday') : days < 14 ? t('updDays', { n: days }) : days < 60 ? t('updWeeks', { n: Math.floor(days / 7) }) : t('updMonths', { n: Math.floor(days / 30) });
-  return `<p class="upd" title="${esc(META.fuente || '')}">${t('updLabel', { when })}</p>`;
+  const d = gen;
+  const at = days <= 1 ? ` ${t(lang() === 'es' && d.getHours() === 1 ? 'updAtOne' : 'updAt', { h: d.toLocaleTimeString(lang(), { hour: '2-digit', minute: '2-digit' }) })}` : '';
+  return `<p class="upd" title="${esc(META.fuente || '')}">${t('updLabel', { when: when + at })}</p>`;
 }
 
 
