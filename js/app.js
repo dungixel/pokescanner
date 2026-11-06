@@ -1108,9 +1108,8 @@ function renderResults(reset = true) {
     state.randoms ??= pickRandoms(true);
     box.innerHTML = `
       <div class="block-title"><h2>${t('daily')}</h2>
-        <div class="btnrow"><button class="chip small" data-act="go-types">${TCIC}${t('typeChart')}</button>
-        <button class="chip small" data-act="shuffle">${SHIC}${t('random')}</button></div></div>
-      <div class="btnrow" style="margin:-4px 0 14px"><button class="chip small" data-act="go-calc">${CALCIC}${t('calcTitle')}</button></div>
+        <div class="btnrow"><button class="chip small" data-act="shuffle">${SHIC}${t('random')}</button></div></div>
+      <div class="btnrow" style="margin:-4px 0 14px"><button class="chip small" data-act="go-types">${TCIC}${t('typeChart')}</button><button class="chip small" data-act="go-calc">${CALCIC}${t('calcTitle')}</button></div>
       <div class="cards">${state.randoms.map(id => cardHTML(BYID.get(id))).join('')}</div>`;
     return;
   }
