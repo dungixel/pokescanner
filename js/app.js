@@ -1098,9 +1098,7 @@ function typesHTML() {
     const defBox = i => `<section class="tcbox"><h3>${t('tcAsDef')}</h3>${row(2, t('tcDefW'), def(i, 2), 1)}${row(0.5, t('tcDefR'), def(i, 0.5), 1)}${row(0, t('tcDefI'), def(i, 0), 1)}</section>`;
     if (sr === sc && sel.hdr) detail = `<div class="tc-detail"><div class="tchead">${tcPill(A)}</div><div class="tcgrid">${offBox(sr)}${defBox(sr)}</div></div>`;
     else {
-      const e = ch[sr][sc], [cls, mult, key] = tcRes[e];
-      detail = `<div class="tc-detail"><div class="tcres ${cls}"><div class="tcres-ty">${tcPill(A)}<b>→</b>${tcPill(D)}</div><div class="tcres-x"><strong>${mult}</strong><span>${t(key)}</span></div></div>
-        <div class="tcgrid">${offBox(sr).replace('<h3>', `<h3>${typeName(A)} · `)}${defBox(sc).replace('<h3>', `<h3>${typeName(D)} · `)}</div></div>`;
+      detail = `<div class="tc-detail"><div class="tcgrid">${offBox(sr).replace('<h3>', `<h3>${typeName(A)} · `)}${defBox(sc).replace('<h3>', `<h3>${typeName(D)} · `)}</div></div>`;
     }
   }
   return `<div class="tc-wrap"><div class="tc ${sel ? 'hasSel' : ''}"><span class="tc-corner"></span>${head}${rows}</div></div><p class="hint tc-legend">${t('tcLegend')}</p>${detail}`;
