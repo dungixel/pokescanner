@@ -1487,3 +1487,11 @@ dialog.cfm::backdrop { background: rgba(10, 12, 20, .5); }
   html.kb .scard.picker { grid-template-rows: auto auto minmax(0, 1fr); }
   html.kb .scard.picker .pklist { max-height: none; min-height: 0; }
 }
+
+/* Todos los Pokémon: cuadrícula de casillas pequeñas */
+.dexgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); gap: 8px; margin-top: 6px; }
+.dexcell { display: grid; justify-items: center; gap: 2px; padding: 6px 2px 6px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line); color: var(--ink); text-decoration: none; content-visibility: auto; contain-intrinsic-size: 86px 82px; }
+.dexcell:active { transform: scale(.96); }
+.dexcell small { font-size: .62rem; font-weight: 600; color: var(--muted); line-height: 1; }
+.dexcell img.poke { width: 46px; height: 46px; image-rendering: pixelated; object-fit: contain; }
+.dexcell .tier { height: 17px; padding: 0 6px; font-size: .62rem; }

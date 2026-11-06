@@ -10,7 +10,7 @@ import { META_TEAMS } from './meta.js';
 import { detectChanges, readLog, readBanners, saveBanners } from './changes.js';
 import * as auth from './auth.js';
 // número de versión que se ve junto al logo; lo actualiza scripts/stamp-version.mjs antes de cada commit
-const APP_VERSION = 'v1.135';
+const APP_VERSION = 'v1.136';
 import { DOCK, IC } from './icons.js';
 import { buildUnit, compareTeams, eff, bestSetIndex } from './battle.js';
 import { baseBuild, currentBuild, diffBuild, finalStats, evTotal, KEYS as EDK, EV_MAX, EV_TOTAL } from './editor.js';
@@ -806,8 +806,9 @@ function route() {
   const um = location.hash.match(/^#\/user\/([0-9a-f-]{36})/);
   const cm = location.hash.match(/^#\/community\/(\d+)/);
   const sh = location.hash.match(/^#\/t\/([a-z0-9,]*)(?:\?n=(.*))?$/);
+  const all = location.hash === '#/all';
   if (state.view === 'battle' && location.hash !== '#/battle') auth.unwatchFriends().catch(() => {});
-  if (sh) renderShared(sh[1], sh[2]); else if (m) renderPokemon(m[1]); else if (d) renderDetailPage(d[1], d[2]); else if (tp) renderTeamPage(tp[1]); else if (um) renderUser(um[1]); else if (cm) renderPost(cm[1]); else if (location.hash === '#/community') renderCommunity(); else if (location.hash === '#/types') renderTypes(); else if (location.hash === '#/changelog') renderChangelog(); else if (/^#\/calc/.test(location.hash)) renderCalc((location.hash.match(/[?&]a=([a-z0-9]+)/) || [])[1]); else if (location.hash === '#/teams') renderTeams(); else if (location.hash === '#/battle') renderBattle(); else renderHome();
+  if (all) renderAll(); else if (sh) renderShared(sh[1], sh[2]); else if (m) renderPokemon(m[1]); else if (d) renderDetailPage(d[1], d[2]); else if (tp) renderTeamPage(tp[1]); else if (um) renderUser(um[1]); else if (cm) renderPost(cm[1]); else if (location.hash === '#/community') renderCommunity(); else if (location.hash === '#/types') renderTypes(); else if (location.hash === '#/changelog') renderChangelog(); else if (/^#\/calc/.test(location.hash)) renderCalc((location.hash.match(/[?&]a=([a-z0-9]+)/) || [])[1]); else if (location.hash === '#/teams') renderTeams(); else if (location.hash === '#/battle') renderBattle(); else renderHome();
   updateDock();
   const tab = tabOf(location.hash), dir = tab != null && curTab != null && tab !== curTab ? (tab > curTab ? 'slide-r' : 'slide-l') : null;
   curTab = tab;
@@ -844,6 +845,7 @@ function homeHTML() {
       ${t('filters')} <span class="badge" id="fbadge"></span>
       <svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
     </button>
+    <a class="chip" href="#/all"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></svg>${t('seeAllPill')}</a>
   </div>
   <div class="fpanel" id="fpanel"><div class="fpanel-in">
   <section class="filters" id="filters" aria-label="${t('filters')}">
@@ -2446,6 +2448,24 @@ function paintTeams() {
   root.innerHTML = teamsHTML();
   if (had) { const n = $('#tn'); n?.focus({ preventScroll: true }); }
   window.scrollTo(0, y);
+}
+let allShown = 150; // cuántas casillas se habían cargado, para volver al mismo punto
+/** Página con todos los Pokémon (una casilla por número de Pokédex): número, sprite y tier */
+function renderAll() {
+  state.view = 'all';
+  document.title = `${t('allTitle')} · PokeScanner`;
+  document.documentElement.style.removeProperty('--accent');
+  const seen = new Set(), list = INDEX.filter(p => !seen.has(p.num) && seen.add(p.num)).sort((a, b) => a.num - b.num);
+  const cell = p => `<a class="dexcell" href="#/pokemon/${p.id}" aria-label="${esc(pname(p))}" title="${esc(pname(p))}"><small>${dexNum(p.num)}</small>${pokeImg(p, 'small')}<span class="tier" style="--tier:${tierColor(p.r)}">${esc(tierLabel(p.r))}</span></a>`;
+  $app.innerHTML = topbarHTML() + `<header class="hero"><h1>${t('allTitle')}</h1><p>${t('allLead', { n: list.length })}</p></header><div class="dexgrid" id="dexgrid"></div><div class="sentinel" id="dexsen"></div>`;
+  let shown = 0;
+  const more = (n = 150) => { const grid = $('#dexgrid'); if (!grid) return; grid.insertAdjacentHTML('beforeend', list.slice(shown, shown + n).map(cell).join('')); shown = Math.min(shown + n, list.length); allShown = Math.max(allShown, shown); if (shown >= list.length) io?.disconnect(); };
+  more(Math.max(150, state.restoreY ? allShown : 0));
+  if (io) io.disconnect();
+  io = new IntersectionObserver(en => { if (en[0].isIntersecting) more(); }, { rootMargin: '900px 0px' });
+  io.observe($('#dexsen'));
+  window.scrollTo(0, state.restoreY || 0);
+  updateDock();
 }
 function renderShared(idStr, nameRaw) {
   state.view = 'shared';
