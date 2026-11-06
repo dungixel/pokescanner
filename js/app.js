@@ -1415,7 +1415,7 @@ function movesSectionHTML() {
   const cnt = k => (k === 'lv' ? d.lv.length : d[k].length);
   const body = tab === 'lv' ? (d.lv.length ? levelMovesHTML(page.expanded) : `<p class="hint">${t('noLevelMoves')}</p>`) : methodListHTML(d[tab] || []);
   return `<h2>${t('movesTitle')} <small>${d.g ? `${t('gen', { g: d.lg })} · ` : ''}${cnt(tab)}</small></h2>
-    ${tabs.length > 1 ? `<div class="chips mtabs" role="tablist">${tabs.map(([k, lbl]) => `<button class="chip ${k === tab ? 'on' : ''}" role="tab" aria-selected="${k === tab}" data-act="mtab" data-v="${k}">${t(lbl)} <small>${cnt(k)}</small></button>`).join('')}</div>` : ''}
+    ${tabs.length > 1 ? `<div class="chips mtabs" role="tablist">${tabs.map(([k, lbl]) => `<button class="chip ${k === tab ? 'on' : ''}" role="tab" aria-selected="${k === tab}" data-act="mtab" data-v="${k}"><small>${cnt(k)} –</small> ${t(lbl)}</button>`).join('')}</div>` : ''}
     <div id="lvl">${body}</div>`;
 }
 const favBtnInner = on => (on ? `${IC.starF}${t('favAddedBtn')}` : `${IC.star}${t('favAddBtn')}`);

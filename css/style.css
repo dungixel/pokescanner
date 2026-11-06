@@ -1198,7 +1198,7 @@ button.slothead { cursor: pointer; }
 .gbar i { display: block; height: 100%; background: #3B82F6; }
 .forms { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
 .mtabs { margin: 0 0 10px; }
-.mtabs .chip small { color: var(--muted); margin-left: 2px; }
+.mtabs .chip small { color: var(--muted); margin-right: 2px; }
 .mtabs .chip.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .mtabs .chip.on small { color: inherit; opacity: .7; }
 
