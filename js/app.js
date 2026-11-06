@@ -1379,7 +1379,7 @@ function evoHTML(node, curId, req = '') {
   let h = `<a class="evo-card ${node.id === curId ? 'current' : ''}" href="#/pokemon/${p.id}" ${node.id === curId ? 'aria-current="page"' : ''}>
     ${pokeImg(p, 'small')}<span class="evo-txt"><b>${esc(pname(p))}</b><small>${dexNum(p.num)}</small>
     ${req ? `<span class="evo-how">${esc(req)}</span>` : ''}
-    <span class="types" style="display:flex;gap:4px;margin-top:6px">${p.t.map(typeDot).join('')}</span></span></a>`;
+    <span class="types" style="display:flex;gap:4px;margin-top:6px">${p.t.map(typeDot).join('')}</span></span>${tierBadge(p.r, '', p.g)}</a>`;
   const kids = (node.c || []).filter(c => BYID.has(c.id));
   if (kids.length) {
     h += `<div class="evo-kids">${kids.map(c => `<div class="evo-link" aria-hidden="true">${I.down}</div>${evoHTML(c, curId, how(c))}`).join('')}</div>`;
@@ -1427,7 +1427,7 @@ function speciesDataHTML(d) {
 function formsHTML(d) {
   const fs = INDEX.filter(p => p.num === d.num && p.id !== d.id);
   if (!fs.length) return '';
-  return `<section class="sec"><h2>${t('dtForms')} <small>${fs.length + 1}</small></h2><div class="forms">${fs.map(p => `<a class="evo-card" href="#/pokemon/${p.id}">${pokeImg(p, 'small')}<span class="evo-txt"><b>${esc(pname(p))}</b><small>${dexNum(p.num)}</small><span class="types" style="display:flex;gap:4px;margin-top:6px">${p.t.map(typeDot).join('')}</span></span></a>`).join('')}</div></section>`;
+  return `<section class="sec"><h2>${t('dtForms')} <small>${fs.length + 1}</small></h2><div class="forms">${fs.map(p => `<a class="evo-card" href="#/pokemon/${p.id}">${pokeImg(p, 'small')}<span class="evo-txt"><b>${esc(pname(p))}</b><small>${dexNum(p.num)}</small><span class="types" style="display:flex;gap:4px;margin-top:6px">${p.t.map(typeDot).join('')}</span></span>${tierBadge(p.r, '', p.g)}</a>`).join('')}</div></section>`;
 }
 const MTABS = [['lv', 'mtLevel'], ['mt', 'mtTm'], ['eggm', 'mtEgg'], ['tu', 'mtTutor']];
 function methodListHTML(ids) {
