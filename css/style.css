@@ -1411,7 +1411,7 @@ dialog.cfm::backdrop { background: rgba(10, 12, 20, .5); }
 .tcb .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 
 /* Descripciones precisas */
-.desc.strong { font-weight: 600; font-size: 1.02rem; line-height: 1.5; padding: 14px 16px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line); border-left: 5px solid var(--accent, var(--ink)); margin: 0; }
+.desc.strong { font-weight: 400; font-size: 1.02rem; line-height: 1.5; padding: 14px 16px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line); border-left: 5px solid var(--accent, var(--ink)); margin: 0; }
 .flavor { margin: 10px 2px 0; color: var(--muted); font-size: .86rem; line-height: 1.45; }
 .flavor summary { cursor: pointer; font-weight: 700; opacity: .8; list-style: none; }
 .flavor summary::-webkit-details-marker { display: none; }
