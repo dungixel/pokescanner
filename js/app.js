@@ -1398,6 +1398,7 @@ function pokemonHTML() {
   return `
   ${topbarHTML()}
   <section class="phero" aria-label="${esc(pname(d))}">
+    <button class="shinybtn crybtn" data-act="cry" aria-label="${t('cry')}"><svg viewBox="0 0 24 24"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.8 7.8 0 0 1 0 11"/></svg></button>
     <button class="shinybtn ${page.shiny ? 'on' : ''}" data-act="shiny" aria-pressed="${!!page.shiny}" aria-label="${t('shiny')}">${SPARK}</button>
     ${artImg(d)}
     <span class="num">${dexNum(d.num)}</span>
@@ -2810,6 +2811,19 @@ document.addEventListener('click', e => {
 
     // ficha
     case 'row-fav': if (requireLogin({ type: 'fav', id: v })) openTeamPick(v); break;
+    case 'cry': {
+      const d = page.d, base = INDEX.find(p => p.num === d.num)?.id, urls = [...new Set([d.id, base])].filter(Boolean).map(i => `https://play.pokemonshowdown.com/audio/cries/${i}.mp3`);
+      try { window.__cry?.pause(); } catch {}
+      el.classList.add('on');
+      const done = () => el.classList.remove('on');
+      const tryNext = i => {
+        if (i >= urls.length) { done(); toast(t('cryErr')); return; }
+        const a = new Audio(urls[i]); window.__cry = a; a.onended = done; a.onerror = () => tryNext(i + 1);
+        a.play().catch(e => { if (e?.name === 'NotAllowedError') done(); else tryNext(i + 1); });
+      };
+      tryNext(0);
+      break;
+    }
     case 'shiny': {
       page.shiny = !page.shiny;
       const b = $('.shinybtn'); b.classList.toggle('on', page.shiny); b.setAttribute('aria-pressed', page.shiny);
