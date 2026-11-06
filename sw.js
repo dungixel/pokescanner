@@ -9,7 +9,7 @@ const SHELL = [
   'js/app.js', 'js/auth.js', 'js/battle.js', 'js/build.js', 'js/calcx.js', 'js/doubles.js', 'js/editor.js', 'js/i18n.js', 'js/icons.js', 'js/meta.js', 'js/singles.js', 'js/team.js', 'js/util.js',
   'vendor/supabase.js', 'vendor/smogon-calc.js',
   'fonts/lexend-latin-400-normal.woff2', 'fonts/lexend-latin-700-normal.woff2', 'fonts/lexend-latin-ext-400-normal.woff2', 'fonts/lexend-latin-ext-700-normal.woff2',
-  'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
+  'icons/icon.svg', 'icons/spin.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
   'data/index.json', 'data/meta.json', 'data/dict.json',
 ];
 self.addEventListener('install', e => {

@@ -493,6 +493,8 @@ const footerHTML = () => `<footer class="sitefoot">${t('footer', {
 })}</footer>`;
 
 // Imágenes: si una falla, se prueba la siguiente de la cadena (data-fb)
+// Mientras una imagen carga se ve la pokeball girando de fondo (CSS: img:not(.ok)); al cargar se marca .ok
+document.addEventListener('load', e => { if (e.target instanceof HTMLImageElement) e.target.classList.add('ok'); }, true);
 document.addEventListener('error', e => {
   const t = e.target;
   if (!(t instanceof HTMLImageElement)) return;

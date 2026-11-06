@@ -62,6 +62,7 @@ h1, h2, h3, p { margin: 0; }
 .ldg { min-height: 72vh; min-height: 72dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 0 1.25rem; }
 .ldg p { margin: 0; font-weight: 700; font-size: 1rem; }
 .ldg-ball { width: 72px; height: 72px; animation: ldspin 1s linear infinite; }
+img.poke:not(.ok):not(.missing), img.item:not(.ok):not(.missing), img.av:not(.ok):not(.missing) { background: url(../icons/spin.svg) center / min(45%, 36px) no-repeat; }
 @keyframes ldspin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .ldg-ball { animation-duration: 2.6s; } }
 .tools { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: -2px 0 16px; }
