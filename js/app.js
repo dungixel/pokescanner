@@ -2380,7 +2380,7 @@ function teamPageHTML(i) {
       <span class="minis">${members.map((p, k) => pokeImg(p, 'small', 'mini', undefined, !!tm.members[k]?.b?.sh)).join('') || `<small>${t('teamEmpty')}</small>`}</span></header>
     <hr class="tdiv">
     ${members.length ? `<div class="list">${tm.members.map((m, k) => (BYID.get(m.id) ? memberRow(BYID.get(m.id), i, k) : '')).join('')}</div>` : `<p class="shint">${t('teamEmptyHint')}</p>`}
-    <div class="slotacts">${members.length < MAXTEAM ? `<button class="chip" data-act="slot-add">${IC.plus}${t('addPoke')}</button>` : ''}${members.length ? `<button class="chip" data-act="team-share" data-v="${i}">${IC.share}${t('shareTeam')}</button><button class="chip" data-act="sd-open" data-v="export:${i}">${t('sdExport')}</button>` : ''}<button class="chip" data-act="sd-open" data-v="import:${i}">${t('sdImport')}</button></div>
+    <div class="slotacts">${members.length < MAXTEAM ? `<button class="chip" data-act="slot-add">${IC.plus}${t('addPoke')}</button>` : ''}${members.length ? `<button class="chip" data-act="team-share" data-v="${i}">${IC.share}${t('shareTeam')}</button><button class="chip" data-act="sd-open" data-v="export:${i}">${t('sdExport')}</button>` : ''}<button class="chip" data-act="sd-open" data-v="import:${i}">${t('sdImport')}</button>${members.length ? `<button class="chip warn" data-act="team-clear" data-v="${i}">${IC.trash}${t('clearTeam')}</button>` : ''}</div>
     ${members.length ? teamHTML(members, false) : ''}`;
 }
 function teamsHTML() {
@@ -2956,6 +2956,7 @@ document.addEventListener('click', e => {
     case 'shared-share': if (bt.link) shareTeam(bt.link.members.map(m => m.id), bt.link.custom ? bt.link.name : ''); break;
     case 'shared-compare': bt.b = { owner: 'link', slot: 0 }; bt.res = null; bt.cmpMsg = ''; location.hash = '#/battle'; break;
     case 'save-side': { const sel = bt[v], tm = teamOf(sel); if (tm?.members.length) openSaveTeam({ name: tm.name, ids: tm.members.map(m => m.id) }); break; }
+    case 'team-clear': { const i = Number(v); if (teams[i]?.members.length) askConfirm(t('cfmClearTeam', { team: teamName(i) }), t('clearTeamOk'), () => { teams[i].members = []; saveSlot(i); afterTeamsChange(); }); break; }
     case 'team-remove': if (teamsSel.open >= 0) { const i = teamsSel.open; askConfirm(t('cfmRemovePoke', { name: pname(BYID.get(v)), team: teamName(i) }), t('cfmRemove'), () => toggleInTeam(i, v)); } break;
     case 'pk-pick':
       if (pickCtx?.mode === 'avatar') setAvatar(BYID.get(v).num);

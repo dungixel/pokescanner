@@ -1448,3 +1448,5 @@ dialog.cfm::backdrop { background: rgba(10, 12, 20, .5); }
 .cgrow img.mini { width: 36px; height: 36px; }
 .cgt { display: flex; flex-direction: column; gap: 1px; min-width: 0; font-size: .95rem; }
 .cgt span { font-size: .84rem; color: var(--muted); overflow-wrap: anywhere; }
+.slotacts .chip.warn { color: #D4473F; border-color: color-mix(in srgb, #E5484D 45%, var(--line)); background: color-mix(in srgb, #E5484D 8%, var(--surface)); }
+[data-theme="dark"] .slotacts .chip.warn { color: #F28B82; }
