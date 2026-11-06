@@ -12,7 +12,8 @@ export const readBanners = () => rd(BN_KEY, []);
 export const saveBanners = list => store.set(BN_KEY, JSON.stringify(list.slice(0, BN_MAX)));
 
 const hash = s => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
-const txt = x => hash(x.xe || x.de || x.x || x.d || '');
+// solo el texto del juego: así no depende de si hay descripción precisa o no
+const txt = x => hash(x.de || x.d || '');
 
 const pkSig = p => `${p.r}|${p.t.join(',')}|${p.s.join(',')}|${p.sh || ''}`;
 const MV = ['t', 'c', 'p', 'a', 'pp', 'pr'];
@@ -65,15 +66,19 @@ function merge(list, add) {
 export async function detectChanges({ generado, index, loadDict }) {
   if (!generado || !index?.length) return 0;
   let prev = null; try { prev = JSON.parse(store.get(SNAP_KEY) || 'null'); } catch { /* ilegible */ }
-  if (prev?.g === generado && prev.v === 1) return 0;
+  if (prev?.g === generado && prev.v === 2) return 0;
   const dict = await loadDict();
-  const cur = { v: 1, g: generado, p: {}, m: {}, a: {}, i: {} };
+  if (prev?.v === 1) { // la foto antigua mide los textos de otra forma: se quitan los avisos falsos de "texto cambiado" de hoy y se empieza de nuevo
+    const fake = e => ['mv', 'ab', 'it'].includes(e.k) && e.d >= '2026-11-06' && e.c.every(c => c[0] === 'x');
+    store.set(LOG_KEY, JSON.stringify(readLog().filter(e => !fake(e)))); saveBanners(readBanners().filter(e => !fake(e)));
+  }
+  const cur = { v: 2, g: generado, p: {}, m: {}, a: {}, i: {} };
   for (const p of index) cur.p[p.id] = pkSig(p);
   for (const id in dict.moves) cur.m[id] = mvSig(dict.moves[id]);
   for (const id in dict.abilities) cur.a[id] = txSig(dict.abilities[id]);
   for (const id in dict.items) cur.i[id] = txSig(dict.items[id]);
   let added = [];
-  if (prev?.v === 1 && prev.p) { // en la primera visita solo se guarda la foto
+  if (prev?.v === 2 && prev.p) { // en la primera visita solo se guarda la foto
     const d = generado.slice(0, 10);
     added = [
       ...Object.keys(cur.p).filter(id => prev.p[id] == null).map(id => ({ d, k: 'new', id, c: [] })),

@@ -533,6 +533,11 @@ fs.writeFileSync(path.join(OUT, 'learners.json'), JSON.stringify(learners));
 fs.writeFileSync(path.join(OUT, 'abilities.json'), JSON.stringify(abilities));
 fs.writeFileSync(path.join(OUT, 'items.json'), JSON.stringify(items));
 fs.writeFileSync(path.join(OUT, 'index.json'), JSON.stringify(index));
+// descripciones precisas (con cifras): viven a mano en data/precise.json y se vuelven a poner en cada reconstrucción
+try {
+  const P = JSON.parse(fs.readFileSync(path.join(OUT, 'precise.json'), 'utf8'));
+  for (const k of ['moves', 'abilities', 'items']) for (const [id, v] of Object.entries(P[k] || {})) if (dict[k][id]) Object.assign(dict[k][id], v);
+} catch { console.warn('  ⚠ falta data/precise.json: se pierden las descripciones precisas'); }
 fs.writeFileSync(path.join(OUT, 'dict.json'), JSON.stringify(dict));
 fs.writeFileSync(path.join(OUT, 'meta.json'), JSON.stringify({ generado: new Date().toISOString(), pokemon: index.length, fuente: 'Pokémon Showdown (@pkmn/dex) · Smogon (pkmn/smogon) · PokeAPI (español)' }));
 
