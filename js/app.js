@@ -1209,18 +1209,22 @@ function renderResults(reset = true) {
 
   const list = (state.list = compute());
   const mv = searchBlocks(fold(state.q));
-  const goTeams = '';
-  const head = goTeams + mv + `<div class="block-title tight"><h2>${t(list.length === 1 ? 'result1' : 'resultN', { n: list.length })}</h2></div>`;
+  const head = `<div class="block-title tight"><h2>${t(list.length === 1 ? 'result1' : 'resultN', { n: list.length })}</h2></div>`;
   if (!list.length) {
     // si no hay Pokémon pero sí movimientos, solo se muestran los movimientos
     box.innerHTML = mv || head + `<div class="empty"><b>${t(state.favs ? 'emptyTitleFavs' : 'emptyTitle')}</b>${state.favs && !favs.size ? t('emptyFavs') : t('emptyHint')}</div>`;
     return;
   }
-  // en la vista de favoritos (sin otros filtros) se analiza el equipo
-  const analysis = '';
-  box.innerHTML = head + `<div class="list">${list.slice(0, state.shown).map(rowHTML).join('')}</div><div class="sentinel"></div>` + analysis;
+  // primero los Pokémon y después movimientos, habilidades y objetos; si hay de esos otros, solo se enseña un adelanto de Pokémon para no enterrarlos
+  const preview = !!mv && list.length > PK_PREVIEW && state.pkAllQ !== state.q;
+  if (preview) {
+    box.innerHTML = head + `<div class="list">${list.slice(0, PK_PREVIEW).map(rowHTML).join('')}</div><div class="ctarow"><button class="chip" data-act="pk-all">${t('pkShowAll', { n: list.length })}</button></div>` + mv;
+    return;
+  }
+  box.innerHTML = head + `<div class="list">${list.slice(0, state.shown).map(rowHTML).join('')}</div><div class="sentinel"></div>` + mv;
   watchSentinel();
 }
+const PK_PREVIEW = 6;
 function watchSentinel() {
   const s = $('.sentinel');
   if (!s || state.shown >= state.list.length) return;
@@ -2912,6 +2916,7 @@ document.addEventListener('click', e => {
     case 'calc-set': { const i = v.indexOf(':'); calc[v.slice(0, i)] = v.slice(i + 1); paintCalc(); break; }
     case 'calc-tog': calc[v] = !calc[v]; paintCalc(); break;
     case 'tc-sel': { const [r, c] = v.split(',').map(Number), pill = el.classList.contains('tc-pill'), hdr = pill || el.classList.contains('tc-h'), cur = state.tcSel; state.tcSel = !pill && cur && cur.r === r && cur.c === c && !!cur.hdr === hdr ? null : { r, c, hdr }; paintTypes(); break; }
+    case 'pk-all': state.pkAllQ = state.q; renderResults(true); break;
     case 'shuffle': { const pool = INDEX.filter(p => !p.g); location.hash = '#/pokemon/' + pool[Math.floor(Math.random() * pool.length)].id; break; }
     case 'tier-go': goSearch({ tiers: [v] }); break;
 
