@@ -795,8 +795,8 @@ function route() {
 // ───────────────────────── Inicio ─────────────────────────
 const GEN_END = [151, 251, 386, 493, 649, 721, 809, 905, 1025]; // último número de Pokédex de cada generación
 const genOf = num => { const i = GEN_END.findIndex(e => num <= e); return i < 0 ? 9 : i + 1; };
-const REGION = { es: ['Kanto', 'Johto', 'Hoenn', 'Sinnoh', 'Teselia', 'Kalos', 'Alola', 'Galar', 'Paldea'], en: ['Kanto', 'Johto', 'Hoenn', 'Sinnoh', 'Unova', 'Kalos', 'Alola', 'Galar', 'Paldea'] };
-const genLabel = g => `${t('genShort', { g })} · ${REGION[dl()][g - 1]}`;
+const REGION = { es: ['Kanto', 'Johto', 'Hoenn', 'Sinnoh', 'Teselia', 'Kalos', 'Alola', 'Galar', 'Paldea'], en: ['Kanto', 'Johto', 'Hoenn', 'Sinnoh', 'Unova', 'Kalos', 'Alola', 'Galar', 'Paldea'], fr: ['Kanto', 'Johto', 'Hoenn', 'Sinnoh', 'Unys', 'Kalos', 'Alola', 'Galar', 'Paldea'], de: ['Kanto', 'Johto', 'Hoenn', 'Sinnoh', 'Einall', 'Kalos', 'Alola', 'Galar', 'Paldea'] };
+const genLabel = g => `${t('genShort', { g })} · ${REGION[lang()][g - 1]}`;
 const SORTS = ['num', 'hp', 'atk', 'def', 'spa', 'spd', 'spe', 'bst', 'h', 'w'];
 const sortLabel = k => (k === 'num' ? t('num') : statName(k));
 
@@ -1272,6 +1272,9 @@ function levelMovesHTML(expanded) {
 // ───────── Pestañas de movimientos y datos de la especie ─────────
 const EGG_ES = { monster: 'Monstruo', water1: 'Agua 1', bug: 'Bicho', flying: 'Volador', ground: 'Campo', fairy: 'Hada', plant: 'Planta', humanshape: 'Humanoide', water3: 'Agua 3', mineral: 'Mineral', indeterminate: 'Amorfo', water2: 'Agua 2', ditto: 'Ditto', dragon: 'Dragón', 'no-eggs': 'Desconocido' };
 const EGG_EN = { monster: 'Monster', water1: 'Water 1', bug: 'Bug', flying: 'Flying', ground: 'Field', fairy: 'Fairy', plant: 'Grass', humanshape: 'Human-Like', water3: 'Water 3', mineral: 'Mineral', indeterminate: 'Amorphous', water2: 'Water 2', ditto: 'Ditto', dragon: 'Dragon', 'no-eggs': 'Undiscovered' };
+const EGG_FR = { monster: 'Monstre', water1: 'Eau 1', bug: 'Insecte', flying: 'Vol', ground: 'Terrestre', fairy: 'Féerique', plant: 'Végétal', humanshape: 'Humanoïde', water3: 'Eau 3', mineral: 'Minéral', indeterminate: 'Amorphe', water2: 'Eau 2', ditto: 'Métamorph', dragon: 'Draconique', 'no-eggs': 'Inconnu' };
+const EGG_DE = { monster: 'Monster', water1: 'Wasser 1', bug: 'Käfer', flying: 'Flug', ground: 'Feld', fairy: 'Fee', plant: 'Pflanze', humanshape: 'Humanoid', water3: 'Wasser 3', mineral: 'Mineral', indeterminate: 'Amorph', water2: 'Wasser 2', ditto: 'Ditto', dragon: 'Drache', 'no-eggs': 'Unentdeckt' };
+const GROWTH_L = { fr: ['Lent', 'Moyen', 'Rapide', 'Parabolique', 'Erratique', 'Fluctuant'], de: ['Langsam', 'Mittel schnell', 'Schnell', 'Mittel langsam', 'Erratisch', 'Fluktuierend'] };
 const GROWTH = { 1: ['Lento', 'Slow'], 2: ['Medio rápido', 'Medium Fast'], 3: ['Rápido', 'Fast'], 4: ['Medio lento', 'Medium Slow'], 5: ['Errático', 'Erratic'], 6: ['Fluctuante', 'Fluctuating'] };
 const pct1 = n => `${(Math.round(n * 10) / 10).toLocaleString(lang())} %`;
 function speciesDataHTML(d) {
@@ -1280,7 +1283,7 @@ function speciesDataHTML(d) {
   const male = d.gr < 0 ? null : 100 - d.gr * 12.5;
   const gender = male == null ? `<b>${t('dtNoGender')}</b>`
     : `<div class="gbar" role="img" aria-label="♂ ${pct1(male)} · ♀ ${pct1(100 - male)}"><i style="width:${male}%"></i></div><b class="gtx"><span style="color:#3B82F6">♂ ${pct1(male)}</span> · <span style="color:#EC4899">♀ ${pct1(100 - male)}</span></b>`;
-  const egg = (d.eg || []).map(g => (lang() !== 'es' ? EGG_EN : EGG_ES)[g] || g).join(' · ');
+  const egg = (d.eg || []).map(g => ({ es: EGG_ES, en: EGG_EN, fr: EGG_FR, de: EGG_DE }[lang()])[g] || g).join(' · ');
   const row = (k, v) => (v ? `<div><span>${k}</span><div class="dv">${v}</div></div>` : '');
   return `<section class="sec"><h2>${t('dtTitle')}</h2><div class="dlist">
     ${row(t('dtEv'), ev ? `<b>${ev}</b>` : `<b>—</b>`)}
@@ -1289,7 +1292,7 @@ function speciesDataHTML(d) {
     ${d.gr != null ? row(t('dtGender'), gender) : ''}
     ${egg ? row(t('dtEgg'), `<b>${egg}</b>`) : ''}
     ${d.hc ? row(t('dtHatch'), `<b>${(d.hc * 256).toLocaleString(lang())}</b> <small>${t('dtSteps')}</small>`) : ''}
-    ${d.gx ? row(t('dtGrowth'), `<b>${GROWTH[d.gx]?.[lang() !== 'es' ? 1 : 0] || ''}</b>`) : ''}
+    ${d.gx ? row(t('dtGrowth'), `<b>${(GROWTH_L[lang()]?.[d.gx - 1] ?? GROWTH[d.gx]?.[lang() !== 'es' ? 1 : 0]) || ''}</b>`) : ''}
   </div></section>`;
 }
 function formsHTML(d) {
@@ -1326,6 +1329,8 @@ async function loadEnc(id) {
   const el = $('#enc'); if (el && page?.d.id === id) el.innerHTML = encHTML();
 }
 const L2 = a => a[lang() !== 'es' ? 1 : 0];
+/** nombre fr/de del diccionario de encuentros si existe; si no, el inglés */
+const LN = (D, kind, id, arr) => (lang() === 'fr' || lang() === 'de' ? D.l?.[lang()]?.[kind]?.[id] : undefined) ?? L2(arr);
 function encHTML() {
   if (!page || page.enc === undefined) return '';
   const D = page.encDict, rows = page.enc;
@@ -1343,18 +1348,20 @@ function encHTML() {
     const regs = [...byReg.entries()].map(([rg, rs]) => {
       const lines = rs.map(r => {
         const [vs, loc, area, m, lo, hi, p, cs] = r;
-        const ln = L2(D.loc[loc]); let an = area ? L2(D.area[area]) : '';
+        const ln = LN(D, 'loc', loc, D.loc[loc]), lnEn = L2(D.loc[loc]);
+        let an = area ? LN(D, 'area', area, D.area[area]) : '';
         if (an && an.toLowerCase().startsWith(ln.toLowerCase())) an = an.slice(ln.length).replace(/^[\s(–-]+|[)\s]+$/g, '');
+        else if (an && lnEn !== ln && an.toLowerCase().startsWith(lnEn.toLowerCase())) an = an.slice(lnEn.length).replace(/^[\s(–-]+|[)\s]+$/g, '');
         const place = `<b>${esc(ln)}</b>${an ? ` <span class="ea">${esc(an)}</span>` : ''}`;
-        const only = vs.length < allV.length ? `<span class="chip small ghost">${t('encOnly', { v: G.v.filter(x => vs.includes(x[0])).map(x => (lang() !== 'es' ? x[2] : x[1])).join(' / ') })}</span>` : '';
-        const conds = cs.map(c => `<span class="chip small ghost">${esc(L2(D.cond[c]))}</span>`).join('');
-        const meta = [L2(D.meth[m]), lo === hi ? t('encLv', { n: lo }) : t('encLv', { n: `${lo}–${hi}` }), p < 100 ? `${p}%` : ''].filter(Boolean).join(' · ');
+        const only = vs.length < allV.length ? `<span class="chip small ghost">${t('encOnly', { v: G.v.filter(x => vs.includes(x[0])).map(x => LN(D, 'ver', x[0], [x[1], x[2]])).join(' / ') })}</span>` : '';
+        const conds = cs.map(c => `<span class="chip small ghost">${esc(LN(D, 'cond', c, D.cond[c]))}</span>`).join('');
+        const meta = [LN(D, 'meth', m, D.meth[m]), lo === hi ? t('encLv', { n: lo }) : t('encLv', { n: `${lo}–${hi}` }), p < 100 ? `${p}%` : ''].filter(Boolean).join(' · ');
         return `<li><div class="el">${place}<span class="em">${esc(meta)}</span></div>${only || conds ? `<div class="et">${only}${conds}</div>` : ''}</li>`;
       }).join('');
-      const rn = rg && D.reg[rg] ? `<h4>${esc(L2(D.reg[rg]))}</h4>` : '';
+      const rn = rg && D.reg[rg] ? `<h4>${esc(LN(D, 'reg', rg, D.reg[rg]))}</h4>` : '';
       return `${rn}<ul class="enclist">${lines}</ul>`;
     }).join('');
-    return `<details class="encg" ${gi === 0 ? 'open' : ''}><summary><span>${esc(L2(G.n))}</span><small>${list.length}</small></summary>${regs}</details>`;
+    return `<details class="encg" ${gi === 0 ? 'open' : ''}><summary><span>${esc(LN(D, 'grp', g, G.n))}</span><small>${list.length}</small></summary>${regs}</details>`;
   }).join('');
   return `${head}${html}${note}`;
 }
@@ -2345,7 +2352,7 @@ const bt = { friends: [], online: new Map(), others: new Map(), a: { owner: 'me'
 const friendById = id => bt.friends.find(f => f.user_id === id);
 const frAvatar = f => avatarImg(f.avatar);
 // equipos de ejemplo (meta): se usan con la build de su formato (OU en Individual, VGC en Dobles)
-const metaTeam = i => { const m = META_TEAMS[i]; return m ? { name: m.name[dl()] || m.name.es, members: m.members, fmt: m.fmt, num: META_TEAMS.slice(0, i + 1).filter(x => x.fmt === m.fmt).length, force: m.fmt === 'doubles' ? 'vgc2025' : 'ou' } : null; };
+const metaTeam = i => { const m = META_TEAMS[i]; return m ? { name: m.name[lang()] || m.name.en || m.name.es, members: m.members, fmt: m.fmt, num: META_TEAMS.slice(0, i + 1).filter(x => x.fmt === m.fmt).length, force: m.fmt === 'doubles' ? 'vgc2025' : 'ou' } : null; };
 const isFriendOwner = o => o !== 'me' && o !== 'meta' && o !== 'link';
 const teamOf = sel => (sel.owner === 'me' ? teams[sel.slot] : sel.owner === 'meta' ? metaTeam(sel.slot) : sel.owner === 'link' ? bt.link || null : bt.others.get(sel.owner)?.[sel.slot] || null);
 const ownerName = sel => (sel.owner === 'me' ? t('yourTeam') : sel.owner === 'meta' ? t('metaOwner') : sel.owner === 'link' ? t('sharedOwner') : t('teamOf', { name: friendById(sel.owner)?.username || '?' }));

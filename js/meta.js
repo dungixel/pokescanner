@@ -1,7 +1,9 @@
 // Equipos de ejemplo para comparar sin necesitar un rival: arquetipos típicos de cada formato.
 // No son estadísticas de uso reales: son equipos bien construidos con Pokémon que tienen build de Smogon en ese formato
 // (OU para Individual, VGC para Dobles) y sirven como vara de medir.
-const team = (id, fmt, es, en, ids) => ({ id, fmt, name: { es, en }, members: ids.map(i => ({ id: i })) });
+const FR = {"ou-ho": "Hyper offensive (OU)", "ou-bal": "Équilibrée (OU)", "ou-rain": "Pluie (OU)", "ou-sun": "Soleil (OU)", "ou-sand": "Sable (OU)", "ou-stall": "Défensive (OU)", "vgc-intim": "Intimidation et contrôle (VGC)", "vgc-tr": "Distorsion (VGC)", "vgc-tw": "Vent Arrière (VGC)", "vgc-rain": "Pluie (VGC)", "vgc-sun": "Soleil (VGC)", "vgc-lege": "Avec un légendaire (VGC)"};
+const DE = {"ou-ho": "Hyper-Offensive (OU)", "ou-bal": "Ausgewogen (OU)", "ou-rain": "Regen (OU)", "ou-sun": "Sonne (OU)", "ou-sand": "Sandsturm (OU)", "ou-stall": "Defensiv (OU)", "vgc-intim": "Bedroher und Kontrolle (VGC)", "vgc-tr": "Bizarroraum (VGC)", "vgc-tw": "Rückenwind (VGC)", "vgc-rain": "Regen (VGC)", "vgc-sun": "Sonne (VGC)", "vgc-lege": "Mit Legendärem (VGC)"};
+const team = (id, fmt, es, en, ids) => ({ id, fmt, name: { es, en, fr: FR[id], de: DE[id] }, members: ids.map(i => ({ id: i })) });
 export const META_TEAMS = [
   team('ou-ho', 'singles', 'Ofensiva (OU)', 'Hyper offense (OU)', ['gholdengo', 'ragingbolt', 'dragapult', 'greattusk', 'kingambit', 'ironvaliant']),
   team('ou-bal', 'singles', 'Equilibrado (OU)', 'Balance (OU)', ['gliscor', 'corviknight', 'clefable', 'gholdengo', 'dragonite', 'walkingwake']),
