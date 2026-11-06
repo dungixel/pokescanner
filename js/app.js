@@ -1462,8 +1462,6 @@ async function renderPokemon(id) {
 
 // ───────────────────────── Comparador ─────────────────────────
 // orden fijo: azul, rojo, verde, amarillo, rosa, morado, marrón, celeste
-const CMP_COLORS = ['#2F6BEA', '#E5484D', '#30A46C', '#F2C012', '#EC6BB0', '#8E4EC6', '#8B5E3C', '#5CC8F2'];
-const cmpColor = i => CMP_COLORS[i % CMP_COLORS.length]; // del noveno en adelante los colores se repiten
 const CMP_MAX = 11; // además del Pokémon de la ficha (12 en total)
 function openCompare() {
   const base = BYID.get(page.d.id);
@@ -1477,7 +1475,7 @@ function openCompare() {
 }
 function renderCompare() {
   const all = [cmp.base, ...cmp.others];
-  $('#cmp-legend').innerHTML = all.map((p, i) => `<span class="chip" style="--k:${cmpColor(i)}"><i></i>${esc(pname(p))}${i ? `<button class="x" data-act="remove" data-v="${p.id}" aria-label="${t('remove', { n: esc(pname(p)) })}">×</button>` : ''}</span>`).join('');
+  $('#cmp-legend').innerHTML = all.map((p, i) => `<span class="chip">${pokeImg(p, 'small', 'thumb')}${esc(pname(p))}${i ? `<button class="x" data-act="remove" data-v="${p.id}" aria-label="${t('remove', { n: esc(pname(p)) })}">×</button>` : ''}</span>`).join('');
   const bars = $('#cmp-bars');
   const keys = [...STATS, 'bst'];
   bars.innerHTML = keys.map(k => {
@@ -1487,7 +1485,7 @@ function renderCompare() {
     return `<div class="cmp-stat ${k === 'bst' ? 'cmp-total' : ''}"><span class="k">${statName(k)}</span>${vals.map((v, i) => {
       const diff = v - vals[0];
       const d = i === 0 ? '' : diff === 0 ? '=' : (diff > 0 ? '+' : '−') + Math.abs(diff);
-      return `<div class="cmp-line ${v === max ? 'best' : ''}"><div class="bar"><i style="--w:${Math.min(100, v / scale * 100).toFixed(1)}%;--bc:${cmpColor(i)};--i:${i}"></i></div>
+      return `<div class="cmp-line ${v === max ? 'best' : ''}">${pokeImg(all[i], 'small', 'thumb')}<div class="bar"><i style="--w:${Math.min(100, v / scale * 100).toFixed(1)}%;--bc:${statColor(k === 'bst' ? v / 6 : v)};--i:${i}"></i></div>
         <span class="v">${v}</span><span class="d ${diff > 0 ? 'up' : diff < 0 ? 'down' : ''}">${d}</span></div>`;
     }).join('')}</div>`;
   }).join('');
