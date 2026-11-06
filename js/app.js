@@ -2348,7 +2348,12 @@ function renderTeams() {
 }
 
 // ───────────────────────── Batalla ─────────────────────────
-const bt = { friends: [], online: new Map(), others: new Map(), a: { owner: 'me', slot: 0 }, b: { owner: 'me', slot: 1 }, res: null, busy: false, msg: '', live: false, menu: null, mode: 'singles', prog: null, planSide: 'A' };
+/** La elección de equipos a comparar se recuerda un rato (al recargar sigue ahí); pasado ese tiempo vuelve a los equipos por defecto */
+const BT_KEEP = 30 * 60 * 1000;
+const btSide = x => x && typeof x.owner === 'string' && Number.isInteger(x.slot) && x.slot >= 0 && x.owner !== 'link' ? { owner: x.owner, slot: x.slot } : null;
+const btSaved = (() => { try { const o = JSON.parse(localStorage.getItem('pk.bt') || 'null'); return o && Date.now() - o.t < BT_KEEP ? o : null; } catch { return null; } })();
+const bt = { friends: [], online: new Map(), others: new Map(), a: btSide(btSaved?.a) || { owner: 'me', slot: 0 }, b: btSide(btSaved?.b) || { owner: 'me', slot: 1 }, res: null, busy: false, msg: '', live: false, menu: null, mode: btSaved?.mode === 'doubles' ? 'doubles' : 'singles', prog: null, planSide: 'A' };
+const btSave = () => { try { localStorage.setItem('pk.bt', JSON.stringify({ a: bt.a, b: bt.b, mode: bt.mode, t: Date.now() })); } catch { /* sin almacenamiento */ } };
 const friendById = id => bt.friends.find(f => f.user_id === id);
 const frAvatar = f => avatarImg(f.avatar);
 // equipos de ejemplo (meta): se usan con la build de su formato (OU en Individual, VGC en Dobles)
@@ -2369,7 +2374,7 @@ async function refreshFriends() {
     });
   } catch { /* sin equipos de amigos */ }
   const ids = new Set(bt.friends.filter(f => f.direction === 'friend').map(f => f.user_id));
-  if (isFriendOwner(bt.b.owner) && !ids.has(bt.b.owner)) bt.b = { owner: 'me', slot: bt.b.slot };
+  for (const sd of ['a', 'b']) if (isFriendOwner(bt[sd].owner) && !ids.has(bt[sd].owner)) bt[sd] = { owner: 'me', slot: sd === 'a' ? 0 : 1 };
 }
 async function watchBattle() {
   const ids = bt.friends.filter(f => f.direction === 'friend').map(f => f.user_id);
@@ -2393,7 +2398,7 @@ async function renderBattle() {
   $app.innerHTML = '<div id="battle-root"></div>';
   window.scrollTo(0, 0);
   updateDock();
-  if (!auth.currentUser()) { paintBattle(); return; }
+  if (!auth.currentUser()) { for (const sd of ['a', 'b']) if (isFriendOwner(bt[sd].owner)) bt[sd] = { owner: 'me', slot: sd === 'a' ? 0 : 1 }; paintBattle(); return; }
   paintBattle();
   await refreshFriends();
   if (state.view !== 'battle') return;
@@ -2459,6 +2464,7 @@ function battleHTML() {
   return head + friendsSec + compare + (bt.res?.[bt.mode] && !bt.busy ? resultHTML() : '');
 }
 function paintBattle() {
+  btSave();
   const root = $('#battle-root'); if (!root) return;
   const y = window.scrollY, typed = $('#fr-name')?.value || '', focus = document.activeElement?.id === 'fr-name';
   root.innerHTML = battleHTML();
