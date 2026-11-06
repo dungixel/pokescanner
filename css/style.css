@@ -696,6 +696,8 @@ img.mini { width: 28px; height: 28px; object-fit: contain; flex: none; }
 .minis small, .sname small { color: var(--muted); font-size: .82rem; }
 .slots { display: grid; gap: 12px; margin-top: 8px; }
 .slot { border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line); overflow: hidden; }
+.slotbox { display: flex; flex-wrap: nowrap; align-items: center; gap: 0; }
+.slotbox .slothead { flex: 1; min-width: 0; }
 .slothead { display: grid; grid-template-columns: 20px 38px minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; padding: 14px 16px; text-align: left; }
 .sn { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; background: color-mix(in srgb, var(--accent) 15%, var(--surface)); color: var(--accent); font-weight: 700; }
 .sname { display: grid; gap: 2px; min-width: 0; }
@@ -1162,7 +1164,7 @@ input.edr:focus-visible::-webkit-slider-thumb { outline: 3px solid color-mix(in 
 
 /* Favoritos: lista simple y una página por equipo */
 .slothead { grid-template-columns: 38px minmax(0, 1fr) auto; }
-button.slot.slothead { cursor: pointer; }
+button.slothead { cursor: pointer; }
 .mrow { grid-template-columns: minmax(0, 1fr) 44px 44px; }
 .tnrow { display: flex; align-items: center; gap: 10px; }
 .tnrow h1 { flex: 1; min-width: 0; font-size: 1.7rem; overflow-wrap: anywhere; }
@@ -1448,5 +1450,15 @@ dialog.cfm::backdrop { background: rgba(10, 12, 20, .5); }
 .cgrow img.mini { width: 36px; height: 36px; }
 .cgt { display: flex; flex-direction: column; gap: 1px; min-width: 0; font-size: .95rem; }
 .cgt span { font-size: .84rem; color: var(--muted); overflow-wrap: anywhere; }
-.slotacts .chip.warn { color: #D4473F; border-color: color-mix(in srgb, #E5484D 45%, var(--line)); background: color-mix(in srgb, #E5484D 8%, var(--surface)); }
-[data-theme="dark"] .slotacts .chip.warn { color: #F28B82; }
+
+/* Editar y eliminar dentro de la caja de cada Pokémon del equipo (sin círculo) */
+.mrow { display: flex; align-items: center; gap: 0; padding-right: 4px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line); }
+.mrow > .row { flex: 1; min-width: 0; border: 0; background: none; border-radius: var(--r-md); }
+.mact { position: relative; flex: none; display: grid; place-items: center; width: 40px; height: 44px; padding: 0; border: 0; background: none; color: var(--muted); cursor: pointer; transition: color .15s, transform .12s; }
+.mact:hover, .mact:focus-visible { color: var(--ink); }
+.mact:active { transform: scale(.9); }
+.mact svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.mact.on { color: #2E9A4A; }
+.mact.on::after { content: ''; position: absolute; top: 8px; right: 6px; width: 7px; height: 7px; border-radius: 50%; background: #4FB866; }
+.slotclr { height: 100%; min-height: 56px; width: 46px; margin-right: 6px; }
+.slotclr:hover, .slotclr:focus-visible { color: #D4473F; }

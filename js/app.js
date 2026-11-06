@@ -1008,7 +1008,7 @@ function rowCore(p, shiny = false, href = `#/pokemon/${p.id}`) {
   const showStat = state.sort !== 'num' && state.view === 'home';
   return `<a class="row" href="${href}" style="--c:${TYPE_COLOR[p.t[0]]}">
     ${pokeImg(p, 'small', '', undefined, shiny)}
-    <span class="meta"><b>${esc(pname(p))}</b><span class="sub"><small>${dexNum(p.num)}${p.fm && p.es !== p.en && lang() === 'es' ? ` · ${esc(p.en)}` : ''}</small><span class="types">${p.t.map(typeDot).join('')}</span></span></span>
+    <span class="meta"><b>${esc(pname(p))}</b><span class="sub">${state.view === 'team' ? '' : `<small>${dexNum(p.num)}${p.fm && p.es !== p.en && lang() === 'es' ? ` · ${esc(p.en)}` : ''}</small>`}<span class="types">${p.t.map(typeDot).join('')}</span></span></span>
     <span class="side">
       ${showStat ? `<span class="statval">${sortVal(p, state.sort)}<small>${statName(state.sort)}</small></span>` : tierBadge(p.r, '', p.g)}
     </span></a>`;
@@ -2360,15 +2360,15 @@ const inTeams = () => state.view === 'teams' || state.view === 'team';
 const loginCta = (title, action) => `<div class="empty"><b>${t(title)}</b>${t('loginText')}<div class="ctarow"><button class="chip accent" data-act="login-open" data-v="${action}">${IC.user}${t('loginGoogle')}</button></div></div>`;
 function memberRow(p, slot, k) {
   const m = teams[slot]?.members[k];
-  return `<div class="mrow">${rowCore(p, m?.b?.sh, pokeHref(p.id, m))}<button class="iconbtn ${m?.b ? 'on' : ''}" data-act="ed-open" data-v="${slot}:${k}" aria-label="${t('edTitle')}">${IC.pencil}</button><button class="iconbtn" data-act="team-remove" data-v="${p.id}" aria-label="${t('removePoke')}">${IC.trash}</button></div>`;
+  return `<div class="mrow">${rowCore(p, m?.b?.sh, pokeHref(p.id, m))}<button class="mact ${m?.b ? 'on' : ''}" data-act="ed-open" data-v="${slot}:${k}" aria-label="${t('edTitle')}">${IC.pencil}</button><button class="mact" data-act="team-remove" data-v="${p.id}" aria-label="${t('removePoke')}">${IC.trash}</button></div>`;
 }
 function slotHTML(i) {
   const tm = teams[i];
   const members = tm.members.map(m => BYID.get(m.id)).filter(Boolean);
-  return `<button class="slot slothead" data-act="slot-go" data-v="${i}">
+  return `<div class="slot slotbox"><button class="slothead" data-act="slot-go" data-v="${i}">
       ${members.length >= 3 ? (sc => `<span class="sn sc" style="--sc:${scoreInfo(sc).c}" title="${t('an_title')}">${sc}</span>`)(analyzeTeam(members).score) : `<span class="sn sc none" title="${t('an_title')}">-</span>`}
       <span class="sname"><b>${esc(teamName(i))}</b><span class="minis">${members.map((p, k) => pokeImg(p, 'small', 'mini', undefined, !!tm.members[k]?.b?.sh)).join('') || `<small>${t('teamEmpty')}</small>`}</span></span>
-      <span class="scount">${members.length}/${MAXTEAM}</span></button>`;
+      <span class="scount">${members.length}/${MAXTEAM}</span></button>${members.length ? `<button class="mact slotclr" data-act="team-clear" data-v="${i}" aria-label="${t('clearTeam')}" title="${t('clearTeam')}">${IC.trash}</button>` : ''}</div>`;
 }
 function teamPageHTML(i) {
   const tm = teams[i];
@@ -2380,7 +2380,7 @@ function teamPageHTML(i) {
       <span class="minis">${members.map((p, k) => pokeImg(p, 'small', 'mini', undefined, !!tm.members[k]?.b?.sh)).join('') || `<small>${t('teamEmpty')}</small>`}</span></header>
     <hr class="tdiv">
     ${members.length ? `<div class="list">${tm.members.map((m, k) => (BYID.get(m.id) ? memberRow(BYID.get(m.id), i, k) : '')).join('')}</div>` : `<p class="shint">${t('teamEmptyHint')}</p>`}
-    <div class="slotacts">${members.length < MAXTEAM ? `<button class="chip" data-act="slot-add">${IC.plus}${t('addPoke')}</button>` : ''}${members.length ? `<button class="chip" data-act="team-share" data-v="${i}">${IC.share}${t('shareTeam')}</button><button class="chip" data-act="sd-open" data-v="export:${i}">${t('sdExport')}</button>` : ''}<button class="chip" data-act="sd-open" data-v="import:${i}">${t('sdImport')}</button>${members.length ? `<button class="chip warn" data-act="team-clear" data-v="${i}">${IC.trash}${t('clearTeam')}</button>` : ''}</div>
+    <div class="slotacts">${members.length < MAXTEAM ? `<button class="chip" data-act="slot-add">${IC.plus}${t('addPoke')}</button>` : ''}${members.length ? `<button class="chip" data-act="team-share" data-v="${i}">${IC.share}${t('shareTeam')}</button><button class="chip" data-act="sd-open" data-v="export:${i}">${t('sdExport')}</button>` : ''}<button class="chip" data-act="sd-open" data-v="import:${i}">${t('sdImport')}</button></div>
     ${members.length ? teamHTML(members, false) : ''}`;
 }
 function teamsHTML() {
