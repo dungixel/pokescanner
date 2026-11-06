@@ -1277,6 +1277,9 @@ button.slothead { cursor: pointer; }
 .hero h1.brand { display: flex; align-items: center; gap: .26em; }
 .hero h1.brand .applogo { width: 1.05em; height: 1.05em; flex: none; border-radius: 22%; box-shadow: 0 2px 8px rgba(30, 38, 62, .18); }
 .hero h1.brand .applogo { border-radius: 0; box-shadow: none; }
+.hero h1.brand.home { font-size: clamp(2rem, 9.4vw, 3.2rem); }
+.hero h1.brand .ver { margin-left: .45em; align-self: center; flex: none; font-size: .72rem; font-weight: 600; letter-spacing: 0; line-height: 1.4; color: var(--muted); background: var(--soft); border-radius: var(--r-pill); padding: 2px 9px; }
+.hero h1.brand .ver { font-size: 12px; }
 
 /* icono del menú (relleno y de color) a la izquierda del título de cada página */
 h1.brand, h2.brand { display: flex; align-items: center; gap: .26em; }

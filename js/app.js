@@ -9,6 +9,8 @@ import { analyzeTeam, scoreInfo } from './team.js';
 import { META_TEAMS } from './meta.js';
 import { detectChanges, readLog, readBanners, saveBanners } from './changes.js';
 import * as auth from './auth.js';
+// número de versión que se ve junto al logo; lo actualiza scripts/stamp-version.mjs antes de cada commit
+const APP_VERSION = 'v1.135';
 import { DOCK, IC } from './icons.js';
 import { buildUnit, compareTeams, eff, bestSetIndex } from './battle.js';
 import { baseBuild, currentBuild, diffBuild, finalStats, evTotal, KEYS as EDK, EV_MAX, EV_TOTAL } from './editor.js';
@@ -825,7 +827,7 @@ const sortLabel = k => (k === 'num' ? t('num') : statName(k));
 function homeHTML() {
   return `
   <header class="hero">
-    <h1 class="brand"><img class="applogo" src="icons/icon.svg" alt="" width="48" height="48" decoding="async">PokeScanner</h1>
+    <h1 class="brand home"><img class="applogo" src="icons/icon.svg" alt="" width="48" height="48" decoding="async">PokeScanner<span class="ver" title="Versión de la app">${APP_VERSION}</span></h1>
     ${updHTML()}
   </header>
   <div id="banners">${bannersHTML()}</div>
