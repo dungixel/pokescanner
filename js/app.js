@@ -401,7 +401,7 @@ function goNotif(id) {
 }
 /** Vuelve al buscador con los filtros que se indiquen (el resto se limpia) */
 function goSearch(opts = {}, focus = false) {
-  Object.assign(state, { q: '', sort: 'num', dir: 1, types: [], tiers: [], gens: [], favs: false, gen9: false, dd: null, scroll: 0, shown: 40 }, opts);
+  Object.assign(state, { q: '', sort: 'num', dir: 1, types: [], tiers: [], gens: [], favs: false, gen9: false, dd: null, scroll: 0, shown: 40, mcat: null }, opts);
   state.mode = focus || Object.keys(opts).length ? 'search' : 'home';
   state.focusSearch = focus;
   if (location.hash === '#/' || location.hash === '') renderHome(); else location.hash = '#/';
@@ -654,7 +654,7 @@ function moveHTML(id) {
     <span class="mtag">${t('move')}</span>
     <h1>${esc(dn(m))}</h1>
     ${dn2(m) && dn2(m) !== dn(m) ? `<span class="en">${esc(dn2(m))}</span>` : ''}
-    <div class="tags">${typePill(m.t)}<span class="chip small ghost">${catIcon(m.c)} ${catName(m.c)}</span></div>
+    <div class="tags">${typePill(m.t)}<button class="chip small ghost" data-act="cat-go" data-v="${m.c}">${catIcon(m.c)} ${catName(m.c)}</button></div>
   </section>
   <section class="sec"><div class="kv">
     <div><b>${m.p || '—'}</b><small>${t('power')}</small></div>
@@ -893,7 +893,7 @@ function syncFilters() {
   f.inert = !state.filtersOpen;
 }
 
-const isFiltering = () => !!fold(state.q) || state.types.length || state.tiers.length || state.gens.length || state.favs || state.gen9 || state.sort !== 'num' || state.dir !== 1;
+const isFiltering = () => !!state.mcat || !!fold(state.q) || state.types.length || state.tiers.length || state.gens.length || state.favs || state.gen9 || state.sort !== 'num' || state.dir !== 1;
 
 function compute() {
   const q = fold(state.q);
@@ -948,6 +948,30 @@ function searchDict(q, kind, max = MOVES_MAX) {
 }
 const searchMoves = q => searchDict(q, 'moves');
 const ABIL_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.2 5.3 5.8.5-4.4 3.8 1.4 5.6L12 15l-5 3.2 1.4-5.6L4 8.8l5.8-.5z"/></svg>';
+const mvRow = ({ id, m }) => `<li><button class="lm solo" style="--tc:${TYPE_COLOR[m.t]}" data-act="move" data-v="${id}">${typeIcon(m.t)}<span class="n">${esc(dn(m))}</span>${catIcon(m.c)}<span class="pw">${m.p || '—'}</span></button></li>`;
+/** Todos los movimientos de una categoría (físico, especial o estado), de más a menos potencia; el texto y el tipo del buscador también filtran */
+async function renderMoveCat(box) {
+  const cat = state.mcat;
+  if (!DICT) { box.innerHTML = `<p class="hint">${t('loading', { n: t('moves').toLowerCase() })}</p>`; try { await getDict(); } catch { return; } if (state.mcat !== cat || state.view !== 'home') return; }
+  const q = fold(state.q);
+  state.mlist = Object.entries(DICT.moves).map(([id, m]) => ({ id, m }))
+    .filter(({ m }) => m.c === cat && (!state.types.length || state.types.includes(m.t)) && (!q || fold(m.n).includes(q) || fold(m.e).includes(q) || (m.l && fold(m.l).includes(q))))
+    .sort((a, b) => (b.m.p || 0) - (a.m.p || 0) || dn(a.m).localeCompare(dn(b.m), lang()));
+  const n = state.mlist.length;
+  box.innerHTML = `<div class="chips mcatbar"><button class="chip on" data-act="mcat-clear" aria-label="${t('mcatClear')}">${catIcon(cat)} ${catName(cat)} ${IC.x}</button></div>
+    <div class="block-title tight"><h2>${t('moves')} <small>${n}</small></h2></div>
+    ${n ? `<ul class="lvl mvlist">${state.mlist.slice(0, state.shown).map(mvRow).join('')}</ul><div class="sentinel"></div>` : `<div class="empty"><b>${t('emptyTitle')}</b>${t('emptyHint')}</div>`}`;
+  const sen = $('.sentinel');
+  if (sen && state.shown < n) {
+    io = new IntersectionObserver(en => {
+      if (!en[0].isIntersecting) return;
+      const from = state.shown; state.shown = Math.min(from + 40, n);
+      $('.mvlist')?.insertAdjacentHTML('beforeend', state.mlist.slice(from, state.shown).map(mvRow).join(''));
+      if (state.shown >= n) io.disconnect();
+    }, { rootMargin: '700px 0px' });
+    io.observe(sen);
+  }
+}
 function movesBlock({ list, total }) {
   if (!list.length) return '';
   const rows = list.map(({ id, m }) => `<li><button class="lm solo" style="--tc:${TYPE_COLOR[m.t]}" data-act="move" data-v="${id}">${typeIcon(m.t)}<span class="n">${esc(dn(m))}</span>${catIcon(m.c)}<span class="pw">${m.p || '—'}</span></button></li>`).join('');
@@ -1214,6 +1238,7 @@ function renderResults(reset = true) {
     return;
   }
 
+  if (state.mcat) { renderMoveCat(box); return; }
   const list = (state.list = compute());
   const mv = searchBlocks(fold(state.q));
   const head = `<div class="block-title tight"><h2>${t(list.length === 1 ? 'result1' : 'resultN', { n: list.length })}</h2></div>`;
@@ -2902,7 +2927,7 @@ document.addEventListener('click', e => {
     case 'flag': if (v === 'favs' && !state.favs && !requireLogin({ type: 'favs' })) break; state[v] = !state[v]; renderResults(); break;
     case 'clear-q': state.q = ''; $('#q').value = ''; $('#q').focus(); renderResults(); break;
     case 'reset':
-      Object.assign(state, { q: '', sort: 'num', dir: 1, types: [], tiers: [], gens: [], favs: false, gen9: false, dd: null });
+      Object.assign(state, { q: '', sort: 'num', dir: 1, types: [], tiers: [], gens: [], favs: false, gen9: false, dd: null, mcat: null });
       $('#q').value = ''; renderResults(); break;
     case 'go-types': location.hash = '#/types'; break;
     case 'sd-open': { const [m, n] = v.split(':'); openShowdown(m, Number(n)); break; }
@@ -3005,6 +3030,8 @@ document.addEventListener('click', e => {
     case 'bt-plan': bt.planSide = v; paintBattle(); break;
     case 'sign-in': startLogin(); break;
     case 'sign-out': auth.signOut().catch(() => {}); closeSettings(); break;
+    case 'cat-go': goSearch({ mcat: v }); break;
+    case 'mcat-clear': state.mcat = null; renderResults(); break;
     case 'type-go': goSearch({ types: [v] }); break;
     case 'size-go': goSearch({ sort: v, dir: -1 }); break;
     case 'dock-home': goSearch(); window.scrollTo(0, 0); break;

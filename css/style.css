@@ -1203,6 +1203,10 @@ button.slothead { cursor: pointer; }
 .mtabs .chip small { color: var(--muted); margin-right: 2px; }
 .mtabs .chip.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .mtabs .chip.on small { color: inherit; opacity: .7; }
+.mcatbar { margin: 4px 0 6px; }
+.mcatbar .chip.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.mcatbar .chip.on .cat { color: inherit; }
+.mcatbar .chip.on > svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; }
 
 /* ───────────── Calculadora de daño ───────────── */
 .calchead { display: flex; align-items: center; gap: 8px; }
