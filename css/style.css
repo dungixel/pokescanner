@@ -1470,3 +1470,10 @@ dialog.cfm::backdrop { background: rgba(10, 12, 20, .5); }
 @media (hover: hover) { .fab:hover { transform: translateY(-2px); } }
 @media (hover: none) and (pointer: coarse) { html.kb .fab { display: none; } }
 @media (hover: hover) and (pointer: fine) and (min-width: 820px) { .fab { bottom: 28px; right: max(18px, calc((100% - 680px) / 2 + 6px)); } }
+
+/* Con el teclado abierto (móvil): la ventana ocupa solo la parte visible y se pega arriba, para que los resultados del buscador no queden tapados */
+@media (hover: none) and (pointer: coarse) {
+  html.kb .smodal { align-items: start; padding-top: calc(var(--vvt, 0px) + 10px); padding-bottom: 0; }
+  html.kb .scard.picker { max-height: calc(var(--vvh, 100dvh) - 18px); grid-template-rows: auto auto minmax(0, 1fr); }
+  html.kb .scard.picker .pklist { max-height: none; min-height: 0; }
+}

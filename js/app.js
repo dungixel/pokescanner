@@ -403,6 +403,12 @@ function goSearch(opts = {}, focus = false) {
 // con el teclado abierto el dock se esconde
 document.addEventListener('focusin', e => { if (e.target.matches?.('input, textarea')) document.documentElement.classList.add('kb'); });
 document.addEventListener('focusout', () => document.documentElement.classList.remove('kb'));
+// la zona visible de verdad (sin el teclado): las ventanas con buscador se colocan ahí arriba para que los resultados no queden tapados
+if (window.visualViewport) {
+  const vv = window.visualViewport, root = document.documentElement.style;
+  const fit = () => { root.setProperty('--vvh', `${Math.round(vv.height)}px`); root.setProperty('--vvt', `${Math.round(vv.offsetTop)}px`); };
+  vv.addEventListener('resize', fit); vv.addEventListener('scroll', fit); fit();
+}
 
 // ───────────────────────── Tema ─────────────────────────
 /** 'system' sigue el modo claro/oscuro del dispositivo (es lo que se usa por defecto) */
