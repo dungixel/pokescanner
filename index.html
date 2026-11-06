@@ -22,8 +22,9 @@
 </head>
 <body>
   <main id="app" aria-live="polite">
-    <p class="boot">Cargando PokeScanner…</p>
+    <div class="boot ldg" role="status"><img class="ldg-ball" src="icons/icon.svg" alt="" width="72" height="72"><p id="boot-t">Cargando PokeScanner…</p></div>
   </main>
+  <script>try{var m={en:'Loading PokeScanner…',fr:'Chargement de PokeScanner…',de:'PokeScanner wird geladen…'}[localStorage.getItem('pk.lang')];if(m)document.getElementById('boot-t').textContent=m}catch(e){}</script>
   <nav id="dock" aria-label="PokeScanner"></nav>
   <div id="smodal" class="smodal" hidden></div>
   <dialog id="sheet" aria-label="Detalle"></dialog>

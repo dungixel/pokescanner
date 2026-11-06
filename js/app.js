@@ -156,6 +156,8 @@ const teamName = i => teams[i].name || t('teamN', { n: i + 1 });
 const rebuildFavs = () => { favs.clear(); teams.forEach(tm => tm.members.forEach(m => favs.add(m.id))); };
 const cacheTeams = () => { const u = auth.userInfo(); if (u) store.set(`pk.teams.${u.id}`, JSON.stringify(teams)); };
 const resetTeams = () => { teams = Array.from({ length: SLOTS }, () => ({ name: '', members: [] })); rebuildFavs(); };
+/** pantalla de carga: pokeball girando y "Cargando …" */
+const loadingHTML = what => `<div class="boot ldg" role="status"><img class="ldg-ball" src="icons/icon.svg" alt="" width="72" height="72"><p>${t('loading', { n: what })}</p></div>`;
 const avatarImg = (n, cls = '') => `<img class="av ${cls}" src="${SPR}/pokemon/${Number(n) || 25}.png" alt="" width="64" height="64" loading="lazy" decoding="async">`;
 const miniPoke = id => (BYID.get(id) ? pokeImg(BYID.get(id), 'small', 'mini') : '');
 
@@ -715,7 +717,7 @@ async function renderDetailPage(kind, id) {
   pageExpand = new Set();
   pf = pfNew();
   pageData = { kind, id };
-  $app.innerHTML = `<p class="boot">${t('loading', { n: '…' })}</p>`;
+  $app.innerHTML = loadingHTML({ move: t('move'), ability: t('ability'), item: t('item') }[kind]?.toLowerCase() ?? t('tier').toLowerCase());
   try { await Promise.all([getDict(), kind === 'move' ? getLearners() : kind === 'ability' ? getAbil() : kind === 'item' ? getItems() : null]); }
   catch { $app.innerHTML = `<div class="empty"><b>${t('loadFail')}</b>${t('loadFailHint')}</div>`; return; }
   if (state.view !== kind || pageData.id !== id) return;
@@ -1107,9 +1109,8 @@ function renderResults(reset = true) {
   if (!isFiltering()) {
     state.randoms ??= pickRandoms(true);
     box.innerHTML = `
-      <div class="block-title"><h2>${t('daily')}</h2>
-        <div class="btnrow"><button class="chip small" data-act="shuffle">${SHIC}${t('random')}</button></div></div>
-      <div class="btnrow" style="margin:-4px 0 14px"><button class="chip small" data-act="go-types">${TCIC}${t('typeChart')}</button><button class="chip small" data-act="go-calc">${CALCIC}${t('calcTitle')}</button></div>
+      <div class="block-title"><h2>${t('daily')}</h2></div>
+      <div class="tools"><button class="chip" data-act="go-types">${TCIC}<span>${t('typeChart')}</span></button><button class="chip" data-act="go-calc">${CALCIC}<span>${t('calcTitle')}</span></button><button class="chip" data-act="shuffle">${SHIC}<span>${t('random')}</span></button></div>
       <div class="cards">${state.randoms.map(id => cardHTML(BYID.get(id))).join('')}</div>`;
     return;
   }
@@ -1449,7 +1450,7 @@ async function renderPokemon(id) {
   }
   document.title = `${pname(p)} · PokeScanner`;
   window.scrollTo(0, 0);
-  $app.innerHTML = `<p class="boot">${t('loading', { n: esc(pname(p)) })}</p>`;
+  $app.innerHTML = loadingHTML(esc(pname(p)));
   let d;
   try { [d] = await Promise.all([getPokemon(id), getDict()]); }
   catch { $app.innerHTML = `<div class="empty"><b>${t('loadFail')}</b>${t('loadFailHint')}</div>`; return; }
@@ -1801,7 +1802,7 @@ function renderCalc(a) {
   document.documentElement.style.removeProperty('--accent');
   if (a && BYID.has(a)) { calc.a = { id: a }; calc.ua = null; calc.boosts.a = ZB(); }
   window.scrollTo(0, 0);
-  $app.innerHTML = `${topbarHTML()}<header class="hero"><h1>${t('calcTitle')}</h1><p>${t('calcLead')}</p></header><div id="calc-root"><p class="boot">…</p></div>`;
+  $app.innerHTML = `${topbarHTML()}<header class="hero"><h1>${t('calcTitle')}</h1><p>${t('calcLead')}</p></header><div id="calc-root">${loadingHTML(t('calcTitle'))}</div>`;
   updateDock();
   loadCalcUnits();
 }
@@ -1852,7 +1853,7 @@ function calcListHTML(from, to) {
 }
 function calcHTML() {
   if (calc.err) return `<div class="empty"><b>${t('loadFail')}</b>${t('loadFailHint')}</div>`;
-  if (!calc.ua || !calc.ud) return '<p class="boot">…</p>';
+  if (!calc.ua || !calc.ud) return loadingHTML(t('calcTitle'));
   const chip = (act, v, on, label) => `<button class="chip" data-act="${act}" data-v="${v}" aria-pressed="${on}">${label}</button>`;
   return `${calcSideHTML('a')}
     <div class="calcswap"><button class="chip" data-act="calc-swap">⇅ ${t('calcSwap')}</button></div>
@@ -1932,7 +1933,7 @@ function communityHTML() {
   const sortBtn = (k, lbl) => `<button class="chip" data-act="com-sort" data-v="${k}" aria-pressed="${com.sort === k}">${t(lbl)}</button>`;
   const vis = comVisible();
   const list = vis.length ? vis.map(postCardHTML).join('')
-    : com.loading ? '' : com.err ? `<div class="empty"><b>${t('comLoadFail')}</b></div>` : (com.q.trim() || comFCount()) ? `<div class="empty"><b>${t('comNoMatch')}</b></div>` : `<div class="empty"><b>${t('comEmpty')}</b>${t('comEmptyHint')}</div>`;
+    : com.loading ? loadingHTML(t('ldCom')) : com.err ? `<div class="empty"><b>${t('comLoadFail')}</b></div>` : (com.q.trim() || comFCount()) ? `<div class="empty"><b>${t('comNoMatch')}</b></div>` : `<div class="empty"><b>${t('comEmpty')}</b>${t('comEmptyHint')}</div>`;
   const pkChips = com.pokes.map(id => BYID.get(id)).filter(Boolean).map(p => `<button class="chip pkf" data-act="com-pk-del" data-v="${p.id}" aria-label="${t('edRemove')}">${pokeImg(p, 'small', 'thumb')}${esc(pname(p))}<span class="x">${IC.x}</span></button>`).join('');
   return `<header class="hero"><h1 class="brand">${titleIc('dock-community')}${t('comTitle')}</h1><p>${t('comLead')}</p></header>
     <div class="searchbar"><div class="search ${com.q ? 'filled' : ''}">${I.search}<input id="com-q" type="search" inputmode="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${t('comSearchPh')}" value="${esc(com.q)}" aria-label="${t('comSearchPh')}"></div></div>
