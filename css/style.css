@@ -1462,3 +1462,11 @@ dialog.cfm::backdrop { background: rgba(10, 12, 20, .5); }
 .mact.on::after { content: ''; position: absolute; top: 8px; right: 6px; width: 7px; height: 7px; border-radius: 50%; background: #4FB866; }
 .slotclr { height: 100%; min-height: 56px; width: 46px; margin-right: 6px; }
 .slotclr:hover, .slotclr:focus-visible { color: #D4473F; }
+
+/* Botón flotante de publicar equipo (Comunidad) */
+.fab { position: fixed; right: 18px; bottom: calc(92px + env(safe-area-inset-bottom)); z-index: 80; display: grid; place-items: center; width: 58px; height: 58px; padding: 0; border: 0; border-radius: 50%; color: #fff; background: #3B82F6; box-shadow: 0 8px 20px color-mix(in srgb, #3B82F6 45%, transparent), 0 2px 6px color-mix(in srgb, #3B82F6 30%, transparent); cursor: pointer; transition: transform .15s, box-shadow .15s; }
+.fab svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.fab:active { transform: scale(.92); }
+@media (hover: hover) { .fab:hover { transform: translateY(-2px); } }
+@media (hover: none) and (pointer: coarse) { html.kb .fab { display: none; } }
+@media (hover: hover) and (pointer: fine) and (min-width: 820px) { .fab { bottom: 28px; right: max(18px, calc((100% - 680px) / 2 + 6px)); } }

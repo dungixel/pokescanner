@@ -2022,9 +2022,10 @@ function communityHTML() {
     <div class="searchbar"><div class="search ${com.q ? 'filled' : ''}">${I.search}<input id="com-q" type="search" inputmode="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${t('comSearchPh')}" value="${esc(com.q)}" aria-label="${t('comSearchPh')}"></div></div>
     <div class="comfilters"><button class="chip ${com.fopen ? 'on' : ''}" data-act="com-ftoggle" aria-expanded="${com.fopen}">${FILTIC}${t('comFilters')}${comFCount() ? ` <span class="badge on">${comFCount()}</span>` : ''}<svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button></div>
     ${com.fopen ? comPanelHTML() : ''}
-    <div class="comtools"><div class="comsort">${sortBtn('new', 'comNew')}${sortBtn('top', 'comTop')}</div><span class="comtools-r"><button class="chip accent" data-act="com-publish">${IC.plus}${t('comPublish')}</button></span></div>
+    <div class="comtools"><div class="comsort">${sortBtn('new', 'comNew')}${sortBtn('top', 'comTop')}</div></div>
     <div class="cfeed">${list}</div>
-    ${com.more ? `<div class="ctarow"><button class="chip" data-act="com-more" ${com.loading ? 'disabled' : ''}>${t('comMore')}</button></div>` : ''}`;
+    ${com.more ? `<div class="ctarow"><button class="chip" data-act="com-more" ${com.loading ? 'disabled' : ''}>${t('comMore')}</button></div>` : ''}
+    <button class="fab" data-act="com-publish" aria-label="${t('comPublish')}" title="${t('comPublish')}">${IC.plus}</button>`;
 }
 function paintCom() {
   const root = $('#com-root'); if (!root) return;
