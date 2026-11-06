@@ -24,7 +24,7 @@
   <main id="app" aria-live="polite">
     <div class="boot ldg" role="status"><img class="ldg-ball" src="icons/icon.svg" alt="" width="72" height="72"><p id="boot-t">Cargando PokeScanner…</p></div>
   </main>
-  <script>try{var m={en:'Loading PokeScanner…',fr:'Chargement de PokeScanner…',de:'PokeScanner wird geladen…'}[localStorage.getItem('pk.lang')];if(m)document.getElementById('boot-t').textContent=m}catch(e){}</script>
+  <script>try{var l=localStorage.getItem('pk.lang');if(!/^(es|en|fr|de)$/.test(l)){l='en';for(var x of navigator.languages||[navigator.language]){var c=String(x).slice(0,2).toLowerCase();if(/^(es|en|fr|de)$/.test(c)){l=c;break}}}var m={en:'Loading PokeScanner…',fr:'Chargement de PokeScanner…',de:'PokeScanner wird geladen…'}[l];if(m)document.getElementById('boot-t').textContent=m}catch(e){}</script>
   <nav id="dock" aria-label="PokeScanner"></nav>
   <div id="smodal" class="smodal" hidden></div>
   <dialog id="sheet" aria-label="Detalle"></dialog>

@@ -1,6 +1,12 @@
 // Idioma de la interfaz (es / en) y textos fijos. Los datos (nombres, descripciones) vienen ya en los dos idiomas.
-let L = 'es';
+let L = 'en';
 export const LANGS = ['es', 'en', 'fr', 'de'];
+/** Idioma del navegador (que sigue al país/región de la persona): el primero de su lista que tengamos; si no, inglés */
+export function detectLang() {
+  try { for (const x of navigator.languages?.length ? navigator.languages : [navigator.language]) { const c = String(x || '').slice(0, 2).toLowerCase(); if (LANGS.includes(c)) return c; } } catch { /* sin navegador */ }
+  return 'en';
+}
+L = detectLang(); // por defecto, según desde dónde se entra; si la persona elige idioma, manda lo elegido
 try { const v = localStorage.getItem('pk.lang'); if (LANGS.includes(v)) L = v; } catch { /* sin almacenamiento */ }
 document.documentElement.lang = L;
 
