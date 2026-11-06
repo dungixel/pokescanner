@@ -1107,9 +1107,16 @@ function typesHTML() {
 }
 function tcApplyHv() {
   const tc = $('.tc'); if (!tc) return;
+  if (!tc._ix) { // filas y columnas indexadas una vez, para tocar solo ~36 casillas al mover el cursor
+    const rr = [], cc = [];
+    tc.querySelectorAll('[data-rr]').forEach(el => { const r = +el.dataset.rr, c = +el.dataset.cc; if (r >= 0) (rr[r] ||= []).push(el); if (c >= 0) (cc[c] ||= []).push(el); });
+    tc._ix = { rr, cc };
+  }
+  tc._hv?.forEach(el => el.classList.remove('hv'));
   const h = state.tcHv;
   tc.classList.toggle('hovering', !!h);
-  tc.querySelectorAll('[data-rr]').forEach(el => el.classList.toggle('hv', !!h && (+el.dataset.rr === h.r || +el.dataset.cc === h.c)));
+  tc._hv = h ? [...(tc._ix.rr[h.r] || []), ...(tc._ix.cc[h.c] || [])] : [];
+  tc._hv.forEach(el => el.classList.add('hv'));
 }
 function paintTypes() { const r = $('#types-root'); if (r) { const y = scrollY; r.innerHTML = typesHTML(); scrollTo(0, y); tcApplyHv(); } }
 document.addEventListener('pointerover', e => {

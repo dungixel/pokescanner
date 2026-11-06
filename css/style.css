@@ -187,8 +187,10 @@ button.tier { cursor: pointer; }
 .tc { display: grid; grid-template-columns: repeat(19, minmax(0, 1fr)); gap: 0; }
 .tc-h { display: flex; align-items: center; justify-content: center; padding: 1px; border: 0; background: none; border-radius: 6px; aspect-ratio: 1; min-height: 0; cursor: pointer; }
 .tc-h .ticon { width: 100%; max-width: 20px; height: auto; aspect-ratio: 1; border-radius: 50%; }
+.tc-h { position: relative; }
+.tc-c::after, .tc-h::after { content: ''; position: absolute; inset: 0; } /* zona de puntero cuadrada: las esquinas redondeadas no dejan huecos */
 .tc-h.sel { box-shadow: 0 0 0 2px var(--ink); }
-.tc-c { display: flex; align-items: center; justify-content: center; aspect-ratio: 1; min-height: 0; overflow: hidden; line-height: 1; border: 1px solid transparent; background-clip: padding-box; border-radius: 5px; font-size: clamp(.82rem, 3.9cqw, 1.5rem); font-weight: 800; cursor: pointer; transition: opacity .12s, box-shadow .12s; background-color: color-mix(in srgb, var(--ink) 4%, transparent); }
+.tc-c { display: flex; align-items: center; justify-content: center; aspect-ratio: 1; min-height: 0; line-height: 1; border: 1px solid transparent; background-clip: padding-box; border-radius: 5px; font-size: clamp(.82rem, 3.9cqw, 1.5rem); font-weight: 800; cursor: pointer; position: relative; background-color: color-mix(in srgb, var(--ink) 4%, transparent); }
 .tc-c.on, .tc-c.hv { background-color: color-mix(in srgb, var(--ink) 15%, transparent); }
 .tc-c.x2.on, .tc-c.x2.hv { background-color: #3aa655; }
 .tc-c.xh.on, .tc-c.xh.hv { background-color: #ec8f2a; }
