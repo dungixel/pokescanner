@@ -1418,6 +1418,8 @@ dialog.cfm::backdrop { background: rgba(10, 12, 20, .5); }
 .tcb-t i { font-style: normal; min-width: 2.2em; text-align: center; padding: 1px 6px; border-radius: var(--r-pill); color: #fff; font-weight: 800; background: var(--muted); }
 .tcb.x2 { border-left-color: #4fb866; } .tcb.x2 .tcb-t i { background: #4fb866; }
 .tcb.xh { border-left-color: #f0a24a; } .tcb.xh .tcb-t i { background: #f0a24a; }
+.tcb.xw { border-left-color: #e5645a; } .tcb.xw .tcb-t i { background: #e5645a; }
+.tcb.xg { border-left-color: #4fb866; } .tcb.xg .tcb-t i { background: #4fb866; }
 .tcb.x0 { border-left-color: var(--ink); } .tcb.x0 .tcb-t i { background: var(--ink); color: var(--bg); }
 .tcb .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 

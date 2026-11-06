@@ -1092,10 +1092,10 @@ function typesHTML() {
   let detail = '';
   if (sel) {
     const atk = (i, k) => TYPES.filter((_, c) => ch[i][c] === k), def = (i, k) => TYPES.filter((_, r) => ch[r][i] === k);
-    const row = (k, label, list) => { const [cls, mult] = tcRes[k]; return `<div class="tcb ${cls}"><div class="tcb-t"><i>${mult}</i><span>${label}</span></div><div class="chips">${list.length ? list.map(tcPill).join('') : `<span class="hint">${t('tcNone')}</span>`}</div></div>`; };
+    const row = (k, label, list, d) => { const [c0, mult] = tcRes[k]; const cls = d ? ({ x2: 'xw', xh: 'xg' }[c0] || c0) : c0; return `<div class="tcb ${cls}"><div class="tcb-t"><i>${mult}</i><span>${label}</span></div><div class="chips">${list.length ? list.map(tcPill).join('') : `<span class="hint">${t('tcNone')}</span>`}</div></div>`; };
     const A = TYPES[sr], D = TYPES[sc];
     const offBox = i => `<section class="tcbox"><h3>${t('tcAsAtk')}</h3>${row(2, t('tcAtk'), atk(i, 2))}${row(0.5, t('tcAtkNo'), atk(i, 0.5))}${row(0, t('tcImm'), atk(i, 0))}</section>`;
-    const defBox = i => `<section class="tcbox"><h3>${t('tcAsDef')}</h3>${row(2, t('tcDefW'), def(i, 2))}${row(0.5, t('tcDefR'), def(i, 0.5))}${row(0, t('tcDefI'), def(i, 0))}</section>`;
+    const defBox = i => `<section class="tcbox"><h3>${t('tcAsDef')}</h3>${row(2, t('tcDefW'), def(i, 2), 1)}${row(0.5, t('tcDefR'), def(i, 0.5), 1)}${row(0, t('tcDefI'), def(i, 0), 1)}</section>`;
     if (sr === sc && sel.hdr) detail = `<div class="tc-detail"><div class="tchead">${tcPill(A)}</div><div class="tcgrid">${offBox(sr)}${defBox(sr)}</div></div>`;
     else {
       const e = ch[sr][sc], [cls, mult, key] = tcRes[e];
