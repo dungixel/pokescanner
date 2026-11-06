@@ -171,7 +171,13 @@ const descHTML = x => {
   if (!hasPrecise(x)) return `<p class="desc">${esc(fl) || `<span class="dim">${t('noDesc')}</span>`}</p>`;
   return `<p class="desc strong">${esc(dp(x))}</p>${fl ? `<details class="flavor"><summary>${t('inGameText')}</summary>${esc(fl)}</details>` : ''}`;
 };
-const pageMember = () => (page?.bm ? { id: page.d.id, ...(page.bm.s != null ? { s: page.bm.s } : {}), b: page.bm.b } : { id: page.d.id });
+/** Miembro que se guarda desde la ficha: la build editada, o si no la build de Smogon que está seleccionada (pl = ficha normal, se quita al guardar) */
+const pageMember = () => {
+  if (page?.bm) return { id: page.d.id, ...(page.bm.s != null ? { s: page.bm.s } : {}), b: page.bm.b };
+  const { d, fmt, idx } = page, sets = d.sets.filter(x => x.f === fmt), s = d.sets.indexOf(sets[idx] || sets[0]);
+  return { id: d.id, pl: 1, ...(s >= 0 ? { s } : {}) };
+};
+const hasM = (m, pm) => (pm.pl ? m.id === pm.id && !m.b : sameM(m, pm));
 function paintFavBtn() {
   const b = $('.favbtn'); if (!b || !page?.d) return;
   const pm = pageMember();
@@ -194,9 +200,9 @@ function afterTeamsChange() {
 /** Mete o saca un Pokémon de un equipo. Devuelve true si cambió algo */
 function toggleInTeam(slot, id, mem = null) {
   const tm = teams[slot], want = mem || { id };
-  const k = tm.members.findIndex(m => (mem ? sameM(m, want) : m.id === id));
+  const k = tm.members.findIndex(m => (mem ? hasM(m, want) : m.id === id));
   if (k >= 0) tm.members.splice(k, 1);
-  else { if (tm.members.length >= MAXTEAM) { toast(t('teamFull')); return false; } tm.members.push({ ...want }); }
+  else { if (tm.members.length >= MAXTEAM) { toast(t('teamFull')); return false; } { const { pl, ...w } = want; tm.members.push(w); } }
   saveSlot(slot); afterTeamsChange();
   return true;
 }
@@ -309,7 +315,7 @@ function teamPickHTML() {
     <div class="shead"><button class="iconbtn" data-act="settings-close" aria-label="${t('close')}">${IC.x}</button><h2>${t('pickTeamTitle')}</h2></div>
     <p class="shint">${t('pickTeamText', { name: esc(pname(p)) })}</p>
     <div class="slotlist">${teams.map((tm, i) => {
-      const has = tm.members.some(m => sameM(m, pickM)), full = tm.members.length >= MAXTEAM && !has;
+      const has = tm.members.some(m => hasM(m, pickM)), full = tm.members.length >= MAXTEAM && !has;
       return `<button class="slotopt ${has ? 'on' : ''}" data-act="team-toggle" data-v="${i}" ${full ? 'disabled' : ''}>
         <span class="sn">${i + 1}</span>
         <span class="sname"><b>${full ? `<span class="fulltag">${t('fullTag')}</span> ` : ''}${esc(teamName(i))}</b><span class="minis">${tm.members.map(m => miniPoke(m.id)).join('') || `<small>${t('teamEmpty')}</small>`}</span></span>
@@ -2947,7 +2953,7 @@ document.addEventListener('click', e => {
     case 'fav': { const m = pageMember(); if (requireLogin({ type: 'fav', id: page.d.id, m })) openTeamPick(page.d.id, m); break; }
     case 'login-open': openLogin({ type: v }); break;
     case 'team-toggle': {
-      const i = Number(v), had = teams[i].members.some(m => sameM(m, pickM)), p = BYID.get(pickId);
+      const i = Number(v), had = teams[i].members.some(m => hasM(m, pickM)), p = BYID.get(pickId);
       const go = () => { if (toggleInTeam(i, pickId, pickM)) { closeSettings(); toast(t(had ? 'removedFrom' : 'addedTo', { name: pname(p), team: teamName(i) })); } };
       if (had) askConfirm(t('cfmRemovePoke', { name: pname(p), team: teamName(i) }), t('cfmRemove'), go); else go();
       break;
