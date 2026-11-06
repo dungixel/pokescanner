@@ -1,10 +1,10 @@
 import {
   TYPES, TYPE_ES, TYPE_EN, TYPE_COLOR, STATS, typeName, statName, catName, tierInfo, TIER_ORDER, formatName,
   esc, fold, dexNum, fmtNum, store, matchups, bst, statColor, tierLabel, tierColor, tierNum, tierNumHTML, TIER_MAX, formatRank,
-  pname, pname2, dn, dn2, dd, dp, hasPrecise, how,
+  pname, pname2, dn, dn2, dd, dp, hasPrecise, how, OV, applyLangData,
   pokeImg, itemImg, typeIcon, typePill, typeDot, catIcon, SPR, img, spriteChain, smallSprite, SFIX, shinyStyle,
 } from './util.js';
-import { t, lang, setLang } from './i18n.js';
+import { t, lang, dl, setLang, LANGS as LANG_IDS } from './i18n.js';
 import { analyzeTeam, scoreInfo } from './team.js';
 import { META_TEAMS } from './meta.js';
 import * as auth from './auth.js';
@@ -63,8 +63,8 @@ const I = {
   copy: '<svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>',
 };
 /** Ajustes: ventana en medio de la pantalla (idioma con bandera y tema claro/oscuro) */
-const FLAG = { es: 'icons/flags/es.svg', en: 'icons/flags/gb.svg' };
-const LANGS = { es: 'Español', en: 'English' };
+const FLAG = { es: 'icons/flags/es.svg', en: 'icons/flags/gb.svg', fr: 'icons/flags/fr.svg', de: 'icons/flags/de.svg' };
+const LANGS = { es: 'Español', en: 'English', fr: 'Français', de: 'Deutsch' };
 const smodal = document.getElementById('smodal');
 let modalKind = null; // 'sd' | 'notifs' | 'settings' | 'login' | 'teampick' | 'picker' | 'saveteam' | 'publish' | 'bans'
 let pending = null;   // lo que la persona quería hacer cuando se le pidió iniciar sesión
@@ -94,7 +94,7 @@ function settingsHTML() {
     ${accountHTML()}
     <div class="sgroup"><div class="spills">
       <button class="ddbtn spill" data-act="sdd" data-v="lang" aria-expanded="${sdd === 'lang'}" aria-haspopup="listbox"><span class="ddl">${t('language')}</span><span class="ddv"><img class="flag" src="${FLAG[lang()]}" alt="" width="18" height="14">${LANGS[lang()]}</span><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
-      ${sdd === 'lang' ? `<div class="sdl" role="listbox">${['es', 'en'].map(l => `<button class="sopt" role="radio" data-act="set-lang" data-v="${l}" aria-checked="${lang() === l}"><img class="flag" src="${FLAG[l]}" alt="" width="24" height="18">${LANGS[l]}<span class="ck">${I.check}</span></button>`).join('')}</div>` : ''}
+      ${sdd === 'lang' ? `<div class="sdl" role="listbox">${LANG_IDS.map(l => `<button class="sopt" role="radio" data-act="set-lang" data-v="${l}" aria-checked="${lang() === l}"><img class="flag" src="${FLAG[l]}" alt="" width="24" height="18">${LANGS[l]}<span class="ck">${I.check}</span></button>`).join('')}</div>` : ''}
       <button class="ddbtn spill" data-act="sdd" data-v="theme" aria-expanded="${sdd === 'theme'}" aria-haspopup="listbox"><span class="ddl">${t('theme')}</span><span class="ddv">${t(pref === 'system' ? 'themeSystem' : pref)}</span><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
       ${sdd === 'theme' ? `<div class="sdl" role="listbox">${['system', 'light', 'dark'].map(m => `<button class="sopt" role="radio" data-act="set-theme" data-v="${m}" aria-checked="${pref === m}">${I[THEME_ICON[m]]}${t(m === 'system' ? 'themeSystem' : m)}<span class="ck">${I.check}</span></button>`).join('')}</div>` : ''}</div></div>
     ${offlineHTML()}
@@ -240,7 +240,7 @@ async function onAuth(event, s) {
     if (prof) {
       me = { username: prof.username, avatar: prof.avatar };
       if (['system', 'light', 'dark'].includes(prof.theme)) setTheme(prof.theme, { save: false });
-      if ((prof.lang === 'es' || prof.lang === 'en') && prof.lang !== lang()) switchLang(prof.lang, { save: false });
+      if (LANG_IDS.includes(prof.lang) && prof.lang !== lang()) switchLang(prof.lang, { save: false });
       else if (!prof.lang) syncProfile(); // cuenta nueva: se guarda el idioma actual
     }
   } catch { /* se queda con lo local */ }
@@ -434,9 +434,15 @@ function repaintCurrent() {
   updateDock();
 }
 /** Cambia el idioma de toda la web sin sacarte de la página */
-function switchLang(to, { save = true } = {}) {
+async function loadLangData(l) {
+  if (l !== 'fr' && l !== 'de') return;
+  if (!OV[l]) { try { OV[l] = await getJSON(`data/lang/${l}.json`); } catch (e) { console.error(e); OV[l] = { ty: {}, pk: {}, pe: {}, mv: {}, ab: {}, it: {}, nat: {} }; } }
+}
+async function switchLang(to, { save = true } = {}) {
   if (to === lang()) return;
+  await loadLangData(to);
   setLang(to);
+  applyLangData(DICT);
   document.documentElement.lang = to;
   renderDock();
   refreshModal();
@@ -451,7 +457,7 @@ async function getJSON(url) {
   return r.json();
 }
 let dictP = null, learnersP = null, LEARNERS = null, abilP = null, ABIL = null, itemP = null, ITEMS = null;
-const getDict = () => (dictP ??= Promise.all([getJSON('data/dict.json'), getJSON('data/shinyfix.json').then(f => Object.assign(SFIX, f)).catch(() => {})]).then(([d]) => (DICT = d)).catch(e => { dictP = null; throw e; }));
+const getDict = () => (dictP ??= Promise.all([getJSON('data/dict.json'), getJSON('data/shinyfix.json').then(f => Object.assign(SFIX, f)).catch(() => {})]).then(([d]) => { applyLangData(d); return (DICT = d); }).catch(e => { dictP = null; throw e; }));
 const getAbil = () => (abilP ??= getJSON('data/abilities.json').then(d => (ABIL = d)).catch(e => { abilP = null; throw e; }));
 const getItems = () => (itemP ??= getJSON('data/items.json').then(d => (ITEMS = d)).catch(e => { itemP = null; throw e; }));
 const getLearners = () => (learnersP ??= getJSON('data/learners.json').then(d => (LEARNERS = d)).catch(e => { learnersP = null; throw e; }));
@@ -790,7 +796,7 @@ function route() {
 const GEN_END = [151, 251, 386, 493, 649, 721, 809, 905, 1025]; // último número de Pokédex de cada generación
 const genOf = num => { const i = GEN_END.findIndex(e => num <= e); return i < 0 ? 9 : i + 1; };
 const REGION = { es: ['Kanto', 'Johto', 'Hoenn', 'Sinnoh', 'Teselia', 'Kalos', 'Alola', 'Galar', 'Paldea'], en: ['Kanto', 'Johto', 'Hoenn', 'Sinnoh', 'Unova', 'Kalos', 'Alola', 'Galar', 'Paldea'] };
-const genLabel = g => `${t('genShort', { g })} · ${REGION[lang()][g - 1]}`;
+const genLabel = g => `${t('genShort', { g })} · ${REGION[dl()][g - 1]}`;
 const SORTS = ['num', 'hp', 'atk', 'def', 'spa', 'spd', 'spe', 'bst', 'h', 'w'];
 const sortLabel = k => (k === 'num' ? t('num') : statName(k));
 
@@ -887,15 +893,16 @@ function compute() {
 }
 function searchScored(q, list) {
   const isNum = /^\d+$/.test(q);
-  const typeHits = q.length >= 3 ? TYPES.filter(ty => fold(TYPE_ES[ty]).startsWith(q) || fold(TYPE_EN[ty]).startsWith(q)) : [];
+  const typeHits = q.length >= 3 ? TYPES.filter(ty => fold(TYPE_ES[ty]).startsWith(q) || fold(TYPE_EN[ty]).startsWith(q) || fold(typeName(ty)).startsWith(q)) : [];
   const out = [];
   for (const p of list) {
     p.fs ??= fold(p.es); p.fe ??= fold(p.en);
+    const fo = lang() === 'fr' || lang() === 'de' ? (p['f_' + lang()] ??= fold(pname(p))) : '';
     let sc = -1;
     if (isNum) { if (String(p.num) === String(Number(q))) sc = 0; }
     if (sc < 0) {
-      if (p.fs.startsWith(q) || p.fe.startsWith(q)) sc = 0;
-      else if (p.fs.includes(q) || p.fe.includes(q)) sc = 1;
+      if (p.fs.startsWith(q) || p.fe.startsWith(q) || fo.startsWith(q)) sc = 0;
+      else if (p.fs.includes(q) || p.fe.includes(q) || (fo && fo.includes(q))) sc = 1;
       else if (typeHits.some(ty => p.t.includes(ty))) sc = 3;
     }
     if (sc >= 0) out.push({ p, sc });
@@ -911,7 +918,8 @@ function searchDict(q, kind, max = MOVES_MAX) {
   const out = [];
   for (const [id, m] of Object.entries(DICT[kind])) {
     m.fs ??= fold(m.n); m.fe ??= fold(m.e);
-    const sc = m.fs.startsWith(q) || m.fe.startsWith(q) ? 0 : m.fs.includes(q) || m.fe.includes(q) ? 1 : -1;
+    const fo = m.l ? fold(m.l) : '';
+    const sc = m.fs.startsWith(q) || m.fe.startsWith(q) || fo.startsWith(q) ? 0 : m.fs.includes(q) || m.fe.includes(q) || (fo && fo.includes(q)) ? 1 : -1;
     if (sc >= 0) out.push({ id, m, sc });
   }
   out.sort((a, b) => a.sc - b.sc || dn(a.m).length - dn(b.m).length || dn(a.m).localeCompare(dn(b.m)));
@@ -1265,14 +1273,14 @@ function levelMovesHTML(expanded) {
 const EGG_ES = { monster: 'Monstruo', water1: 'Agua 1', bug: 'Bicho', flying: 'Volador', ground: 'Campo', fairy: 'Hada', plant: 'Planta', humanshape: 'Humanoide', water3: 'Agua 3', mineral: 'Mineral', indeterminate: 'Amorfo', water2: 'Agua 2', ditto: 'Ditto', dragon: 'Dragón', 'no-eggs': 'Desconocido' };
 const EGG_EN = { monster: 'Monster', water1: 'Water 1', bug: 'Bug', flying: 'Flying', ground: 'Field', fairy: 'Fairy', plant: 'Grass', humanshape: 'Human-Like', water3: 'Water 3', mineral: 'Mineral', indeterminate: 'Amorphous', water2: 'Water 2', ditto: 'Ditto', dragon: 'Dragon', 'no-eggs': 'Undiscovered' };
 const GROWTH = { 1: ['Lento', 'Slow'], 2: ['Medio rápido', 'Medium Fast'], 3: ['Rápido', 'Fast'], 4: ['Medio lento', 'Medium Slow'], 5: ['Errático', 'Erratic'], 6: ['Fluctuante', 'Fluctuating'] };
-const pct1 = n => `${(Math.round(n * 10) / 10).toLocaleString(lang() === 'en' ? 'en' : 'es')} %`;
+const pct1 = n => `${(Math.round(n * 10) / 10).toLocaleString(lang())} %`;
 function speciesDataHTML(d) {
   if (d.cr == null && !d.ev) return '';
   const ev = (d.ev || []).map((n, i) => (n ? `+${n} ${statName(['hp', 'atk', 'def', 'spa', 'spd', 'spe'][i])}` : '')).filter(Boolean).join(', ');
   const male = d.gr < 0 ? null : 100 - d.gr * 12.5;
   const gender = male == null ? `<b>${t('dtNoGender')}</b>`
     : `<div class="gbar" role="img" aria-label="♂ ${pct1(male)} · ♀ ${pct1(100 - male)}"><i style="width:${male}%"></i></div><b class="gtx"><span style="color:#3B82F6">♂ ${pct1(male)}</span> · <span style="color:#EC4899">♀ ${pct1(100 - male)}</span></b>`;
-  const egg = (d.eg || []).map(g => (lang() === 'en' ? EGG_EN : EGG_ES)[g] || g).join(' · ');
+  const egg = (d.eg || []).map(g => (lang() !== 'es' ? EGG_EN : EGG_ES)[g] || g).join(' · ');
   const row = (k, v) => (v ? `<div><span>${k}</span><div class="dv">${v}</div></div>` : '');
   return `<section class="sec"><h2>${t('dtTitle')}</h2><div class="dlist">
     ${row(t('dtEv'), ev ? `<b>${ev}</b>` : `<b>—</b>`)}
@@ -1280,8 +1288,8 @@ function speciesDataHTML(d) {
     ${d.bh != null ? row(t('dtHappy'), `<b>${d.bh}</b>`) : ''}
     ${d.gr != null ? row(t('dtGender'), gender) : ''}
     ${egg ? row(t('dtEgg'), `<b>${egg}</b>`) : ''}
-    ${d.hc ? row(t('dtHatch'), `<b>${(d.hc * 256).toLocaleString(lang() === 'en' ? 'en' : 'es')}</b> <small>${t('dtSteps')}</small>`) : ''}
-    ${d.gx ? row(t('dtGrowth'), `<b>${GROWTH[d.gx]?.[lang() === 'en' ? 1 : 0] || ''}</b>`) : ''}
+    ${d.hc ? row(t('dtHatch'), `<b>${(d.hc * 256).toLocaleString(lang())}</b> <small>${t('dtSteps')}</small>`) : ''}
+    ${d.gx ? row(t('dtGrowth'), `<b>${GROWTH[d.gx]?.[lang() !== 'es' ? 1 : 0] || ''}</b>`) : ''}
   </div></section>`;
 }
 function formsHTML(d) {
@@ -1317,7 +1325,7 @@ async function loadEnc(id) {
   } catch { ENCD = null; if (page?.d.id === id) { page.enc = null; page.encDict = null; } }
   const el = $('#enc'); if (el && page?.d.id === id) el.innerHTML = encHTML();
 }
-const L2 = a => a[lang() === 'en' ? 1 : 0];
+const L2 = a => a[lang() !== 'es' ? 1 : 0];
 function encHTML() {
   if (!page || page.enc === undefined) return '';
   const D = page.encDict, rows = page.enc;
@@ -1338,7 +1346,7 @@ function encHTML() {
         const ln = L2(D.loc[loc]); let an = area ? L2(D.area[area]) : '';
         if (an && an.toLowerCase().startsWith(ln.toLowerCase())) an = an.slice(ln.length).replace(/^[\s(–-]+|[)\s]+$/g, '');
         const place = `<b>${esc(ln)}</b>${an ? ` <span class="ea">${esc(an)}</span>` : ''}`;
-        const only = vs.length < allV.length ? `<span class="chip small ghost">${t('encOnly', { v: G.v.filter(x => vs.includes(x[0])).map(x => (lang() === 'en' ? x[2] : x[1])).join(' / ') })}</span>` : '';
+        const only = vs.length < allV.length ? `<span class="chip small ghost">${t('encOnly', { v: G.v.filter(x => vs.includes(x[0])).map(x => (lang() !== 'es' ? x[2] : x[1])).join(' / ') })}</span>` : '';
         const conds = cs.map(c => `<span class="chip small ghost">${esc(L2(D.cond[c]))}</span>`).join('');
         const meta = [L2(D.meth[m]), lo === hi ? t('encLv', { n: lo }) : t('encLv', { n: `${lo}–${hi}` }), p < 100 ? `${p}%` : ''].filter(Boolean).join(' · ');
         return `<li><div class="el">${place}<span class="em">${esc(meta)}</span></div>${only || conds ? `<div class="et">${only}${conds}</div>` : ''}</li>`;
@@ -1514,6 +1522,7 @@ function mergeEditor(dict, E) {
   for (const [id, m] of Object.entries(E.moves)) if (!dict.moves[id]) dict.moves[id] = { n: m[0], e: m[1], t: m[2], c: m[3], p: m[4], a: m[5], pp: 0, pr: m[6], d: '', de: '' };
   for (const [id, x] of Object.entries(E.items)) if (!dict.items[id]) dict.items[id] = { n: x[0], e: x[1], d: '', de: '', i: x[2] };
   for (const [id, x] of Object.entries(E.natures)) if (!dict.natures[id]) dict.natures[id] = { n: x[0], e: x[1], plus: x[2], minus: x[3] };
+  applyLangData(dict);
 }
 const STAT_IC = [
   '<path d="M19.5 12.572l-7.5 7.428l-7.5 -7.428a5 5 0 1 1 7.5 -6.566a5 5 0 1 1 7.5 6.572"/>',
@@ -1814,7 +1823,7 @@ function calcRows(from, to, hpLeft) {
   const aSt = eng.newState(ua), dSt = eng.newState(ud);
   Object.assign(aSt.boosts, calc.boosts[from]); Object.assign(dSt.boosts, calc.boosts[to]);
   dSt.hp = hpLeft;
-  const fmt = n => (Math.round(n * 1000) / 10).toLocaleString(lang() === 'en' ? 'en' : 'es', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const fmt = n => (Math.round(n * 1000) / 10).toLocaleString(lang(), { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   return ua.moves.filter(m => m.c !== 's').map(mv => {
     const r = eng.damage(ua, aSt, ud, dSt, mv, ctx);
     const lo = Math.round(r.min * ud.maxHP), hi = Math.round(r.max * ud.maxHP);
@@ -2335,7 +2344,7 @@ const bt = { friends: [], online: new Map(), others: new Map(), a: { owner: 'me'
 const friendById = id => bt.friends.find(f => f.user_id === id);
 const frAvatar = f => avatarImg(f.avatar);
 // equipos de ejemplo (meta): se usan con la build de su formato (OU en Individual, VGC en Dobles)
-const metaTeam = i => { const m = META_TEAMS[i]; return m ? { name: m.name[lang()] || m.name.es, members: m.members, fmt: m.fmt, num: META_TEAMS.slice(0, i + 1).filter(x => x.fmt === m.fmt).length, force: m.fmt === 'doubles' ? 'vgc2025' : 'ou' } : null; };
+const metaTeam = i => { const m = META_TEAMS[i]; return m ? { name: m.name[dl()] || m.name.es, members: m.members, fmt: m.fmt, num: META_TEAMS.slice(0, i + 1).filter(x => x.fmt === m.fmt).length, force: m.fmt === 'doubles' ? 'vgc2025' : 'ou' } : null; };
 const isFriendOwner = o => o !== 'me' && o !== 'meta' && o !== 'link';
 const teamOf = sel => (sel.owner === 'me' ? teams[sel.slot] : sel.owner === 'meta' ? metaTeam(sel.slot) : sel.owner === 'link' ? bt.link || null : bt.others.get(sel.owner)?.[sel.slot] || null);
 const ownerName = sel => (sel.owner === 'me' ? t('yourTeam') : sel.owner === 'meta' ? t('metaOwner') : sel.owner === 'link' ? t('sharedOwner') : t('teamOf', { name: friendById(sel.owner)?.username || '?' }));
@@ -2948,7 +2957,7 @@ fixStatusBar();
 // ───────────────────────── Arranque ─────────────────────────
 async function boot() {
   try {
-    INDEX = await getJSON('data/index.json');
+    [INDEX] = await Promise.all([getJSON('data/index.json'), loadLangData(lang())]);
   } catch (err) {
     $app.innerHTML = `<div class="empty"><b>${t('loadFail')}</b>${t('bootFail')}</div>`;
     console.error(err);

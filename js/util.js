@@ -1,5 +1,5 @@
 // Constantes y utilidades compartidas
-import { lang, t } from './i18n.js';
+import { lang, dl, t } from './i18n.js';
 
 export const SPR = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites';
 
@@ -13,7 +13,10 @@ export const TYPE_ES = { normal: 'Normal', fire: 'Fuego', water: 'Agua', electri
 export const TYPE_EN = { normal: 'Normal', fire: 'Fire', water: 'Water', electric: 'Electric', grass: 'Grass', ice: 'Ice',
   fighting: 'Fighting', poison: 'Poison', ground: 'Ground', flying: 'Flying', psychic: 'Psychic', bug: 'Bug', rock: 'Rock',
   ghost: 'Ghost', dragon: 'Dragon', dark: 'Dark', steel: 'Steel', fairy: 'Fairy', stellar: 'Stellar' };
-export const typeName = ty => ((lang() === 'en' ? TYPE_EN : TYPE_ES)[ty] || ty);
+/** Nombres oficiales en francés y alemán (data/lang/*.json); se cargan al elegir el idioma */
+export const OV = { fr: null, de: null };
+const ovl = () => OV[lang()];
+export const typeName = ty => (ovl()?.ty?.[ty] || (lang() === 'es' ? TYPE_ES : TYPE_EN)[ty] || ty);
 export const TYPE_COLOR = { normal: '#9DA0AA', fire: '#F5793A', water: '#4D90E8', electric: '#F2C230', grass: '#5DBE62',
   ice: '#6CD0D6', fighting: '#D0453F', poison: '#A653C8', ground: '#D8A64F', flying: '#8FA6F0', psychic: '#F25F8F',
   bug: '#9BBA22', rock: '#B8A55B', ghost: '#6A5DB5', dragon: '#5B6CF0', dark: '#6A5A55', steel: '#7FA3B5', fairy: '#EC8FE6',
@@ -98,7 +101,7 @@ const TIER_DESC_EN = {
   NFE: 'Pokémon that can still evolve and have no tier of their own (only used in LC or with an Eviolite).',
 };
 /** Nombre y descripción de un rango en el idioma actual */
-export const tierInfo = r => { const x = TIER[r]; return x ? { n: x.n, d: lang() === 'en' ? TIER_DESC_EN[r] : x.d } : null; };
+export const tierInfo = r => { const x = TIER[r]; return x ? { n: x.n, d: lang() !== 'es' ? TIER_DESC_EN[r] : x.d } : null; };
 export const TIER_ORDER = ['AG', 'Uber', 'OU', 'UUBL', 'UU', 'RUBL', 'RU', 'NUBL', 'NU', 'PUBL', 'PU', 'ZUBL', 'ZU', 'LC', 'NFE'];
 // Posición en la escala de fuerza: 1 = el más fuerte. LC y NFE no entran en la escala.
 export const TIER_RANK = { AG: 1, Uber: 2, OU: 3, UUBL: 4, UU: 5, RUBL: 6, RU: 7, NUBL: 8, NU: 9, PUBL: 10, PU: 11, ZUBL: 12, ZU: 13 };
@@ -133,17 +136,38 @@ export const formatRank = f => { const i = FORMAT_ORDER.indexOf(f); return i < 0
 export const formatName = f => (f === 'doublesou' ? t('fmt_doublesou') : FORMAT_NAME[f] || f);
 
 // ───────── nombres según el idioma ─────────
-export const pname = p => (lang() === 'en' ? p.en : p.es);
+const FORMS = {
+  fr: { Mega: n => `Méga-${n}`, 'Mega-X': n => `Méga-${n} X`, 'Mega-Y': n => `Méga-${n} Y`, Alola: n => `${n} d’Alola`, Galar: n => `${n} de Galar`, Hisui: n => `${n} de Hisui`, Paldea: n => `${n} de Paldea`, Gmax: n => `${n} Gigamax` },
+  de: { Mega: n => `Mega-${n}`, 'Mega-X': n => `Mega-${n} X`, 'Mega-Y': n => `Mega-${n} Y`, Alola: n => `Alola-${n}`, Galar: n => `Galar-${n}`, Hisui: n => `Hisui-${n}`, Paldea: n => `Paldea-${n}`, Gmax: n => `Gigadynamax-${n}` },
+};
+export function pname(p) {
+  const l = lang();
+  if (l === 'es') return p.es;
+  if (l === 'en') return p.en;
+  const o = OV[l], base = o?.pk?.[p.num];
+  if (!base) return p.en;
+  const be = o.pe[p.num] || '';
+  if (!be || !p.en.startsWith(be) || p.en === be) return base;
+  const suf = p.en.slice(be.length).replace(/^-/, '');
+  const f = FORMS[l][suf];
+  return f ? f(base) : `${base} (${suf.replace(/-/g, ' ')})`;
+}
 /** el nombre en inglés (para mostrarlo debajo cuando la web no está en inglés) */
 export const pname2 = p => (lang() === 'en' ? '' : p.en);
-/** nombre y descripción de movimientos, habilidades, objetos y naturalezas */
-export const dn = x => (lang() === 'en' ? x.e : x.n);
+/** nombre y descripción de movimientos, habilidades, objetos y naturalezas (x.l / x.ld los pone applyLangData) */
+export const dn = x => (lang() === 'es' ? x.n : lang() === 'en' ? x.e : (x.l || x.e));
 export const dn2 = x => (lang() === 'en' ? '' : x.e);
-export const dd = x => (lang() === 'en' ? (x.de || x.d) : x.d);
+export const dd = x => (lang() === 'es' ? x.d : lang() === 'en' ? (x.de || x.d) : (x.ld || x.de || x.d));
 /** descripción precisa (con cifras) si existe; si no, el texto del juego */
-export const dp = x => (lang() === 'en' ? (x.xe || x.de || x.d) : (x.x || x.d)) || '';
-export const hasPrecise = x => !!(lang() === 'en' ? x.xe : x.x);
-export const how = n => (lang() === 'en' ? (n.hx || n.how) : n.how);
+export const dp = x => (lang() === 'es' ? (x.x || x.d) : lang() === 'en' ? (x.xe || x.de || x.d) : dd(x)) || '';
+export const hasPrecise = x => (lang() === 'es' ? !!x.x : lang() === 'en' ? !!x.xe : false);
+/** copia los nombres y textos fr/de del overlay sobre el diccionario (se repite al cambiar de idioma) */
+export function applyLangData(dict) {
+  const o = OV[lang()]; if (!dict) return;
+  for (const [cat, key] of [['moves', 'mv'], ['abilities', 'ab'], ['items', 'it']]) for (const [id, x] of Object.entries(dict[cat])) { const r = o?.[key]?.[id]; x.l = r ? r[0] : undefined; x.ld = r ? r[1] : undefined; }
+  for (const [id, x] of Object.entries(dict.natures)) x.l = o?.nat?.[id];
+}
+export const how = n => (lang() === 'es' ? n.how : (n.hx || n.how));
 
 // ───────── utilidades de texto ─────────
 const ENT = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
