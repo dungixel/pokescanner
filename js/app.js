@@ -971,7 +971,35 @@ const missingHTML = team => {
   if (!picks.length) return '';
   return `<div class="swap missing"><h4>${t('an_missing')}</h4><p>${t('an_missingHint', { n: MAXTEAM - team.length })}</p><ul class="pans">${picks.map(x => `<li><span class="lft">${chipPoke(x.p)}<small>${t('an_missingGain', { k: x.gain })}</small></span><button class="chip small accent" data-act="team-sugg-add" data-v="${x.p.id}">${IC.plus}${t('sugAdd')}</button></li>`).join('')}</ul></div>`;
 };
-function teamHTML(team, shared = false) {
+/** Cobertura de tipos del equipo: a quién resiste/teme (por tipos) y a quién puede golpear súper eficaz (por movimientos de las builds o, sin build, por sus tipos) */
+function coverHTML(team, recs = []) {
+  const types = TYPES;
+  const defs = team.map(p => { const o = {}; for (const [k, list] of Object.entries(matchups(p.t))) list.forEach(a => { o[a] = Number(k); }); return o; });
+  let usedBuilds = false;
+  const atk = team.map((p, i) => {
+    const ids = (recs[i]?.b?.m || []).filter(id => DICT?.moves?.[id] && DICT.moves[id].c !== 's');
+    if (ids.length) { usedBuilds = true; return new Set(ids.map(id => DICT.moves[id].t)); }
+    return new Set(p.t);
+  });
+  const dcell = ty => {
+    const w = defs.filter(d => d[ty] > 1).length, r = defs.filter(d => d[ty] < 1).length;
+    const cls = w >= 2 && w > r ? 'bad' : r > w ? 'good' : '';
+    return `<span class="cvt ${cls}" style="--tc:${TYPE_COLOR[ty]}" title="${esc(typeName(ty))}">${typeIcon(ty)}<span class="cvn"><b class="w${w ? '' : ' z'}">${w}</b><b class="r${r ? '' : ' z'}">${r}</b></span></span>`;
+  };
+  const hits = ty => { const se = new Set(matchups([ty])[2] || []); return atk.filter(s => [...s].some(a => se.has(a))).length; };
+  const gaps = [];
+  const acell = ty => {
+    const n = hits(ty); if (!n) gaps.push(ty);
+    return `<span class="cvt ${n ? (n >= 2 ? 'good' : '') : 'bad'}" style="--tc:${TYPE_COLOR[ty]}" title="${esc(typeName(ty))}">${typeIcon(ty)}<span class="cvn"><b class="${n ? 'r' : 'w'}">${n}</b></span></span>`;
+  };
+  const dgrid = types.map(dcell).join(''), agrid = types.map(acell).join('');
+  return `<div class="cover"><h4>${t('an_cov')}</h4>
+    <h5>${t('an_covDef')}</h5><div class="cvgrid">${dgrid}</div><p class="note">${t('an_covDefHint')}</p>
+    <h5>${t('an_covAtk')}</h5><div class="cvgrid">${agrid}</div>
+    <p class="note">${t(usedBuilds ? 'an_covAtkHintB' : 'an_covAtkHint')}</p>
+    ${gaps.length ? `<p class="cvgap"><b>${t('an_covGap')}</b> ${gaps.map(ty => `<span class="tdot" style="--tc:${TYPE_COLOR[ty]}">${typeIcon(ty)}</span>`).join('')}</p>` : ''}</div>`;
+}
+function teamHTML(team, shared = false, recs = []) {
   if (team.length < 3) return `<section class="team need"><h4>${t('an_title')}</h4><p>${t('an_need')}</p></section>`;
   const a = analyzeTeam(team);
   const info = scoreInfo(a.score);
@@ -989,6 +1017,7 @@ function teamHTML(team, shared = false) {
     <div class="team-head"><div class="score" style="--sc:${info.c}"><b>${a.score}</b><small>/100</small></div>
       <div><h3>${t(`an_s_${info.k}`)}</h3><p>${t(shared ? 'an_subShared' : 'an_sub', { n: team.length })}</p>${team.length > 6 ? `<p>${t('an_over', { n: team.length })}</p>` : ''}</div></div>
     <div class="tparts">${parts}</div>
+    ${coverHTML(team, recs)}
     <div><h4 class="bad">${t('an_bad')}</h4>${a.bad.length ? `<ul class="finds">${a.bad.map(f => findHTML(f, 'bad')).join('')}</ul>` : `<p class="note">${t('an_nobad')}</p>`}</div>
     <div><h4 class="good">${t('an_good')}</h4>${a.good.length ? `<ul class="finds">${a.good.map(f => findHTML(f, 'good')).join('')}</ul>` : `<p class="note">${t('an_nogood')}</p>`}</div>
     ${missingHTML(team)}
@@ -2298,7 +2327,7 @@ function teamPageHTML(i) {
     <hr class="tdiv">
     ${members.length ? `<div class="list">${tm.members.map((m, k) => (BYID.get(m.id) ? memberRow(BYID.get(m.id), i, k) : '')).join('')}</div>` : `<p class="shint">${t('teamEmptyHint')}</p>`}
     <div class="slotacts">${members.length < MAXTEAM ? `<button class="chip" data-act="slot-add">${IC.plus}${t('addPoke')}</button>` : ''}${members.length ? `<button class="chip" data-act="team-share" data-v="${i}">${IC.share}${t('shareTeam')}</button><button class="chip" data-act="sd-open" data-v="export:${i}">${t('sdExport')}</button>` : ''}<button class="chip" data-act="sd-open" data-v="import:${i}">${t('sdImport')}</button></div>
-    ${members.length ? teamHTML(members) : ''}`;
+    ${members.length ? teamHTML(members, false, tm.members.filter(m => BYID.get(m.id))) : ''}`;
 }
 function teamsHTML() {
   if (!auth.currentUser()) return `<header class="hero"><h1 class="brand">${titleIc('dock-favs')}${t('teamsTitle')}</h1><p>${t('teamsLead')}</p></header>${loginCta('loginTitle', 'favs')}`;
