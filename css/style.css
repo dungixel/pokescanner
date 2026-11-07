@@ -82,6 +82,7 @@ img.poke:not(.ok):not(.missing), img.item:not(.ok):not(.missing), img.av:not(.ok
 .chip .ticon { width: 18px; height: 18px; border-radius: 5px; }
 .chip.ghost { background: transparent; color: var(--muted); }
 .chip.small { height: 30px; padding: 0 11px; font-size: .84rem; }
+.chip.small .fold { font-size: .72rem; font-weight: 400; opacity: .6; margin-left: 4px; }
 .chip.accent { background: var(--accent); border-color: var(--accent); color: #fff; }
 .chip .thumb { width: 24px; height: 24px; margin-left: -6px; object-fit: contain; image-rendering: auto; }
 .chip .item { width: 24px; height: 24px; margin-left: -4px; image-rendering: pixelated; }

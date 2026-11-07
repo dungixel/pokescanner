@@ -1,6 +1,6 @@
 import {
   TYPES, TYPE_ES, TYPE_EN, TYPE_COLOR, STATS, typeName, statName, catName, tierInfo, TIER_ORDER, formatName,
-  esc, fold, dexNum, fmtNum, store, matchups, bst, statColor, tierLabel, tierColor, tierNum, tierNumHTML, TIER_MAX, formatRank, formatGen,
+  esc, fold, TIER_RANK, dexNum, fmtNum, store, matchups, bst, statColor, tierLabel, tierColor, tierNum, tierNumHTML, TIER_MAX, formatRank, formatGen,
   pname, pname2, dn, dn2, dd, dp, hasPrecise, how, OV, applyLangData,
   pokeImg, itemImg, typeIcon, typePill, typeDot, catIcon, SPR, img, spriteChain, smallSprite, SFIX, shinyStyle,
 } from './util.js';
@@ -10,7 +10,7 @@ import { META_TEAMS } from './meta.js';
 import { detectChanges, loadLog, readBanners, saveBanners } from './changes.js';
 import * as auth from './auth.js';
 // número de versión que se ve junto al logo; lo actualiza scripts/stamp-version.mjs antes de cada commit
-const APP_VERSION = 'v1.140';
+const APP_VERSION = 'v1.141';
 import { DOCK, IC } from './icons.js';
 import { buildUnit, compareTeams, eff, bestSetIndex } from './battle.js';
 import { baseBuild, currentBuild, diffBuild, finalStats, evTotal, KEYS as EDK, EV_MAX, EV_TOTAL } from './editor.js';
@@ -1324,11 +1324,15 @@ function buildHTML() {
   const formats = [...new Set(d.sets.map(s => s.f))].sort((x, y) => formatRank(x) - formatRank(y));
   const sets = d.sets.filter(s => s.f === fmt);
   const set = sets[idx] || sets[0];
-  const tabs = (items, attr, active) => `<div class="scroller" role="tablist">${items.map(([v, l]) =>
-    `<button class="chip small" role="tab" data-act="${attr}" data-v="${esc(v)}" aria-selected="${String(v) === String(active)}">${esc(l)}</button>`).join('')}</div>`;
+  const tabs = (items, attr, active) => `<div class="scroller" role="tablist">${items.map(([v, l, extra]) =>
+    `<button class="chip small" role="tab" data-act="${attr}" data-v="${esc(v)}" aria-selected="${String(v) === String(active)}">${esc(l)}${extra ? ` <small class="fold">${esc(extra)}</small>` : ''}</button>`).join('')}</div>`;
+  // una build cuyo tier no coincide con el actual del Pokémon (Smogon la escribió cuando estaba en otro) se marca como "tier anterior"
+  const FMT_T = ['ou', 'uu', 'ru', 'nu', 'pu', 'zu'], r = String(d.r || '').toLowerCase().replace(/^uber$/, ''), bl = r.endsWith('bl');
+  const okFmt = bl ? [FMT_T[FMT_T.indexOf(r.slice(0, -2)) - 1], r.slice(0, -2)] : [r];
+  const oldTier = f => !!(TIER_RANK[d.r] && FMT_T.includes(f) && !okFmt.includes(f));
   const evs = Object.entries(set.ev || {});
   return `
-    ${formats.length > 1 ? tabs(formats.map(f => [f, formatName(f)]), 'fmt', fmt) : `<span class="hint">${t('format', { f: esc(formatName(fmt)) })}</span>`}
+    ${formats.length > 1 ? tabs(formats.map(f => [f, formatName(f), oldTier(f) ? t('fmtOld') : '']), 'fmt', fmt) : `<span class="hint">${t('format', { f: esc(formatName(fmt)) })}</span>`}
     ${formatGen(fmt) ? `<p class="hint" style="margin-top:6px">${t('setsOldGen', { g: formatGen(fmt) })}</p>` : ''}
     ${sets.length > 1 ? `<div style="margin-top:8px">${tabs(sets.map((s, i) => [i, s.n]), 'set', idx)}</div>` : ''}
     <div class="build">
