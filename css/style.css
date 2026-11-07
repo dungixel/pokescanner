@@ -320,6 +320,8 @@ button.tier { cursor: pointer; }
 .evo-card small { color: var(--muted); font-size: .82rem; }
 .evo-how { margin-top: 6px; padding: 3px 11px; border-radius: var(--r-pill); font-size: .8rem; font-weight: 700; line-height: 1.35; text-align: left;
   background: color-mix(in srgb, var(--accent) 14%, var(--surface)); color: color-mix(in srgb, var(--accent) 65%, var(--ink)); }
+.forms .evo-card { grid-template-columns: 64px minmax(0, 1fr); align-content: start; row-gap: 6px; }
+.forms .evo-card > .tier { grid-column: 1 / -1; justify-self: start; }
 .evo-card.current { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, var(--surface)); }
 .evo-link { display: flex; align-items: center; padding: 4px 0 4px 26px; color: var(--muted); }
 .evo-link svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
