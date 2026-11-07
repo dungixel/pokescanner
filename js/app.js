@@ -7,10 +7,10 @@ import {
 import { t, lang, dl, setLang, LANGS as LANG_IDS } from './i18n.js';
 import { analyzeTeam, scoreInfo } from './team.js';
 import { META_TEAMS } from './meta.js';
-import { detectChanges, readLog, readBanners, saveBanners } from './changes.js';
+import { detectChanges, loadLog, readBanners, saveBanners } from './changes.js';
 import * as auth from './auth.js';
 // número de versión que se ve junto al logo; lo actualiza scripts/stamp-version.mjs antes de cada commit
-const APP_VERSION = 'v1.137';
+const APP_VERSION = 'v1.139';
 import { DOCK, IC } from './icons.js';
 import { buildUnit, compareTeams, eff, bestSetIndex } from './battle.js';
 import { baseBuild, currentBuild, diffBuild, finalStats, evTotal, KEYS as EDK, EV_MAX, EV_TOTAL } from './editor.js';
@@ -1159,7 +1159,7 @@ async function renderChangelog() {
   window.scrollTo(0, 0); updateDock();
   try { await getDict(); } catch { /* sin diccionario se enseñan los ids */ }
   const root = document.getElementById('cg-root'); if (!root || state.view !== 'changelog') return;
-  const log = readLog().filter(e => (e.k === 'pk' || e.k === 'new' ? BYID.has(e.id) : true));
+  const log = (await loadLog()).filter(e => (e.k === 'pk' || e.k === 'new' ? BYID.has(e.id) : true));
   if (!log.length) { root.innerHTML = `<p class="empty"><b>${t('cgLog')}</b>${t('cgEmpty')}</p>`; return; }
   const days = [...new Set(log.map(e => e.d))];
   root.innerHTML = days.map(d => {
@@ -3156,7 +3156,7 @@ async function boot() {
   }
   BYID = new Map(INDEX.map(p => [p.id, p]));
   renderDock();
-  fetch('data/meta.json', { cache: 'no-cache' }).then(r => (r.ok ? r.json() : null)).then(m => { META = m; const h1 = state.view === 'home' && document.querySelector('.hero h1'); if (m && h1 && !h1.parentElement.querySelector('.upd')) h1.insertAdjacentHTML('afterend', updHTML()); if (m?.generado) detectChanges({ generado: m.generado, index: INDEX, loadDict: getDict }).then(n => { if (n) { banners = readBanners(); paintBanners(); } }).catch(() => {}); }).catch(() => {});
+  fetch('data/meta.json', { cache: 'no-cache' }).then(r => (r.ok ? r.json() : null)).then(m => { META = m; const h1 = state.view === 'home' && document.querySelector('.hero h1'); if (m && h1 && !h1.parentElement.querySelector('.upd')) h1.insertAdjacentHTML('afterend', updHTML()); if (m?.generado) detectChanges({ generado: m.generado }).then(n => { if (n) { banners = readBanners(); paintBanners(); } }).catch(() => {}); }).catch(() => {});
   window.addEventListener('hashchange', route);
   route();
   auth.initAuth(onAuth).catch(() => {});
