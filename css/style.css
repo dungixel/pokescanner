@@ -272,7 +272,7 @@ button.tier { cursor: pointer; }
 .phero .tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 10px; }
 .phero .facts { display: flex; gap: 22px; margin-top: 12px; color: var(--muted); font-size: .88rem; }
 .phero .facts b { color: var(--ink); font-weight: 700; }
-.rank { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px 8px; margin-top: 12px; }
+.rank { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px 8px; margin-top: 24px; }
 .rank .gpill { height: 26px; padding: 0 11px; font-size: .78rem; font-weight: 700; }
 .rank .tier { height: 30px; font-size: .92rem; padding: 0 12px; }
 .rank small { color: var(--muted); }
