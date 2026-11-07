@@ -68,6 +68,7 @@ img.poke:not(.ok):not(.missing), img.item:not(.ok):not(.missing), img.av:not(.ok
 .tools { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: -2px 0 16px; }
 .tools .chip { flex-direction: column; justify-content: center; gap: 6px; height: auto; min-height: 64px; padding: 10px 6px; border-radius: 18px; white-space: normal; text-align: center; line-height: 1.15; font-size: .82rem; }
 .tools .chip svg { width: 22px; height: 22px; flex: none; }
+.tools .chip span { text-wrap: balance; }
 
 #app { width: min(100%, 680px); margin: 0 auto; padding: calc(12px + var(--st)) 16px calc(112px + env(safe-area-inset-bottom)); }
 
