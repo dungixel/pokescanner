@@ -222,7 +222,7 @@ button.tier { cursor: pointer; }
 .card:active { transform: scale(.98); }
 @media (hover: hover) { .card:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--c) 55%, var(--line)); } }
 .card img.poke { width: 100%; aspect-ratio: 1; padding: 6px; }
-.card .num { font-size: .78rem; color: var(--muted); font-weight: 700; }
+.card .num { font-size: .78rem; color: var(--muted); font-weight: 700; margin: 6px 0 -3px; }
 .card b { font-size: 1.04rem; font-weight: 700; letter-spacing: -.01em; line-height: 1.15; }
 .card .foot { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
 .card .types { display: flex; gap: 4px; }
