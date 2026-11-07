@@ -10,7 +10,7 @@ import { META_TEAMS } from './meta.js';
 import { detectChanges, loadLog, readBanners, saveBanners } from './changes.js';
 import * as auth from './auth.js';
 // número de versión que se ve junto al logo; lo actualiza scripts/stamp-version.mjs antes de cada commit
-const APP_VERSION = 'v1.142';
+const APP_VERSION = 'v1.143';
 import { DOCK, IC } from './icons.js';
 import { buildUnit, compareTeams, eff, bestSetIndex } from './battle.js';
 import { baseBuild, currentBuild, diffBuild, finalStats, evTotal, KEYS as EDK, EV_MAX, EV_TOTAL } from './editor.js';
@@ -281,7 +281,10 @@ let pickId = null;     // Pokémon que se está guardando
 let pickM = null;      // miembro concreto a guardar ({id, s?, b?}); una ficha personalizada guarda su versión
 const sameM = (a, b) => a.id === b.id && (a.s ?? null) === (b.s ?? null) && JSON.stringify(a.b || null) === JSON.stringify(b.b || null);
 let pickCtx = null;    // { mode: 'team', slot } | { mode: 'avatar' }
-const openTeamPick = (id, m = null) => { pickId = id; pickM = m || { id }; showModal('teampick'); };
+/** Círculo con la puntuación del equipo y su color (o «-» si tiene menos de 3 Pokémon) */
+const slotScore = members => { const ps = (members || []).map(m => BYID.get(m.id)).filter(Boolean); return ps.length >= 3 ? (sc => `<span class="sn sc" style="--sc:${scoreInfo(sc).c}" title="${t('an_title')}">${sc}</span>`)(analyzeTeam(ps).score) : `<span class="sn sc none" title="${t('an_title')}">-</span>`; };
+let pickRep = null;    // equipo lleno en el que se está eligiendo a quién sustituir (null = lista de equipos)
+const openTeamPick = (id, m = null) => { pickId = id; pickM = m || { id }; pickRep = null; showModal('teampick'); };
 // guardar en mis equipos un equipo que no es mío (compartido, de un amigo o de ejemplo)
 let saveCtx = null;
 const openSaveTeam = ctx => {
@@ -297,7 +300,7 @@ function saveTeamHTML() {
     <p class="shint">${t('saveTeamText', { name: esc(c.name || t('sharedOwner')) })}</p>
     <div class="minis savepreview">${c.ids.map(miniPoke).join('')}</div>
     <div class="slotlist">${teams.map((tm, i) => `<button class="slotopt" data-act="save-into" data-v="${i}">
-        <span class="sn">${i + 1}</span>
+        ${slotScore(tm.members)}
         <span class="sname"><b>${tm.members.length ? `<span class="fulltag">${t('replaceTag')}</span> ` : ''}${esc(teamName(i))}</b><span class="minis">${tm.members.map(m => miniPoke(m.id)).join('') || `<small>${t('teamEmpty')}</small>`}</span></span>
         <span class="scount">${tm.members.length}/${MAXTEAM}</span>
         <span class="sck">${IC.plus}</span></button>`).join('')}</div></div>`;
@@ -313,16 +316,23 @@ async function shareTeam(ids, name) {
 }
 function teamPickHTML() {
   const p = BYID.get(pickId);
+  if (pickRep != null && teams[pickRep]) { // equipo lleno: se elige a quién sustituir
+    const tm = teams[pickRep];
+    return `<div class="scard" role="dialog" aria-modal="true" aria-label="${t('pickTeamTitle')}">
+      <div class="shead"><button class="iconbtn" data-act="team-rep-back" aria-label="${t('backShort')}">${I.back}</button><h2>${esc(teamName(pickRep))}</h2></div>
+      <p class="shint">${t('repText', { team: esc(teamName(pickRep)) })}</p>
+      <div class="pklist">${tm.members.map((m, k) => { const q = BYID.get(m.id); return q ? `<button class="pkopt" data-act="team-rep" data-v="${k}">${pokeImg(q, 'small')}<span><b>${esc(pname(q))}</b><small>${dexNum(q.num)}</small></span></button>` : ''; }).join('')}</div></div>`;
+  }
   return `<div class="scard" role="dialog" aria-modal="true" aria-label="${t('pickTeamTitle')}">
     <div class="shead"><button class="iconbtn" data-act="settings-close" aria-label="${t('close')}">${IC.x}</button><h2>${t('pickTeamTitle')}</h2></div>
     <p class="shint">${t('pickTeamText', { name: esc(pname(p)) })}</p>
     <div class="slotlist">${teams.map((tm, i) => {
       const has = tm.members.some(m => hasM(m, pickM)), full = tm.members.length >= MAXTEAM && !has;
-      return `<button class="slotopt ${has ? 'on' : ''}" data-act="team-toggle" data-v="${i}" ${full ? 'disabled' : ''}>
-        <span class="sn">${i + 1}</span>
+      return `<button class="slotopt ${has ? 'on' : ''}" data-act="team-toggle" data-v="${i}">
+        ${slotScore(tm.members)}
         <span class="sname"><b>${full ? `<span class="fulltag">${t('fullTag')}</span> ` : ''}${esc(teamName(i))}</b><span class="minis">${tm.members.map(m => miniPoke(m.id)).join('') || `<small>${t('teamEmpty')}</small>`}</span></span>
         <span class="scount">${tm.members.length}/${MAXTEAM}</span>
-        <span class="sck">${has ? IC.check : full ? '' : IC.plus}</span></button>`;
+        <span class="sck">${has ? IC.check : IC.plus}</span></button>`;
     }).join('')}</div></div>`;
 }
 const pkMatches = q => {
@@ -2148,7 +2158,7 @@ function publishHTML() {
   if (!filled.length) return `<p class="shint">${t('comPubNoTeams')}</p>`;
   return `<p class="shint">${t('comPubPick')}</p>
     <div class="slotlist">${filled.map(({ tm, i }) => `<button class="slotopt ${c.slot === i ? 'on' : ''}" data-act="pub-pick" data-v="${i}" aria-pressed="${c.slot === i}">
-      <span class="sn">${i + 1}</span><span class="sname"><b>${esc(teamName(i))}</b>${postMinis(tm.members)}</span><span class="scount">${tm.members.length}/${MAXTEAM}</span><span class="sck">${IC.check}</span></button>`).join('')}</div>
+      ${slotScore(tm.members)}<span class="sname"><b>${esc(teamName(i))}</b>${postMinis(tm.members)}</span><span class="scount">${tm.members.length}/${MAXTEAM}</span><span class="sck">${IC.check}</span></button>`).join('')}</div>
     <label class="tname"><span>${t('comPubName')}</span><input class="unin" id="pub-name" maxlength="30" value="${esc(c.name)}" autocomplete="off"></label>
     <label class="tname"><span>${t('comPubDesc')} <small id="pub-cnt">${c.desc.length}/280</small></span><textarea class="unin" id="pub-desc" rows="4" maxlength="280" placeholder="${t('comPubDescPh')}">${esc(c.desc)}</textarea></label>
     <p class="shint">${t('comPubNote')}</p><p class="shint err" id="pub-msg" role="alert"></p>
@@ -3009,8 +3019,19 @@ document.addEventListener('click', e => {
     case 'login-open': openLogin({ type: v }); break;
     case 'team-toggle': {
       const i = Number(v), had = teams[i].members.some(m => hasM(m, pickM)), p = BYID.get(pickId);
+      if (!had && teams[i].members.length >= MAXTEAM) { pickRep = i; showModal('teampick'); break; } // lleno: elegir a quién sustituir
       const go = () => { if (toggleInTeam(i, pickId, pickM)) { closeSettings(); toast(t(had ? 'removedFrom' : 'addedTo', { name: pname(p), team: teamName(i) })); } };
       if (had) askConfirm(t('cfmRemovePoke', { name: pname(p), team: teamName(i) }), t('cfmRemove'), go); else go();
+      break;
+    }
+    case 'team-rep-back': pickRep = null; showModal('teampick'); break;
+    case 'team-rep': {
+      const i = pickRep, k = Number(v), tm = teams[i], old = tm?.members[k]; if (!old) break;
+      const po = BYID.get(old.id), pn = BYID.get(pickId);
+      askConfirm(t('cfmReplace', { old: pname(po), new: pname(pn), team: teamName(i) }), t('cfmReplaceOk'), () => {
+        const { pl, ...w } = pickM; tm.members[k] = w; pickRep = null; saveSlot(i); afterTeamsChange(); closeSettings();
+        toast(t('replacedIn', { old: pname(po), new: pname(pn), team: teamName(i) }));
+      });
       break;
     }
     case 'slot-go': location.hash = `#/team/${v}`; break;
