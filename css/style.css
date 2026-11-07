@@ -128,6 +128,7 @@ button.tier { cursor: pointer; }
 .sec { margin-top: 48px; }
 .sec > h2 { font-size: 1.1rem; font-weight: 700; letter-spacing: -.01em; margin-bottom: 12px; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .sec > h2 small { font-size: .82rem; font-weight: 400; color: var(--muted); }
+.sec > h2.inl { justify-content: flex-start; gap: 6px; }
 .hint { font-size: .86rem; color: var(--muted); }
 
 /* ───────────── Inicio ───────────── */

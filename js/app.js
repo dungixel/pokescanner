@@ -10,7 +10,7 @@ import { META_TEAMS } from './meta.js';
 import { detectChanges, loadLog, readBanners, saveBanners } from './changes.js';
 import * as auth from './auth.js';
 // número de versión que se ve junto al logo; lo actualiza scripts/stamp-version.mjs antes de cada commit
-const APP_VERSION = 'v1.139';
+const APP_VERSION = 'v1.140';
 import { DOCK, IC } from './icons.js';
 import { buildUnit, compareTeams, eff, bestSetIndex } from './battle.js';
 import { baseBuild, currentBuild, diffBuild, finalStats, evTotal, KEYS as EDK, EV_MAX, EV_TOTAL } from './editor.js';
@@ -1560,7 +1560,7 @@ function pokemonHTML() {
     <button class="compare-btn" data-act="compare">${I.compare}${t('compare')}</button>
     <a class="compare-btn" href="#/calc?a=${d.id}">${CALCIC}${t('calcFrom')}</a></section>
 
-  <section class="sec"><h2>${t('buildTitle')} <small>Smogon</small></h2><div id="build">${buildHTML()}</div></section>
+  <section class="sec"><h2 class="inl">${t('buildTitle')} <small>(Smogon)</small></h2><div id="build">${buildHTML()}</div></section>
 
   <section class="sec"><h2>${t('abilities')}</h2><div class="chips">${abilities}</div></section>
 
