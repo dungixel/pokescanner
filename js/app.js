@@ -10,7 +10,7 @@ import { META_TEAMS } from './meta.js';
 import { detectChanges, loadLog, readBanners, saveBanners } from './changes.js';
 import * as auth from './auth.js';
 // número de versión que se ve junto al logo; lo actualiza scripts/stamp-version.mjs antes de cada commit
-const APP_VERSION = 'v1.148';
+const APP_VERSION = 'v1.149';
 import { DOCK, IC } from './icons.js';
 import { buildUnit, compareTeams, eff, bestSetIndex } from './battle.js';
 import { baseBuild, currentBuild, diffBuild, finalStats, evTotal, KEYS as EDK, EV_MAX, EV_TOTAL } from './editor.js';
@@ -1342,7 +1342,7 @@ function buildHTML() {
   const oldTier = f => !!(TIER_RANK[d.r] && FMT_T.includes(f) && !okFmt.includes(f));
   const evs = Object.entries(set.ev || {});
   return `
-    ${formats.length > 1 ? tabs(formats.map(f => [f, formatName(f), oldTier(f) ? t('fmtOld') : '']), 'fmt', fmt) : `<span class="hint">${t('format', { f: esc(formatName(fmt)) })}${oldTier(fmt) ? ` · ${esc(t('fmtOld'))}` : ''}</span>`}
+    ${tabs(formats.map(f => [f, formatName(f), oldTier(f) ? t('fmtOld') : '']), 'fmt', fmt)}
     ${formatGen(fmt) ? `<p class="hint" style="margin-top:6px">${t('setsOldGen', { g: formatGen(fmt) })}</p>` : ''}
     ${sets.length > 1 ? `<div style="margin-top:8px">${tabs(sets.map((s, i) => [i, s.n]), 'set', idx)}</div>` : ''}
     <div class="build">
