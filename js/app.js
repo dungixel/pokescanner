@@ -10,7 +10,7 @@ import { META_TEAMS } from './meta.js';
 import { detectChanges, readLog, readBanners, saveBanners } from './changes.js';
 import * as auth from './auth.js';
 // número de versión que se ve junto al logo; lo actualiza scripts/stamp-version.mjs antes de cada commit
-const APP_VERSION = 'v1.136';
+const APP_VERSION = 'v1.137';
 import { DOCK, IC } from './icons.js';
 import { buildUnit, compareTeams, eff, bestSetIndex } from './battle.js';
 import { baseBuild, currentBuild, diffBuild, finalStats, evTotal, KEYS as EDK, EV_MAX, EV_TOTAL } from './editor.js';
@@ -1548,7 +1548,7 @@ function pokemonHTML() {
     ${same || !pname2(d) ? '' : `<span class="en">${esc(pname2(d))}</span>`}
     <div class="tags">${d.t.map(typePill).join('')}</div>
     <div class="rank"><small>${t('rank')}</small><button class="tier" style="--tier:${tierColor(d.r)}" data-act="tier" data-v="${esc(d.r)}" aria-label="${t('rankAria', { r: esc(tierLabel(d.r)) })}">${tierNumHTML(d.r)}${esc(tierLabel(d.r))}</button>
-      ${d.g ? `<small>· ${t('gen', { g: d.g })}</small>` : ''}${d.dr ? `<small>· ${t('doubles', { r: esc(tierLabel(d.dr)) })}</small>` : ''}</div>
+      ${d.g ? `<small>· ${t('gen', { g: d.g })}</small>` : ''}${d.dr ? `<small>· ${t('doubles', { r: esc(tierLabel(d.dr)) })}</small>` : ''}<button class="chip small gpill" data-act="gen-go" data-v="${genOf(d.num)}" aria-label="${t('genShort', { g: genOf(d.num) })}">${t('genShort', { g: genOf(d.num) })}</button></div>
     <div class="facts">${d.h != null ? `<button data-act="size-go" data-v="h">${t('height')} <b>${fmtNum(d.h)} m</b></button>` : ''}${d.w != null ? `<button data-act="size-go" data-v="w">${t('weight')} <b>${fmtNum(d.w)} kg</b></button>` : ''}</div>
   </section>
   ${page.cur ? `<a class="origbtn" href="#/pokemon/${d.id}">${t('viewOriginal')}</a>` : ''}
@@ -3112,6 +3112,7 @@ document.addEventListener('click', e => {
     case 'notif-go': goNotif(v); break;
     case 'dock-settings': if (smodal.hidden) openSettings(); else closeSettings(); break;
     case 'settings-close': closeSettings(); break;
+    case 'gen-go': goSearch({ gens: [Number(v)] }); break;
     case 'tier': location.hash = `#/tier/${v}`; break;
     case 'move': location.hash = `#/move/${v}`; break;
     case 'ability': location.hash = `#/ability/${v}`; break;

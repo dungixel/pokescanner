@@ -270,7 +270,8 @@ button.tier { cursor: pointer; }
 .phero .tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 10px; }
 .phero .facts { display: flex; gap: 22px; margin-top: 12px; color: var(--muted); font-size: .88rem; }
 .phero .facts b { color: var(--ink); font-weight: 700; }
-.rank { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.rank { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px 8px; margin-top: 12px; }
+.rank .gpill { height: 26px; padding: 0 11px; font-size: .78rem; font-weight: 700; }
 .rank .tier { height: 30px; font-size: .92rem; padding: 0 12px; }
 .rank small { color: var(--muted); }
 .oldnote { margin-top: 24px; padding: 16px 18px; border-radius: var(--r-md); background: var(--soft); display: grid; gap: 6px; }
@@ -506,7 +507,11 @@ body::before { content: ""; position: fixed; inset: 0 0 auto 0; height: var(--st
   box-shadow: 0 14px 34px rgba(30, 38, 62, .22), 0 2px 8px rgba(30, 38, 62, .1);
 }
 /* solo en pantallas táctiles: allí el teclado ocupa media pantalla; en el ordenador el menú se queda */
-@media (hover: none) and (pointer: coarse) { html.kb #dock { display: none; } }
+@media (hover: none) and (pointer: coarse) {
+  html.kb #dock { display: none; }
+  /* en el móvil, sin desenfoque: el desenfoque sobre páginas largas hacía que el menú se quedara descolocado al hacer scroll rápido */
+  #dock { -webkit-backdrop-filter: none; backdrop-filter: none; background: color-mix(in srgb, var(--surface) 97%, transparent); will-change: transform; }
+}
 .dk { position: relative; display: grid; place-items: center; height: 56px; border-radius: 26px; color: var(--muted); transition: color .2s, transform .12s; }
 .dk:active { transform: scale(.9); }
 .dk .ic { position: relative; width: 27px; height: 27px; transition: transform .3s cubic-bezier(.34, 1.56, .64, 1); }
@@ -1490,7 +1495,7 @@ dialog.cfm::backdrop { background: rgba(10, 12, 20, .5); }
 
 /* Todos los Pokémon: cuadrícula de casillas pequeñas */
 .dexgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); gap: 8px; margin-top: 6px; }
-.dexcell { display: grid; justify-items: center; gap: 2px; padding: 6px 2px 6px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line); color: var(--ink); text-decoration: none; content-visibility: auto; contain-intrinsic-size: 86px 82px; }
+.dexcell { display: grid; justify-items: center; gap: 2px; padding: 6px 2px 6px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line); color: var(--ink); text-decoration: none; }
 .dexcell:active { transform: scale(.96); }
 .dexcell small { font-size: .62rem; font-weight: 600; color: var(--muted); line-height: 1; }
 .dexcell img.poke { width: 46px; height: 46px; image-rendering: pixelated; object-fit: contain; }
