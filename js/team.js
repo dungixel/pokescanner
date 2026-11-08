@@ -106,7 +106,7 @@ export function analyzeTeam(team, mode) {
     const dmg = mv.filter(x => (x.d[3] === 'f' || x.d[3] === 'e') && (x.d[4] === 0 || x.d[4] >= 40));
     const st = bd.e ? statsOf(p.s, bd.e, bd.n) : null;
     return {
-      bd, ids: new Set(bd.m), dmgTypes: [...new Set(dmg.map(x => x.d[2]))],
+      bd, ids: new Set(bd.m), dmgTypes: bd.m.length ? [...new Set(dmg.map(x => x.d[2]))] : p.t, // sin movimientos conocidos (solo se cambió el objeto, por ejemplo): se cuentan sus tipos
       phys: dmg.filter(x => x.d[3] === 'f').length, spec: dmg.filter(x => x.d[3] === 'e').length,
       spe: st ? st[5] * (bd.i === 'choicescarf' ? 1.5 : 1) : null,
       pb: st ? st[0] * st[2] : null, sb: st ? st[0] * st[4] * (bd.i === 'assaultvest' ? 1.5 : 1) : null,
