@@ -142,8 +142,14 @@ export const formatName = f => { const [b, g] = String(f).split('@'); const n = 
 
 // ───────── nombres según el idioma ─────────
 const FORMS = {
-  fr: { Mega: n => `Méga-${n}`, 'Mega-X': n => `Méga-${n} X`, 'Mega-Y': n => `Méga-${n} Y`, Alola: n => `${n} d’Alola`, Galar: n => `${n} de Galar`, Hisui: n => `${n} de Hisui`, Paldea: n => `${n} de Paldea`, Gmax: n => `${n} Gigamax` },
-  de: { Mega: n => `Mega-${n}`, 'Mega-X': n => `Mega-${n} X`, 'Mega-Y': n => `Mega-${n} Y`, Alola: n => `Alola-${n}`, Galar: n => `Galar-${n}`, Hisui: n => `Hisui-${n}`, Paldea: n => `Paldea-${n}`, Gmax: n => `Gigadynamax-${n}` },
+  fr: { Mega: n => `Méga-${n}`, 'Mega-X': n => `Méga-${n} X`, 'Mega-Y': n => `Méga-${n} Y`, Alola: n => `${n} d’Alola`, Galar: n => `${n} de Galar`, Hisui: n => `${n} de Hisui`, Paldea: n => `${n} de Paldea`, Gmax: n => `${n} Gigamax`,
+    'Mega-Z': n => `Méga-${n} Z`, Eternal: n => `${n} Fleur Éternelle`, 'M-Mega': n => `Méga-${n}`, 'F-Mega': n => `Méga-${n} ♀`, F: n => `${n} ♀`,
+    Original: n => `${n} Couleur du Passé`, 'Original-Mega': n => `Méga-${n} (Couleur du Passé)`,
+    'Curly-Mega': n => `Méga-${n} (Forme Courbée)`, 'Droopy-Mega': n => `Méga-${n} (Forme Affalée)`, 'Stretchy-Mega': n => `Méga-${n} (Forme Raide)` },
+  de: { Mega: n => `Mega-${n}`, 'Mega-X': n => `Mega-${n} X`, 'Mega-Y': n => `Mega-${n} Y`, Alola: n => `Alola-${n}`, Galar: n => `Galar-${n}`, Hisui: n => `Hisui-${n}`, Paldea: n => `Paldea-${n}`, Gmax: n => `Gigadynamax-${n}`,
+    'Mega-Z': n => `Mega-${n} Z`, Eternal: n => `${n} (Ewigblütler)`, 'M-Mega': n => `Mega-${n}`, 'F-Mega': n => `Mega-${n} ♀`, F: n => `${n} ♀`,
+    Original: n => `${n} (Originalfarbe)`, 'Original-Mega': n => `Mega-${n} (Originalfarbe)`,
+    'Curly-Mega': n => `Mega-${n} (Gebogene Form)`, 'Droopy-Mega': n => `Mega-${n} (Hängende Form)`, 'Stretchy-Mega': n => `Mega-${n} (Gestreckte Form)` },
 };
 export function pname(p) {
   const l = lang();

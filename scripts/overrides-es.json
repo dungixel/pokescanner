@@ -86,7 +86,9 @@
     "mightycleave": "Un tajo potente que atraviesa las protecciones sin romperlas.",
     "tachyoncutter": "Golpea dos veces con cuchillas de taquiones. Nunca falla.",
     "terastarstorm": "Con Terapagos en forma Astral, pasa a ser de tipo Astral y golpea a todos los rivales.",
-    "malignantchain": "Cadenas de veneno con 50 % de envenenar gravemente al objetivo."
+    "malignantchain": "Cadenas de veneno con 50 % de envenenar gravemente al objetivo.",
+    "dragoncheer": "Anima a los aliados con un grito dracónico que aumenta su probabilidad de golpe crítico; más si son de tipo Dragón.",
+    "hardpress": "Aplasta al objetivo con un brazo o una garra. Cuanto más PS le queden, mayor es su potencia."
   },
   "abilities": {
     "cudchew": "Si el Pokémon se come una baya, vuelve a comérsela al final del turno siguiente.",
@@ -127,7 +129,14 @@
     "terashift": "Si es Terapagos, adopta su Forma Teracristal al entrar en combate.",
     "terashell": "Terapagos: con los PS al máximo, los ataques recibidos hacen la mitad de daño salvo que sean ineficaces.",
     "teraformzero": "Terapagos: al teracristalizarse, elimina los efectos del clima y los campos. Una vez por combate.",
-    "poisonpuppeteer": "Pecharunt: si envenena a un Pokémon, este también queda confuso."
+    "poisonpuppeteer": "Pecharunt: si envenena a un Pokémon, este también queda confuso.",
+    "megasol": "El Pokémon usa sus movimientos como si hiciera sol, aunque no sea así.",
+    "dragonize": "Los movimientos de tipo Normal del Pokémon pasan a ser de tipo Dragón y su potencia aumenta un 20 %.",
+    "piercingdrill": "Sus movimientos de contacto atraviesan la protección del objetivo, pero causan solo 1/4 del daño habitual. El resto de efectos se aplican igual.",
+    "spicyspray": "Si el Pokémon recibe daño de un movimiento, quema al atacante.",
+    "auraguard": "Recibe la mitad de daño de los movimientos de contacto.",
+    "eelevate": "Flota sobre el suelo: es inmune a los movimientos de tipo Tierra, a Púas, Púas Tóxicas y Red Viscosa. Si debilita a un objetivo, sube 1 nivel su estadística más alta.",
+    "firemane": "Aumenta un 50 % el daño de los movimientos de tipo Fuego."
   },
   "items": {
     "covertcloak": "El portador no sufre los efectos secundarios de los ataques rivales.",
@@ -143,7 +152,26 @@
     "wellspringmask": "Ogerpon forma Pozo: sus ataques ganan un 20 % de potencia. Al teracristalizarse obtiene Encarnación.",
     "hearthflamemask": "Ogerpon forma Horno: sus ataques ganan un 20 % de potencia. Al teracristalizarse obtiene Encarnación.",
     "cornerstonemask": "Ogerpon forma Cimiento: sus ataques ganan un 20 % de potencia. Al teracristalizarse obtiene Encarnación.",
-    "noitem": "Sin objeto equipado."
+    "noitem": "Sin objeto equipado.",
+    "raichunitey": "Una de las misteriosas Megapiedras. Permite megaevolucionar a Raichu en combate.",
+    "clefablite": "Una de las misteriosas Megapiedras. Permite megaevolucionar a Clefable en combate.",
+    "dragoninite": "Una de las misteriosas Megapiedras. Permite megaevolucionar a Dragonite en combate.",
+    "meganiumite": "Una de las misteriosas Megapiedras. Permite megaevolucionar a Meganium en combate.",
+    "staraptite": "Una de las misteriosas Megapiedras. Permite megaevolucionar a Staraptor en combate.",
+    "garchompitez": "Una de las misteriosas Megapiedras. Permite megaevolucionar a Garchomp en combate.",
+    "froslassite": "Una de las misteriosas Megapiedras. Permite megaevolucionar a Froslass en combate.",
+    "delphoxite": "Una de las misteriosas Megapiedras. Permite megaevolucionar a Delphox en combate.",
+    "greninjite": "Una de las misteriosas Megapiedras. Permite megaevolucionar a Greninja en combate.",
+    "pyroarite": "Una de las misteriosas Megapiedras. Permite megaevolucionar a Pyroar en combate.",
+    "dragalgite": "Una de las misteriosas Megapiedras. Permite megaevolucionar a Dragalge en combate.",
+    "scovillainite": "Una de las misteriosas Megapiedras. Permite megaevolucionar a Scovillain en combate.",
+    "glimmoranite": "Una de las misteriosas Megapiedras. Permite megaevolucionar a Glimmora en combate.",
+    "starminite": "Una de las misteriosas Megapiedras. Permite megaevolucionar a Starmie en combate.",
+    "absolitez": "Una de las misteriosas Megapiedras. Permite megaevolucionar a Absol en combate.",
+    "floettite": "Una de las misteriosas Megapiedras. Permite megaevolucionar a Floette Flor Eterna en combate.",
+    "barbaracite": "Una de las misteriosas Megapiedras. Permite megaevolucionar a Barbaracle en combate.",
+    "golisopite": "Una de las misteriosas Megapiedras. Permite megaevolucionar a Golisopod en combate.",
+    "fairyfeather": "Aumenta un 20 % la potencia de los movimientos de tipo Hada del portador."
   },
   "evolutionConditions": {
     "with an Atk stat > its Def stat": "con Ataque mayor que Defensa",
@@ -167,5 +195,10 @@
     "with a Shelmet": "con un Shelmet",
     "with a Karrablast": "con un Karrablast",
     "with a Dark-type in the party": "con un Pokémon de tipo Siniestro en el equipo"
+  },
+  "abilityNames": {
+    "auraguard": "Aura Protectora",
+    "eelevate": "Impulso Anguila",
+    "firemane": "Melena de Fuego"
   }
 }

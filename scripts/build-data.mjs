@@ -64,6 +64,12 @@ const moveES = loadEntity({ table: 'moves', nameTable: 'move_names', flavorTable
 const abilityES = loadEntity({ table: 'abilities', nameTable: 'ability_names', flavorTable: 'ability_flavor_text', idCol: 'ability_id' });
 const itemES = loadEntity({ table: 'items', nameTable: 'item_names', flavorTable: 'item_flavor_text', idCol: 'item_id' });
 
+// objetos que en PokeAPI se llaman distinto que en Showdown: la Poro (leek) es "stick"; los cristales Z, "xxxxium-z--held"
+const ZCRYSTALS = ['normalium', 'firium', 'waterium', 'electrium', 'grassium', 'icium', 'fightinium', 'poisonium', 'groundium', 'flyinium', 'psychium', 'buginium', 'rockium', 'ghostium', 'dragonium', 'darkinium', 'steelium', 'fairium'];
+for (const [id, from] of [['leek', 'stick'], ...ZCRYSTALS.map(n => [`${n}z`, `${n}zheld`])]) {
+  for (const k of ['names', 'flavor', 'flavorEN']) if (itemES[k].has(from) && !itemES[k].has(id)) itemES[k].set(id, itemES[k].get(from));
+}
+
 const speciesNameES = new Map();
 for (const r of csv('pokemon_species_names')) if (r.local_language_id === ES) speciesNameES.set(Number(r.pokemon_species_id), r.name);
 
@@ -116,6 +122,7 @@ const FORME_ES = {
 const FORME_OVERRIDE = {
   'Floette-Eternal': 'Floette Flor Eterna', 'Meowstic-M-Mega': 'Mega-Meowstic', 'Meowstic-F-Mega': 'Mega-Meowstic Hembra', 'Magearna-Original-Mega': 'Mega-Magearna Original',
   'Zacian-Crowned': 'Zacian Espada Suprema', 'Zamazenta-Crowned': 'Zamazenta Escudo Supremo',
+  'Tatsugiri-Curly-Mega': 'Mega-Tatsugiri (forma curvada)', 'Tatsugiri-Droopy-Mega': 'Mega-Tatsugiri (forma lánguida)', 'Tatsugiri-Stretchy-Mega': 'Mega-Tatsugiri (forma recta)',
   'Hoopa-Unbound': 'Hoopa Desatado', 'Kyurem-Black': 'Kyurem Negro', 'Kyurem-White': 'Kyurem Blanco',
 };
 
@@ -140,7 +147,7 @@ const gen = new Generations(Dex).get(9);
 
 // Formas que solo son cosméticas o duplicadas de otra: no aportan una ficha propia
 const SKIP = [
-  /^Pikachu-/, /^Arceus-/, /^Vivillon-/, /^Squawkabilly-/, /^Basculin-/, /^Tatsugiri-/, /^Cramorant-/,
+  /^Pikachu-/, /^Arceus-/, /^Vivillon-/, /^Squawkabilly-/, /^Basculin-/, /^Tatsugiri-(Droopy|Stretchy)$/, /^Cramorant-/,
   /^Ogerpon-.*-Tera$/, /^Ogerpon-Teal-Tera$/,
   /^Keldeo-Resolute$/, /^Magearna-Original$/, /^Greninja-Bond$/, /^Maushold-Four$/, /^Dudunsparce-Three-Segment$/,
   /^Sinistea-Antique$/, /^Polteageist-Antique$/, /^Rockruff-Dusk$/, /^Poltchageist-Artisan$/, /^Sinistcha-Masterpiece$/,
@@ -257,7 +264,7 @@ function addAbility(name) {
   if (!a?.exists) a = Dex.abilities.get(name);
   const id = a?.exists ? a.id : toID(name);
   if (dict.abilities[id]) return id;
-  const nameEs = abilityES.names.get(id);
+  const nameEs = abilityES.names.get(id) || OVERRIDES.abilityNames?.[id];
   if (!nameEs) missing.ability.add(id);
   let d = abilityES.flavor.get(id) || OVERRIDES.abilities[id];
   let en = false;
@@ -513,6 +520,10 @@ for (const s of allSpecies) {
   const entry = { id: s.id, num: s.num, es: nameES(s), en: s.name, t: types, r: tier, s: [bs.hp, bs.atk, bs.def, bs.spa, bs.spd, bs.spe], sp: sid, ss: showdownSprite(s) };
   if (s.forme) entry.fm = 1;
   if (old) entry.g = old.g;
+  // nivel en dobles (Showdown) y presencia en el VGC de Champions: la puntuación de equipo los usa para no medir con la tier de individuales a quien se juega en dobles
+  const dtr = !old && s.doublesTier ? s.doublesTier.replace(/^\((.*)\)$/, '$1') : null;
+  if (dtr && dtr !== 'Illegal') entry.dt = dtr;
+  if (champById.get(s.id)?.cvgc) entry.cv = 1;
   if (sets.length) entry.ns = sets.length; // nº de builds de Smogon (sirve para ordenar "los mejores" de un rango)
   if (sets.length) entry.sh = crypto.createHash('md5').update(JSON.stringify(sets)).digest('base64url').slice(0, 6); // huella de los builds: sirve para avisar cuando cambian
   index.push(entry);

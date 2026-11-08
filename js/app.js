@@ -5,12 +5,12 @@ import {
   pokeImg, itemImg, typeIcon, typePill, typeDot, catIcon, SPR, img, spriteChain, smallSprite, SFIX, shinyStyle,
 } from './util.js';
 import { t, lang, dl, setLang, LANGS as LANG_IDS } from './i18n.js';
-import { analyzeTeam, scoreInfo } from './team.js';
+import { analyzeTeam as analyzeRaw, scoreInfo, autoMode } from './team.js';
 import { META_TEAMS } from './meta.js';
 import { detectChanges, loadLog, readBanners, saveBanners } from './changes.js';
 import * as auth from './auth.js';
 // número de versión que se ve junto al logo; lo actualiza scripts/stamp-version.mjs antes de cada commit
-const APP_VERSION = 'v1.153';
+const APP_VERSION = 'v1.154';
 import { DOCK, IC } from './icons.js';
 import { buildUnit, compareTeams, eff, bestSetIndex } from './battle.js';
 import { baseBuild, currentBuild, diffBuild, finalStats, evTotal, KEYS as EDK, EV_MAX, EV_TOTAL } from './editor.js';
@@ -31,6 +31,9 @@ const cache = new Map();
 // (legacyFavs) se suben a la cuenta la primera vez que se inicia sesión.
 const favs = new Set();
 let banners = readBanners(); // avisos de cambios pendientes de cerrar (ver changes.js)
+/** formato del análisis (individuales / dobles): lo que haya elegido la persona o, si no, el que parece por los Pokémon */
+const teamMode = () => { const v = store.get('pk.tmode'); return v === 'singles' || v === 'doubles' ? v : null; };
+const analyzeTeam = team => analyzeRaw(team, teamMode() || autoMode(team));
 const legacyFavs = (() => { try { const v = JSON.parse(store.get('pk.favs') || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } })();
 
 const state = {
@@ -1047,6 +1050,7 @@ function teamHTML(team, shared = false) {
   return `<section class="team" aria-label="${t('an_title')}">
     <div class="team-head"><div class="score" style="--sc:${info.c}"><b>${a.score}</b><small>/100</small></div>
       <div><h3>${t(`an_s_${info.k}`)}</h3><p>${t(shared ? 'an_subShared' : 'an_sub', { n: team.length })}</p>${team.length > 6 ? `<p>${t('an_over', { n: team.length })}</p>` : ''}</div></div>
+    <div class="modetabs small tmode" role="tablist" aria-label="${t('an_mode')}">${['singles', 'doubles'].map(m => `<button role="tab" data-act="team-mode" data-v="${m}" aria-selected="${a.mode === m}">${t('an_m_' + m)}</button>`).join('')}</div>
     <div class="tparts">${parts}</div>
     <div><h4 class="bad">${t('an_bad')}</h4>${a.bad.length ? `<ul class="finds">${a.bad.map(f => findHTML(f, 'bad')).join('')}</ul>` : `<p class="note">${t('an_nobad')}</p>`}</div>
     <div><h4 class="good">${t('an_good')}</h4>${a.good.length ? `<ul class="finds">${a.good.map(f => findHTML(f, 'good')).join('')}</ul>` : `<p class="note">${t('an_nogood')}</p>`}</div>
@@ -3025,6 +3029,7 @@ document.addEventListener('click', e => {
       break;
     }
     case 'team-rep-back': pickRep = null; showModal('teampick'); break;
+    case 'team-mode': store.set('pk.tmode', el.dataset.v); repaintCurrent(); break;
     case 'team-rep': {
       const i = pickRep, k = Number(v), tm = teams[i], old = tm?.members[k]; if (!old) break;
       const po = BYID.get(old.id), pn = BYID.get(pickId);
