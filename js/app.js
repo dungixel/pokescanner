@@ -5,12 +5,12 @@ import {
   pokeImg, itemImg, typeIcon, typePill, typeDot, catIcon, SPR, img, spriteChain, smallSprite, SFIX, shinyStyle,
 } from './util.js';
 import { t, lang, dl, setLang, LANGS as LANG_IDS } from './i18n.js';
-import { analyzeTeam as analyzeRaw, scoreInfo, autoMode } from './team.js';
+import { analyzeTeam as analyzeRaw, scoreInfo, autoMode, setTeamData } from './team.js';
 import { META_TEAMS } from './meta.js';
 import { detectChanges, loadLog, readBanners, saveBanners } from './changes.js';
 import * as auth from './auth.js';
 // número de versión que se ve junto al logo; lo actualiza scripts/stamp-version.mjs antes de cada commit
-const APP_VERSION = 'v1.154';
+const APP_VERSION = 'v1.155';
 import { DOCK, IC } from './icons.js';
 import { buildUnit, compareTeams, eff, bestSetIndex } from './battle.js';
 import { baseBuild, currentBuild, diffBuild, finalStats, evTotal, KEYS as EDK, EV_MAX, EV_TOTAL } from './editor.js';
@@ -34,6 +34,29 @@ let banners = readBanners(); // avisos de cambios pendientes de cerrar (ver chan
 /** formato del análisis (individuales / dobles): lo que haya elegido la persona o, si no, el que parece por los Pokémon */
 const teamMode = () => { const v = store.get('pk.tmode'); return v === 'singles' || v === 'doubles' ? v : null; };
 const analyzeTeam = team => analyzeRaw(team, teamMode() || autoMode(team));
+/** Fichas ya cargadas (con sus builds): sirven para que la puntuación use movimientos, habilidades y EVs. Se piden en segundo plano y, al llegar, se repinta. */
+const DET = new Map(), warmQ = new Set();
+let warmT = null;
+function memberPoke(m) {
+  const p = BYID.get(m.id);
+  if (!p) return null;
+  const det = DET.get(m.id);
+  if (!det) { warmQ.add(m.id); scheduleWarm(); return p; }
+  return { ...p, det, mb: { s: m.s, b: m.b } };
+}
+const memberPokes = ms => (ms || []).map(memberPoke).filter(Boolean);
+function scheduleWarm() {
+  if (warmT) return;
+  warmT = setTimeout(async () => {
+    warmT = null;
+    const ids = [...warmQ]; warmQ.clear();
+    if (!ids.length) return;
+    try { await Promise.all([...ids.map(getPokemon), getEditor()]); } catch { return; }
+    if (state.view === 'teams' || state.view === 'team') { const y = window.scrollY; paintTeams(); window.scrollTo(0, y); }
+    else if (state.view === 'community') { com.items.forEach(x => { x._sc = null; }); paintCom(); }
+    else if (state.view === 'post') paintPost();
+  }, 30);
+}
 const legacyFavs = (() => { try { const v = JSON.parse(store.get('pk.favs') || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } })();
 
 const state = {
@@ -250,6 +273,7 @@ async function onAuth(event, s) {
     }
     if (legacyFavs.length) { store.set('pk.favs', '[]'); legacyFavs.length = 0; }
     rebuildFavs(); cacheTeams();
+    teams.forEach(tm => memberPokes(tm.members)); // las builds de tus equipos se cargan ya, para que las puntuaciones salgan bien a la primera
   } catch { toast(t('syncFail')); }
   try {
     let prof = await auth.loadProfile();
@@ -285,7 +309,7 @@ let pickM = null;      // miembro concreto a guardar ({id, s?, b?}); una ficha p
 const sameM = (a, b) => a.id === b.id && (a.s ?? null) === (b.s ?? null) && JSON.stringify(a.b || null) === JSON.stringify(b.b || null);
 let pickCtx = null;    // { mode: 'team', slot } | { mode: 'avatar' }
 /** Círculo con la puntuación del equipo y su color (o «-» si tiene menos de 3 Pokémon) */
-const slotScore = members => { const ps = (members || []).map(m => BYID.get(m.id)).filter(Boolean); return ps.length >= 3 ? (sc => `<span class="sn sc" style="--sc:${scoreInfo(sc).c}" title="${t('an_title')}">${sc}</span>`)(analyzeTeam(ps).score) : `<span class="sn sc none" title="${t('an_title')}">-</span>`; };
+const slotScore = members => { const ps = memberPokes(members); return ps.length >= 3 ? (sc => `<span class="sn sc" style="--sc:${scoreInfo(sc).c}" title="${t('an_title')}">${sc}</span>`)(analyzeTeam(ps).score) : `<span class="sn sc none" title="${t('an_title')}">-</span>`; };
 let pickRep = null;    // equipo lleno en el que se está eligiendo a quién sustituir (null = lista de equipos)
 const openTeamPick = (id, m = null) => { pickId = id; pickM = m || { id }; pickRep = null; showModal('teampick'); };
 // guardar en mis equipos un equipo que no es mío (compartido, de un amigo o de ejemplo)
@@ -500,7 +524,9 @@ const getLearners = () => (learnersP ??= getJSON('data/learners.json').then(d =>
 async function getPokemon(id) {
   const k = BYID.get(id).k;
   if (!cache.has(k)) cache.set(k, getJSON(`data/pokemon/${k}.json`));
-  return (await cache.get(k))[id];
+  const d = (await cache.get(k))[id];
+  DET.set(id, d);
+  return d;
 }
 
 // ───────────────────────── Utilidades UI ─────────────────────────
@@ -1677,7 +1703,7 @@ sheet.addEventListener('input', e => { if (e.target.id === 'cmp-q') renderSugges
 
 // ───────────────────────── Editor de builds ─────────────────────────
 let EDP = null, ED = null;
-const getEditor = () => (EDP ??= getJSON('data/editor.json').then(d => (ED = d)).catch(e => { EDP = null; throw e; }));
+const getEditor = () => (EDP ??= getJSON('data/editor.json').then(d => { setTeamData(d); return (ED = d); }).catch(e => { EDP = null; throw e; }));
 /** Añade al diccionario los movimientos, objetos y naturalezas que solo trae el editor (así los comparadores y las fichas los entienden) */
 function mergeEditor(dict, E) {
   for (const [id, m] of Object.entries(E.moves)) if (!dict.moves[id]) dict.moves[id] = { n: m[0], e: m[1], t: m[2], c: m[3], p: m[4], a: m[5], pp: 0, pr: m[6], d: '', de: '' };
@@ -2048,7 +2074,7 @@ const ago = iso => {
 const heart = on => `<svg viewBox="0 0 24 24" class="hrt ${on ? 'on' : ''}" aria-hidden="true"><path d="M19.5 12.572l-7.5 7.428l-7.5 -7.428a5 5 0 1 1 7.5 -6.566a5 5 0 1 1 7.5 6.572"/></svg>`;
 const bubble = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20l1.3 -3.9a9 8 0 1 1 3.4 2.9l-4.7 1"/></svg>';
 const postMinis = ms => `<span class="minis">${ms.map(m => { const p = BYID.get(m.id); return p ? pokeImg(p, 'small', 'mini', undefined, !!m.b?.sh) : ''; }).join('')}</span>`;
-const scoreBadge = ms => { const ps = (ms || []).map(m => BYID.get(m.id)).filter(Boolean); return ps.length >= 3 ? (sc => `<span class="sn sc big" style="--sc:${scoreInfo(sc).c}" title="${t('an_title')}">${sc}</span>`)(analyzeTeam(ps).score) : `<span class="sn sc big none" title="${t('an_title')}">-</span>`; };
+const scoreBadge = ms => { const ps = memberPokes(ms); return ps.length >= 3 ? (sc => `<span class="sn sc big" style="--sc:${scoreInfo(sc).c}" title="${t('an_title')}">${sc}</span>`)(analyzeTeam(ps).score) : `<span class="sn sc big none" title="${t('an_title')}">-</span>`; };
 const userLink = (uid, name, avatar) => `<button class="userlink" data-act="user-open" data-v="${uid}">${avatarImg(avatar, 'sm')}<b>${esc(name || '?')}</b></button>`;
 const delBtns = x => ((x.mine || auth.isAdmin()) ? (String(com.confirm) === String(x.id)
   ? `<button class="cact danger" data-act="com-del-yes" data-v="${x.id}">${t('comDeleteSure')}</button><button class="cact" data-act="com-del-no">${t('comCancel')}</button>`
@@ -2067,10 +2093,10 @@ function postCardHTML(x) {
   </article>`;
 }
 const FILTIC = '<svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>';
-const postScore = x => { if (x._sc == null) { const ps = (x.members || []).map(m => BYID.get(m.id)).filter(Boolean); x._sc = ps.length >= 3 ? analyzeTeam(ps).score : -1; } return x._sc; };
+const postScore = x => { if (x._sc == null) { const ps = memberPokes(x.members); x._sc = ps.length >= 3 ? analyzeTeam(ps).score : -1; } return x._sc; };
 const comClient = () => com.types.length > 0 || com.minScore > 0;
 const comVisible = () => (!comClient() ? com.items : com.items.filter(x => {
-  const ps = (x.members || []).map(m => BYID.get(m.id)).filter(Boolean);
+  const ps = memberPokes(x.members);
   return com.types.every(ty => ps.some(p => p.t.includes(ty))) && (!com.minScore || postScore(x) >= com.minScore);
 }));
 const comFCount = () => com.pokes.length + com.types.length + (com.minScore ? 1 : 0);
@@ -2265,7 +2291,7 @@ function postHTML() {
     <div class="cacts"><button class="cact like ${x.liked ? 'on' : ''}" data-act="com-like" data-v="${x.id}" aria-pressed="${!!x.liked}" aria-label="${t('comLike')}">${heart(x.liked)}<span>${x.likes}</span></button><span class="grow"></span>${scoreBadge(x.members)}${del}</div>
     <div class="sharedacts"><button class="chip accent" data-act="com-save">${IC.star}${t('comSave')}</button><button class="chip" data-act="com-compare">${IC.battle}${t('comCompare')}</button></div>
     <div class="cbuilds">${(com.full || []).map(buildCardHTML).join('')}</div>
-    ${(ps => (ps.length >= 3 ? teamHTML(ps, true) : ''))((x.members || []).map(m => BYID.get(m.id)).filter(Boolean))}
+    ${(ps => (ps.length >= 3 ? teamHTML(ps, true) : ''))(memberPokes(x.members))}
     <section class="sec" id="post-comments"><h2>${t('comComments')} <small>${com.comments.length}</small></h2>
       ${form}
       <ul class="ccms">${com.comments.length ? commentsListHTML() : `<li class="dim">${t('comNoComments')}</li>`}</ul></section>`;
@@ -2436,7 +2462,7 @@ function memberRow(p, slot, k) {
 }
 function slotHTML(i) {
   const tm = teams[i];
-  const members = tm.members.map(m => BYID.get(m.id)).filter(Boolean);
+  const members = memberPokes(tm.members);
   return `<div class="slot slotbox"><button class="slothead" data-act="slot-go" data-v="${i}">
       ${members.length >= 3 ? (sc => `<span class="sn sc" style="--sc:${scoreInfo(sc).c}" title="${t('an_title')}">${sc}</span>`)(analyzeTeam(members).score) : `<span class="sn sc none" title="${t('an_title')}">-</span>`}
       <span class="sname"><b>${esc(teamName(i))}</b><span class="minis">${members.map((p, k) => pokeImg(p, 'small', 'mini', undefined, !!tm.members[k]?.b?.sh)).join('') || `<small>${t('teamEmpty')}</small>`}</span></span>
@@ -2444,7 +2470,7 @@ function slotHTML(i) {
 }
 function teamPageHTML(i) {
   const tm = teams[i];
-  const members = tm.members.map(m => BYID.get(m.id)).filter(Boolean);
+  const members = memberPokes(tm.members);
   const name = teamsSel.rename
     ? `<input class="tninput" id="tn" data-slot="${i}" value="${esc(tm.name)}" placeholder="${t('teamN', { n: i + 1 })}" maxlength="24" autocomplete="off" autocapitalize="sentences" aria-label="${t('teamName')}">`
     : `<h1>${esc(teamName(i))}</h1>`;
