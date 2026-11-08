@@ -114,6 +114,7 @@ const FORME_ES = {
   Sandy: 'Manto Arena', Trash: 'Manto Basura', Sunny: 'Forma Sol', Rainy: 'Forma Lluvia', Snowy: 'Forma Nieve',
 };
 const FORME_OVERRIDE = {
+  'Floette-Eternal': 'Floette Flor Eterna', 'Meowstic-M-Mega': 'Mega-Meowstic', 'Meowstic-F-Mega': 'Mega-Meowstic Hembra', 'Magearna-Original-Mega': 'Mega-Magearna Original',
   'Zacian-Crowned': 'Zacian Espada Suprema', 'Zamazenta-Crowned': 'Zamazenta Escudo Supremo',
   'Hoopa-Unbound': 'Hoopa Desatado', 'Kyurem-Black': 'Kyurem Negro', 'Kyurem-White': 'Kyurem Blanco',
 };
@@ -122,7 +123,7 @@ function nameES(s) {
   if (FORME_OVERRIDE[s.name]) return FORME_OVERRIDE[s.name];
   const base = speciesNameES.get(s.num) || s.baseSpecies;
   if (!s.forme) return s.baseSpecies === s.name ? base : s.name;
-  const mega = /^Mega(?:-([XY]))?$/.exec(s.forme);
+  const mega = /^Mega(?:-([XYZ]))?$/.exec(s.forme);
   if (mega) return `Mega-${base}${mega[1] ? ' ' + mega[1] : ''}`;
   if (s.forme === 'Ultra') return `Ultra-${base}`;
   if (s.baseSpecies === 'Ogerpon' && s.requiredItem) {
@@ -145,7 +146,12 @@ const SKIP = [
   /^Sinistea-Antique$/, /^Polteageist-Antique$/, /^Rockruff-Dusk$/, /^Poltchageist-Artisan$/, /^Sinistcha-Masterpiece$/,
   /^Zarude-Dada$/, /^Mimikyu-Busted$/, /^Morpeko-Hangry$/,
 ];
-const gen9Species = [...gen.species].filter(s => !s.isNonstandard && !SKIP.some(r => r.test(s.name)));
+const gen9Base = [...gen.species].filter(s => !s.isNonstandard && !SKIP.some(r => r.test(s.name)));
+// Megas nuevas de Leyendas Z-A / Pokémon Champions: Showdown las marca "Future" y no están en los datos de Gen 9, pero ya se juegan
+const CHAMPIONS_EXTRA = ['Floette-Eternal'];
+const futureSpecies = [...Dex.forGen(9).species.all()].filter(s => s.exists && (s.isNonstandard === 'Future' || CHAMPIONS_EXTRA.includes(s.name)) && !SKIP.some(r => r.test(s.name)));
+const futureIds = new Set(futureSpecies.map(s => s.id));
+const gen9Species = [...gen9Base, ...futureSpecies];
 
 // Pokémon que ya no están en Gen 9 (Showdown los marca "Past"): se añaden con el rango de la última
 // generación en la que tuvieron uno. Se descartan formas de combate o cosméticas sin ficha propia.
@@ -180,6 +186,21 @@ const allSpecies = [...gen9Species, ...oldSpecies];
 const keptIds = new Set(allSpecies.map(s => s.id));
 
 const smogon = JSON.parse(fs.readFileSync(path.join(RAW, 'smogon-gen9.json'), 'utf8'));
+// Pokémon Champions (Smogon): no hay EVs sino puntos de estadística (máx. 32 por stat, 66 en total). Se pasan a EVs con la regla oficial
+// de conversión a nivel 50: el primer punto vale 4 EVs y cada uno de los siguientes 8 (32 puntos = 252 EVs).
+const CHAMP_FORMATS = { vgc2026: 'cvgc', battlestadiumsingles: 'cbss', ou: 'cou' };
+const spToEv = sp => (sp > 0 ? 8 * sp - 4 : 0);
+const champById = new Map(); // id → { cvgc: sets, cbss: sets, cou: sets }
+try {
+  const champ = JSON.parse(fs.readFileSync(path.join(RAW, 'smogon-champions.json'), 'utf8'));
+  for (const [name, formats] of Object.entries(champ)) {
+    const sp = Dex.species.get(name);
+    if (!sp.exists) { console.warn('  ⚠ Champions: especie desconocida', name); continue; }
+    const out = {};
+    for (const [f, sets] of Object.entries(formats)) if (CHAMP_FORMATS[f]) out[CHAMP_FORMATS[f]] = sets;
+    if (Object.keys(out).length) champById.set(sp.id, out);
+  }
+} catch { console.warn('  ⚠ falta raw/smogon-champions.json: sin builds de Champions'); }
 const smogonById = new Map();
 for (const [name, formats] of Object.entries(smogon)) {
   const sp = Dex.species.get(name);
@@ -196,12 +217,13 @@ for (let g = 8; g >= 1; g--) {
 }
 // formatos de Smogon que se muestran (en este orden de relevancia)
 const FORMATS = ['ou', 'ubers', 'ubersuu', 'anythinggoes', 'uu', 'ru', 'nu', 'pu', 'zu', 'lc', 'nfe', 'doublesou', 'vgc2025', 'monotype'];
+const CHAMP_ORDER = ['cvgc', 'cbss', 'cou']; // builds de Champions: siempre al final, así no cambia el orden de los que ya había
 
 // traducciones propias para lo que PokeAPI aún no tiene en español (Gen 9)
 const OVERRIDES = JSON.parse(fs.readFileSync(path.join(ROOT, 'scripts', 'overrides-es.json'), 'utf8'));
 // ids de Showdown que en PokeAPI se llaman distinto
 const MOVE_ALIAS = { visegrip: 'vicegrip' };
-const SPRITE_ALIAS = { miniormeteor: 'miniorredmeteor', necrozmaduskmane: 'necrozmadusk', necrozmadawnwings: 'necrozmadawn' };
+const SPRITE_ALIAS = { meowsticmmega: 'meowsticmalemega', meowsticfmega: 'meowsticfemalemega', miniormeteor: 'miniorredmeteor', necrozmaduskmane: 'necrozmadusk', necrozmadawnwings: 'necrozmadawn' };
 
 // diccionarios compartidos (solo lo que se usa)
 const dict = { moves: {}, abilities: {}, items: {}, natures: {} };
@@ -366,7 +388,7 @@ for (const s of allSpecies) {
   if (s.forme && sid === s.num) noSprite.push(s.name);
   const bs = s.baseStats;
   const old = oldInfo.get(s.id); // {r, g} solo para Pokémon fuera de Gen 9
-  const tier = old ? old.r : s.tier;
+  const tier = old ? old.r : futureIds.has(s.id) ? 'CH' : s.tier; // las Megas nuevas solo existen en Champions: aún sin tier de Smogon
 
   // movimientos por nivel (SV). Las formas sin learnset propio heredan el de la especie base.
   let ls = await gen.learnsets.get(s.id);
@@ -457,6 +479,31 @@ for (const s of allSpecies) {
         }
       }
       if (sets.length > before) used++;
+    }
+  }
+  { // builds de Pokémon Champions (Smogon), al final de la lista
+    const cf = { ...(champById.get(s.id) || {}) };
+    // las builds de una Mega suelen estar en la ficha de su especie base (con su Megapiedra): se cogen de ahí
+    if (s.forme?.startsWith('Mega') && s.requiredItem) {
+      const baseCf = champById.get(s.id === 'floettemega' ? 'floetteeternal' : toID(s.baseSpecies)) || {};
+      for (const [f, sets] of Object.entries(baseCf)) {
+        const mine = Object.fromEntries(Object.entries(sets).filter(([, st]) => arr(st.item).includes(s.requiredItem)));
+        if (Object.keys(mine).length) cf[f] = { ...mine, ...(cf[f] || {}) };
+      }
+    }
+    for (const f of CHAMP_ORDER.filter(x => cf[x])) {
+      for (const [setName, set] of Object.entries(cf[f])) {
+        const ev = (Array.isArray(set.evs) ? set.evs[0] : set.evs) || {};
+        sets.push({
+          f, n: setName,
+          m: arr(set.moves).map(slot => arr(slot).map(addMove)),
+          a: arr(set.ability).map(addAbility),
+          i: arr(set.item).map(addItem),
+          na: arr(set.nature).map(addNature),
+          ev: Object.fromEntries(Object.entries(ev).map(([k, v]) => [k, spToEv(v)])),
+          te: [],
+        });
+      }
     }
   }
   if (sets.length) withSets++;

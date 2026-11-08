@@ -9,6 +9,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const RAW = path.join(ROOT, 'raw');
 
 const SMOGON = 'https://raw.githubusercontent.com/pkmn/smogon/main/data/sets/gen9.json';
+const SMOGON_CHAMPIONS = 'https://raw.githubusercontent.com/pkmn/smogon/main/data/sets/champions.json'; // Pokémon Champions (puntos de estadística en vez de EVs)
 const POKEAPI = 'https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/csv';
 const CSVS = [
   'pokemon', 'pokemon_species_names', 'pokemon_species', 'pokemon_stats', 'pokemon_egg_groups', 'egg_groups', 'egg_group_prose', 'stats', 'moves', 'move_names', 'move_flavor_text',
@@ -34,6 +35,7 @@ const PKX_TEXT = ['gen2/text_gsc', 'gen3/text_rsefrlg', 'gen3/text_cxd', 'gen4/t
 await fs.mkdir(RAW, { recursive: true });
 await fs.mkdir(path.join(RAW, 'pkhex'), { recursive: true });
 await download(SMOGON, 'smogon-gen9.json');
+await download(SMOGON_CHAMPIONS, 'smogon-champions.json');
 for (let g = 8; g >= 1; g--) await download(SMOGON.replace('gen9', `gen${g}`), `smogon-gen${g}.json`); // generaciones anteriores (respaldo para los Pokémon sin sets en Gen 9)
 for (const name of CSVS) await download(`${POKEAPI}/${name}.csv`, `${name}.csv`);
 for (const f of PKX_WILD) await download(`${PKHEX}/legality/wild/${f}.pkl`, `pkhex/${path.basename(f)}.pkl`);
