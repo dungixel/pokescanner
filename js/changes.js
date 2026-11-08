@@ -25,10 +25,11 @@ export async function loadLog() {
 }
 
 /**
- * Avisos nuevos desde la última vez que este dispositivo miró. En la primera visita no hay avisos:
+ * Avisos nuevos desde la última vez que este dispositivo miró. Solo con cuenta y desde la segunda visita:
+ * sin cuenta (`track` falso) no se guardan avisos, y en la primera visita tampoco:
  * solo se apunta hasta dónde llega el registro. Devuelve cuántos avisos nuevos hay.
  */
-export async function detectChanges({ generado }) {
+export async function detectChanges({ generado, track = true }) {
   if (!generado) return 0;
   const log = await loadLog();
   const latest = log.reduce((m, e) => ((e.t || e.d) > m ? e.t || e.d : m), '');
@@ -40,6 +41,7 @@ export async function detectChanges({ generado }) {
   OLD.forEach(k => { store.remove(k); });
   const fresh = log.filter(e => (e.t || e.d) > seen);
   store.set(SEEN_KEY, latest > seen ? latest : seen);
+  if (!track) { saveBanners([]); return 0; } // sin cuenta no hay avisos: se apunta hasta dónde llega el registro y ya está
   if (!fresh.length) return 0;
   saveBanners(mergeLog(readBanners(), JSON.parse(JSON.stringify(fresh))));
   return fresh.length;

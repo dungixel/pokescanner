@@ -6,6 +6,8 @@ const TOKEN_KEY = 'sb-fjwawxepxdvpsktboqps-auth-token';
 
 let sb = null, session = null, onChange = () => {}, adminFlag = false;
 export const currentUser = () => session?.user ?? null;
+/** ¿Hay una sesión guardada en este dispositivo? (se sabe al instante, sin esperar a cargar la librería) */
+export const hasSavedSession = () => { try { return !!localStorage.getItem(TOKEN_KEY); } catch { return false; } };
 export const userInfo = () => {
   const u = currentUser();
   if (!u) return null;

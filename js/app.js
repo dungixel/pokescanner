@@ -10,7 +10,7 @@ import { META_TEAMS } from './meta.js';
 import { detectChanges, loadLog, readBanners, saveBanners } from './changes.js';
 import * as auth from './auth.js';
 // número de versión que se ve junto al logo; lo actualiza scripts/stamp-version.mjs antes de cada commit
-const APP_VERSION = 'v1.150';
+const APP_VERSION = 'v1.151';
 import { DOCK, IC } from './icons.js';
 import { buildUnit, compareTeams, eff, bestSetIndex } from './battle.js';
 import { baseBuild, currentBuild, diffBuild, finalStats, evTotal, KEYS as EDK, EV_MAX, EV_TOTAL } from './editor.js';
@@ -224,7 +224,7 @@ const takePending = () => {
 async function onAuth(event, s) {
   if (!s) { // sesión cerrada
     notif.items = null; notif.unread = 0; paintBadge();
-    pending = null; me = null; resetTeams(); if (state.view === 'community') paintCom(); else if (state.view === 'post') paintPost(); else if (state.view === 'user') paintUser();
+    pending = null; me = null; resetTeams(); paintBanners(); if (state.view === 'community') paintCom(); else if (state.view === 'post') paintPost(); else if (state.view === 'user') paintUser();
     auth.untrackPresence().catch(() => {}); auth.unwatchFriends().catch(() => {});
     refreshModal(); paintFavBtn();
     if (state.view === 'home') renderResults(); else if (inTeams()) paintTeams(); else if (state.view === 'battle') renderBattle();
@@ -261,7 +261,7 @@ async function onAuth(event, s) {
   auth.trackPresence().catch(() => {}); pollNotifs();
   if (!smodal.hidden) closeSettings();
   if (state.view === 'home') renderResults(); else if (inTeams()) paintTeams(); else if (state.view === 'battle') renderBattle();
-  paintFavBtn();
+  paintFavBtn(); paintBanners();
   refreshModal();
   await auth.checkAdmin().catch(() => {});
   if (state.view === 'community') loadFeed(true); else if (state.view === 'post') renderPost(curPostId); else if (state.view === 'user') renderUser(usr.id);
@@ -1142,7 +1142,7 @@ function bannerSplit() {
 }
 const bannerIc = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9v4"/><path d="M12 16v.01"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"/></svg>';
 function bannersHTML() {
-  if (!BYID.size) return '';
+  if (!BYID.size || !auth.currentUser()) return ''; // las novedades son solo para quien tiene cuenta
   const { single, sum } = bannerSplit();
   const one = e => `<div class="bn" role="status"><button class="bn-b" data-act="bn-go" data-v="${esc(cgKey(e))}"><span class="bn-ic">${bannerIc}</span><span class="bn-t"><b>${esc(cgName(e))}</b><span>${cgParts(e).map(esc).join(' · ')}</span></span></button><button class="bn-x" data-act="bn-x" data-v="${esc(cgKey(e))}" aria-label="${t('bnClose')}">${I.close}</button></div>`;
   const all = sum.length ? `<div class="bn" role="status"><button class="bn-b" data-act="bn-go" data-v="*"><span class="bn-ic">${bannerIc}</span><span class="bn-t"><b>${t(sum.length === 1 ? 'bnSum1' : 'bnSumN', { n: sum.length })}</b><span>${t('bnSumSub')}</span></span></button><button class="bn-x" data-act="bn-x" data-v="*" aria-label="${t('bnClose')}">${I.close}</button></div>` : '';
@@ -3181,7 +3181,7 @@ async function boot() {
   }
   BYID = new Map(INDEX.map(p => [p.id, p]));
   renderDock();
-  fetch('data/meta.json', { cache: 'no-cache' }).then(r => (r.ok ? r.json() : null)).then(m => { META = m; const h1 = state.view === 'home' && document.querySelector('.hero h1'); if (m && h1 && !h1.parentElement.querySelector('.upd')) h1.insertAdjacentHTML('afterend', updHTML()); if (m?.generado) detectChanges({ generado: m.generado }).then(n => { if (n) { banners = readBanners(); paintBanners(); } }).catch(() => {}); }).catch(() => {});
+  fetch('data/meta.json', { cache: 'no-cache' }).then(r => (r.ok ? r.json() : null)).then(m => { META = m; const h1 = state.view === 'home' && document.querySelector('.hero h1'); if (m && h1 && !h1.parentElement.querySelector('.upd')) h1.insertAdjacentHTML('afterend', updHTML()); if (m?.generado) detectChanges({ generado: m.generado, track: auth.hasSavedSession() }).then(n => { if (n) { banners = readBanners(); paintBanners(); } }).catch(() => {}); }).catch(() => {});
   window.addEventListener('hashchange', route);
   route();
   auth.initAuth(onAuth).catch(() => {});
